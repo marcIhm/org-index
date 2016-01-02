@@ -5,5 +5,7 @@
 
   - See the commentary in org-index.el for a complete description.
 
-  - Visit 2484.de/org-index.html for a Screencast.
+  - Visit http://2484.de/org-index.html for a Screencast.
+
+  - This is under development; for a stable and tested version rather download from: http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
 
