@@ -1,0 +1,9 @@
+* org-index
+
+  A personal adaptive index for org.
+
+
+  - See the commentary in org-index.el for a complete description.
+
+  - Visit 2484.de/org-index.html for a Screencast.
+
