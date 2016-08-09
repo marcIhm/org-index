@@ -12,22 +12,24 @@
 
     http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
 
-** Content
+** Files
 
-   The implementation:
+*** Implementation
 
-   - org-index.el :: The complete lisp source
-   - oidx.org :: TODOs and History for the development of org-index
+    - org-index.el :: The complete lisp source
+    - oidx.org :: TODOs and History for the development of org-index
 
-   Files for tests
-   
-   - oidx.el :: ert-tests for org-index
-   - test.bat :: Windows command file to start a specifically prepared emacs for the tests
-   - test-init.el :: Customizations for the tests
+*** Tests
+    
+    - oidx.el :: ert-tests for org-index
+    - test.bat :: Windows command file to start a specifically prepared emacs for the tests
+    - test-init.el :: Customizations for the tests
 
-   These files have been used to produce the screencast on http://2484.de/org-index.html:
+*** Screencasts
 
-   - screencast.bat :: Windows command file to start a specifically prepared emacs for the screencast
-   - screencast.el :: The lisp code used to play the screencast
-   - screencast-init.el :: Customizations for screencast
-   - screencast.org :: Internal Notes about the screencast
+    These files have been used to produce the screencast on http://2484.de/org-index.html:
+
+    - screencast.bat :: Windows command file to start a specifically prepared emacs for the screencast
+    - screencast.el :: The lisp code used to play the screencast
+    - screencast-init.el :: Customizations for screencast
+    - screencast.org :: Internal Notes about the screencast
