@@ -26,13 +26,19 @@
 
     - cd /git/worg
 
-* Bigger Sample Index
+* Screencast
+
+  - [2016-04-08 Fr] Eventuell auch mit asciinema
+  - Erstellt mit https://obsproject.com/
+    - Dort dann die FAQ lesen
+    - Unter Quellen "Fensteraufnahme" hinzufügen
+    - f7 und f8 mit start/stop der Aufzeichnung belegen (Einstellungen im Hauptfenster, Hotkeys)
+  - Einstellungen im Hauptfenster der Quelle: Fenster einfangen
+
 * Aktualisieren org-mode auf den aktuellen git-Stand
 
-  - cd ~/git/org-mode
-  - make loaddefs 
-  - cp ~/git/org-mode/lisp/org-version.el /ul/ihm/org/lisp
-  - cp ~/git/org-mode/lisp/org-loaddefs.el /ul/ihm/org/lisp
+  - cd /git/org-mode
+  - make
 
 * DONE Vorlage
   CLOSED: [2014-12-22 Mo 08:03]
@@ -99,12 +105,78 @@
 
 * Festlegungen
 
+  - [2016-07-29 Fr] Auch Referenzen sind Optional
   - [2015-08-08 Sa] Jede Zeile im Index muss eine Referenz haben; ein link ist nicht erforderlich
 
 * TODO Nächste Version
-** TODO Bugs
+** STARTED Features
 
-* STARTED 5.0
+   - [ ] Assistent zum anlegen einer neuen Zeile (i.e. Unterkommando 'ref') sollte Auswahl
+     aller Kategorieen anbieten
+   - [ ] Synonyme in occur, z.B. "Journal" für "Logbuch" oder "Entfernen" für "Löschen"
+
+* TODO 5.1
+** DONE Features
+   CLOSED: [2016-08-05 Fr 12:50]
+
+   - [X] "add", "kill" und "edit" sollten auch außerhalb einer Überschrift funktionieren
+   - [X] Occur auf WhatsUp landet in der Tabelle, ein Knoten existiert nicht aber man bekommt eine positive Meldung
+     - [2016-07-31 So] Das ist so gewollt; Meldung präzisiert.
+   - [X] C-c i TAB analog zu C-c i SPC
+   - [X] Lexical bindings in org-index.el
+   - [X] '?' bei Auswahl des Kommandos zeigt kurze Hilfe an
+   - [X] Mechanismus zur Auswahl des Subkommandos überarbeitet
+   - [X] org-index-default-keybindings-list ersetzt durch org-index--get-shortcut-chars
+     - [X] Aus doku entfernt
+
+** DONE Bugs
+   CLOSED: [2016-08-05 Fr 09:41]
+
+   - [X] [2016-07-08 Fr] C-c i o innerhalb der Index-Tabelle führt zu Fehler
+     - [2016-07-29 Fr] Nicht reproduzierbar
+   - [X] [2016-07-01 Fr] C-c i a bewegt den Cursor (nur bei Update und nur in organisation.org)
+   - [X] [2016-07-29 Fr] C-c i k ebenso
+   - [X] [2016-06-02 Do] Shift-Return in occur buffer führt zwar auf die richtige Zeile im
+     Index, macht aber kein reveal, so daß die Zeile eventuell nicht sichtbar ist
+   - [X] org-update-current-line bewegt den cursor
+     - Scheint unvermeidlich
+   - [X] [2016-04-29 Fr] 'R1075' taucht zweimal auf
+     - Nicht nachzuvollziehen
+   - [X] [2016-02-25 Do] Tags werden bei add oder update (welches von beiden ?) nicht korrekt übernommen oder gepflegt
+     - [2016-08-05 Fr] Funktioniert
+   - [X] [2016-07-31 So] Wenn org-index-id nicht gesetzt ist und man in der folgenden
+     Abfrage die Option 'read-help' wählt, wird org-index nach dem Zeigen der Hilfe nicht beendet
+   - [X] [2016-08-05 Fr] Subcommand 'head fragt in der Indexzeile nach referenz
+
+** DONE Neue automatische Tests ?
+   CLOSED: [2016-08-08 Mo 18:55]
+
+   - [X] Add und kill werden außerhalb der Überschrift versucht
+   - [X] short-help
+
+** DONE Standard Tests
+   CLOSED: [2016-08-08 Mo 22:57]
+
+   - [X] Neue org-version 8.3.5
+   - [X] ert
+   - [X] elint-buffer
+   - [X] Byte Compile
+   - [X] checkdoc
+   - [X] Screencast ablaufen lassen
+
+** DONE Dokumentation
+   CLOSED: [2016-08-08 Mo 18:56]
+
+   - [X] Versionshistorie in org-index.el
+   - [X] Update aller Versionsnummern: Kommentar, Hilfetext, Variable
+
+** TODO Veröffentlichen
+
+   - [ ] github
+   - [ ] org
+
+* DONE 5.0
+  CLOSED: [2016-07-29 Fr 15:50]
 ** DONE Features 
 
    - [X] Spalte yank
@@ -184,25 +256,30 @@
    - [X] checkdoc
    - [X] Screencast ablaufen lassen
 
-** STARTED Dokumentation
+** DONE Dokumentation
+   CLOSED: [2016-07-29 Fr 15:49]
 
    - [X] Hilfetexte überarbeiten
    - [X] Text für initialen Knoten anpassen
    - [X] Versionshistorie in org-index.el
    - [X] Update aller Versionsnummern: Kommentar, Hilfetext, Variable
      - Version 5.0
-   - [ ] Update worg
+   - [X] Update worg
    - [X] Update 2484.de (Links merkwürdig)
    - [X] Screencast wie http://danmidwood.com/content/2014/11/21/animated-paredit.html ?
      Oder per http://www.cockos.com/licecap/
      - https://github.com/howardabrams/demo-it
 
-** TODO Veröffentlichen
+** DONE Veröffentlichen
+   CLOSED: [2016-07-29 Fr 15:50]
 
-   - [ ] github
-   - [ ] Beschreibung auf worg
+   - [X] github
+   - [X] Beschreibung auf worg
 
 * DONE 4.3
+  :PROPERTIES:
+  :ORDERED:  t
+  :END:
 ** DONE Features
 
    - [-] org-index--align-this-line ([2015-06-21 So] ?)

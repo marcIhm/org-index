@@ -1,11 +1,33 @@
 * org-index
 
   A personal adaptive index for org.
-
+  
 
   - See the commentary in org-index.el for a complete description.
 
   - Visit http://2484.de/org-index.html for a Screencast.
 
-  - This is under development; for a stable and tested version rather download from: http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
 
+  - org-index.el is also in the contrib-directory of org:
+
+    http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
+
+** Content
+
+   The implementation:
+
+   - org-index.el :: The complete lisp source
+   - oidx.org :: TODOs and History for the development of org-index
+
+   Files for tests
+   
+   - oidx.el :: ert-tests for org-index
+   - test.bat :: Windows command file to start a specifically prepared emacs for the tests
+   - test-init.el :: Customizations for the tests
+
+   These files have been used to produce the screencast on http://2484.de/org-index.html:
+
+   - screencast.bat :: Windows command file to start a specifically prepared emacs for the screencast
+   - screencast.el :: The lisp code used to play the screencast
+   - screencast-init.el :: Customizations for screencast
+   - screencast.org :: Internal Notes about the screencast

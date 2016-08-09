@@ -119,7 +119,9 @@
                ((string= cmd "sleepscale")
                 (setq sleepscale (string-to-number txt)))
                ((string= cmd "recenter")
-                (recenter-orig (string-to-number txt)))
+                (with-current-buffer "demo.org"
+                  (select-window (get-buffer-window))
+                  (recenter-orig (string-to-number txt))))
                ((string= cmd "start")
                 (setq within t))
                ((string= cmd "kbd")

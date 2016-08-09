@@ -96,11 +96,12 @@
 
 (ert-deftest oidx-test-add-and-kill-node ()
   (oidx-with-test-setup
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>")) 
+    (execute-kbd-macro (kbd "C-e <return> C-u M-x o r g - i n d e x <return> a d d <return>")) 
     (oidx-do "o c c u r <return> d r e i")
     (execute-kbd-macro (kbd "<right> <right> <right> <right>"))
     (should (looking-at "--15--"))
     (org-mark-ring-goto)
+    (execute-kbd-macro (kbd "C-e <return>")) 
     (oidx-do "k i l l <return>")
     (oidx-do "o c c u r <return> d r e i")
     (execute-kbd-macro (kbd "<right> <right> <right> <right> <right>"))
@@ -120,11 +121,20 @@
     (should (= 8 (org-table-current-column)))))
 
 
-(ert-deftest oidx-test-default-keybindings ()
+(ert-deftest oidx-test-dispatch ()
   (oidx-with-test-setup
-    (org-index-default-keybindings)
+    (global-set-key (kbd "C-c i") 'org-index-dispatch)
     (execute-kbd-macro (kbd "C-c i i <return> t"))
     (should (string= (buffer-name) "oidx-ert-index.org"))))
+
+
+(ert-deftest oidx-test-short-help ()
+  (oidx-with-test-setup
+    (global-set-key (kbd "C-c i") 'org-index-dispatch)
+    (execute-kbd-macro (kbd "C-c i ?"))
+    (with-current-buffer "*org-index commands*"
+      (goto-char (point-max))
+      (should (= (line-number-at-pos) 19)))))
 
 
 (ert-deftest oidx-test-occur-result ()
@@ -152,9 +162,9 @@
     (should (looking-at ".* --8--"))))
 
 
-(ert-deftest oidx-test-multi-occur ()
+(ert-deftest oidx-test-find-ref ()
   (oidx-with-test-setup
-    (oidx-do "m u l t i - o c c u r <return> 4 <return>")
+    (oidx-do "f i n d - r e f <return> 4 <return>")
     ;; remove variable parts from content
     (forward-line 4)
     (forward-char 20) (let ((inhibit-read-only t))
@@ -168,7 +178,7 @@
   (oidx-with-test-setup
     (oidx-save-and-set-state nil)
     (condition-case result
-        (oidx-do "c r e a t e <return> y o i d x - e r t - w o r k . o r g <return> f o o <return> # 1 # <return> n n")
+        (oidx-do "c r e a t e <return> y o i d x - e r t - w o r k . o r g <return> f o o <return> # 1 # <return> n")
       (error (should (string-match "^Did not make the id of this new index permanent" (second result))))) 
     (forward-line -1)
     (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>")) 
@@ -180,20 +190,20 @@
 
 (ert-deftest oidx-test-example ()
   (oidx-with-test-setup
-    (oidx-do "e x a m p l e <return> y e x a m p l e <return> - 1 - <return> n")
+    (oidx-do "e x a m p l e <return> y e x a m p l e <return> - 1 - <return>")
     (with-current-buffer "*org-index-example-index*"
       ;; replace own id in index
       (mapc
        (lambda (x)
          (beginning-of-buffer)
-         (while (re-search-forward (regexp-quote x) nil t)
+         (while (search-forward x nil t)
            (replace-match "replaced")))
        (list (org-entry-get (point) "ID") 
              (with-temp-buffer (org-insert-time-stamp nil nil t))))
       (org-index--go-below-hline)
       (org-table-align))
     (should (oidx-check-buffer "*org-index-example-index*" 
-                               "cf894d00fcc1d8db01fbc0feecc53d21"))))
+                               "274fcd460e79fa7330f997a91f0ecdf8"))))
 
 
 (ert-deftest oidx-test-node-above-index ()
@@ -383,7 +393,7 @@
 
 (ert-deftest oidx-test-unhighlight ()
   (oidx-with-test-setup
-    (org-index-default-keybindings)
+    (global-set-key (kbd "C-c i") 'org-index-dispatch)
     (mark-whole-buffer)
     (execute-kbd-macro (kbd "C-u C-c i SPC h i g h l i g h t <return> "))
     (should (string= org-index--message-text "Removed highlights for references in region."))))
