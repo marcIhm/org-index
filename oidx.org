@@ -1,0 +1,968 @@
+* Git
+** bitbucket
+
+   [2016-01-02 Sa] Nicht mehr aktuell.
+   https://bitbucket.org/2484/org-index
+   
+   - cd /ul/ihm/org/index
+   - git add *
+   - git commit -m "foo"
+   - git push
+
+** org und worg
+
+   - Hinweis: Identity-File jeweils in ~/.ssh/id_rsa
+
+*** orgmode@orgmode.org:org-mode.git
+
+    - cd /git/org-mode
+    - git pull --rebase
+    - cp /org/index/org-index.el ./contrib/lisp/org-index.el
+    - git add ./contrib/lisp/org-index.el
+    - git commit -m "foo"
+    - git push
+
+*** worg@orgmode.org:worg.git
+
+    - cd /git/worg
+
+* Screencast
+
+  - [2016-04-08 Fr] Eventuell auch mit asciinema
+  - Erstellt mit https://obsproject.com/
+    - Dort dann die FAQ lesen
+    - Unter Quellen "Fensteraufnahme" hinzufügen
+    - f7 und f8 mit start/stop der Aufzeichnung belegen (Einstellungen im Hauptfenster, Hotkeys)
+  - Einstellungen im Hauptfenster der Quelle: Fenster einfangen
+
+* Aktualisieren org-mode auf den aktuellen git-Stand
+
+  - cd /git/org-mode
+  - make
+
+* DONE Vorlage
+  CLOSED: [2014-12-22 Mo 08:03]
+  :PROPERTIES:
+  :END:
+** DONE Features
+
+** DONE Bugs
+
+** DONE Refactoring
+   CLOSED: [2013-12-25 Mi 23:59]
+
+** DONE Tests
+   CLOSED: [2014-01-03 Fr 19:56]
+
+   - [ ] ert
+   - [ ] Byte Compile
+   - [ ] Alle neuen Funktionen
+   - [ ] elint-buffer
+   - [ ] checkdoc
+   - [ ] ert-Test mit unverändertem Emacs
+
+** DONE Dokumentation
+   CLOSED: [2014-01-03 Fr 19:56]
+
+   - [ ] org-index.el
+   - [ ] Update aller Versionsnummern
+
+** DONE Veröffentlichen
+   CLOSED: [2014-01-03 Fr 19:57]
+
+* Offene Punkte (diesen Knoten nicht als Vorlage verwenden)
+  CLOSED: [2014-12-22 Mo 08:03]
+  :PROPERTIES:
+  :END:
+** Features
+
+   - [X] [2015-01-21 Mi] Sort beschleunigen oder Meldungen weglassen, message-log-max
+     - Nach Update nur teilweise Sort
+     - In Idle Timer vollständigen
+   - [ ] [2015-01-21 Mi] Bei Commando "add" eine Markierung übernehmen (als Titel)
+   - [ ] Autoinsert für alle Knoten einer bestimmten Ebene oder einer bestimmten Datei
+   - [ ] Temporär einen anderen Knoten benutzen
+   - [ ] org-index-id auf aktuellen Knoten legen
+   - [ ] [2015-01-18 So] Neues Kommando: check-index
+     - References aus der Überschrift in Property ?
+     - Texte von Überschrift und Keywords stimmen überein ?
+     - Headings über Link im Index verzeichnet
+   - [ ] Selbstheilender Index: Link ergänzen, wenn Knoten über Referenz gefunden wurde
+   - [ ] idle-timer zum Update der Headlines ?
+   - [ ] Links sollten geprüft werden (neuer Punkt unter maintainance)
+
+** DONE Bugs
+** TODO Refactoring
+   CLOSED: [2013-12-25 Mi 23:59]
+
+   - [ ] Die drei Initialisierungsroutinen, ihre Aufgaben besser definieren
+     - [ ] Wo wird below-hline gesetzt ?
+     - [ ] Kommt org-index-occur ohne volle Initialisierung aus ?
+     - [ ] Muss die tabelle nur einmal geparst werden ?
+
+** DONE Neue Tests
+   CLOSED: [2014-01-03 Fr 19:56]
+
+* Festlegungen
+
+  - [2016-07-29 Fr] Auch Referenzen sind Optional
+  - [2015-08-08 Sa] Jede Zeile im Index muss eine Referenz haben; ein link ist nicht erforderlich
+
+* TODO Nächste Version
+** STARTED Features
+
+   - [ ] Assistent zum anlegen einer neuen Zeile (i.e. Unterkommando 'ref') sollte Auswahl
+     aller Kategorieen anbieten
+   - [ ] Synonyme in occur, z.B. "Journal" für "Logbuch" oder "Entfernen" für "Löschen"
+
+* TODO 5.1
+** DONE Features
+   CLOSED: [2016-08-05 Fr 12:50]
+
+   - [X] "add", "kill" und "edit" sollten auch außerhalb einer Überschrift funktionieren
+   - [X] Occur auf WhatsUp landet in der Tabelle, ein Knoten existiert nicht aber man bekommt eine positive Meldung
+     - [2016-07-31 So] Das ist so gewollt; Meldung präzisiert.
+   - [X] C-c i TAB analog zu C-c i SPC
+   - [X] Lexical bindings in org-index.el
+   - [X] '?' bei Auswahl des Kommandos zeigt kurze Hilfe an
+   - [X] Mechanismus zur Auswahl des Subkommandos überarbeitet
+   - [X] org-index-default-keybindings-list ersetzt durch org-index--get-shortcut-chars
+     - [X] Aus doku entfernt
+
+** DONE Bugs
+   CLOSED: [2016-08-05 Fr 09:41]
+
+   - [X] [2016-07-08 Fr] C-c i o innerhalb der Index-Tabelle führt zu Fehler
+     - [2016-07-29 Fr] Nicht reproduzierbar
+   - [X] [2016-07-01 Fr] C-c i a bewegt den Cursor (nur bei Update und nur in organisation.org)
+   - [X] [2016-07-29 Fr] C-c i k ebenso
+   - [X] [2016-06-02 Do] Shift-Return in occur buffer führt zwar auf die richtige Zeile im
+     Index, macht aber kein reveal, so daß die Zeile eventuell nicht sichtbar ist
+   - [X] org-update-current-line bewegt den cursor
+     - Scheint unvermeidlich
+   - [X] [2016-04-29 Fr] 'R1075' taucht zweimal auf
+     - Nicht nachzuvollziehen
+   - [X] [2016-02-25 Do] Tags werden bei add oder update (welches von beiden ?) nicht korrekt übernommen oder gepflegt
+     - [2016-08-05 Fr] Funktioniert
+   - [X] [2016-07-31 So] Wenn org-index-id nicht gesetzt ist und man in der folgenden
+     Abfrage die Option 'read-help' wählt, wird org-index nach dem Zeigen der Hilfe nicht beendet
+   - [X] [2016-08-05 Fr] Subcommand 'head fragt in der Indexzeile nach referenz
+
+** DONE Neue automatische Tests ?
+   CLOSED: [2016-08-08 Mo 18:55]
+
+   - [X] Add und kill werden außerhalb der Überschrift versucht
+   - [X] short-help
+
+** DONE Standard Tests
+   CLOSED: [2016-08-08 Mo 22:57]
+
+   - [X] Neue org-version 8.3.5
+   - [X] ert
+   - [X] elint-buffer
+   - [X] Byte Compile
+   - [X] checkdoc
+   - [X] Screencast ablaufen lassen
+
+** DONE Dokumentation
+   CLOSED: [2016-08-08 Mo 18:56]
+
+   - [X] Versionshistorie in org-index.el
+   - [X] Update aller Versionsnummern: Kommentar, Hilfetext, Variable
+
+** TODO Veröffentlichen
+
+   - [ ] github
+   - [ ] org
+
+* DONE 5.0
+  CLOSED: [2016-07-29 Fr 15:50]
+** DONE Features 
+
+   - [X] Spalte yank
+   - [X] Referenz nicht verpflichtend
+   - [X] Knoten hinzufügen ohne neue Referenz (Mit Prefix arg ?)
+   - [X] Nachträgliches hinzufügen einer Referenz zu einem Knoten aus dem Index
+   - [X] Tags als neue Spalte
+   - [X] Im occur-Ergebnis Zeilen aus Index löschen (mit C-k)
+   - [-] Referenzen sollten erst ab 10 beginnen
+     - Bleibt dem Benutzer überlassen
+   - [-] C-c C-i a und C-c C-i C-a sollten dasselbe bewirken
+     - C-i ist Tab
+   - [X] Während occcur sollte Teil der Erklärung fett sein
+   - [X] Kommando column
+   - [X] 'e' im occur-buffer
+     - Zurückgestellt, bis wirklich gebraucht
+   - [X] Edit und kill sollten auch im occur-Buffer funktionieren
+   - [X] Edit funktioniert auch vom Knoten aus
+
+** DONE Bugs
+
+   - [X] Yank "reset terminal"
+   - [X] Find yank in index
+   - [X] C-g sollte occur beenden können
+   - [X] Suche nach 'ssh-agent' funktioniert nicht
+   - [X] Nachtrögliches add mit C-u liefert neue Referenz, obwohl alte schon im Index vorhanden war
+     - Nicht nachvollziehbar
+   - [X] C-k in occur löscht Index-Zeile nicht wirklich (entgegen Meldung)
+   - [X] Beim kompilieren wird scheinbar code ausgeführt
+   - [X] Beim zweiten löschen ist der occur buffer stale
+   - [X] s-return im occur-buffer funktioniert nicht
+   - [X] "|" im edit berücksichtigen
+   - [X] Direkt nach Neustart emacs ist der occur buffer nicht formatiert
+   - [X] Nach kill im occur landet man auf dem Knoten und nicht im occur
+     - Auch in den Tests berücksichtigen
+   - [X] Nach edit sollte die Zeile wieder formatiert sein
+   - [X] Wenn ret im Occur das Ziel nicht erreichen kann wegen Narrowing, dann gibt es keine Fehlermeldung
+   - [X] Suchen nach "R992 - Wichtiges und wahres" und dann RETURN: copied 'nil'
+   - [X] scratch org C-u C-c i a und dann occur nach foo und dann C-c i k gibt Fehlemeldung
+   - [X] "C-c i SPC" funktioniert nicht
+   - [-] Warnung, wenn org-id-track-globally nicht gesetzt ist
+     - Funktionen warnt selbst
+   - [X] Wenn eine Zeile keiner Referenz enthält: "C-c i i BACKSPACE" führt zur ersten
+     Zeile der Tabelle und nicht zur zuletzt hinzugefügten
+     - [X] Test dafür
+   - [X] yank=foo, keyboards=bar wird bei C-c i k in occur nicht auch aus Index gelöscht;
+     taucht beim nächsten occur wieder auf
+     - [X] Test dafür
+
+** DONE Refactoring
+   CLOSED: [2015-12-10 Do 16:41]
+
+   - [X] Alle Spalten verpflichtend
+   - [X] Kommando "delete" heißt jetzt kill
+   - [X] Kommando "enter" umbenennen in "index" oder "index-enter"
+   - [X] "C-c i i" ersetzen durch "C i SPC"
+
+** DONE Manuelle Tests der neuen Features
+   CLOSED: [2015-11-17 Di 16:35]
+
+   - [X] Spalte yank
+   - [X] Referenz nicht verpflichtend
+
+** DONE Neue automatische Tests ?
+   CLOSED: [2015-11-23 Mo 17:05]
+
+   - [X] s-return auf yank-Zeile
+   - [X] C-k löscht wirklich
+
+** DONE Standard Tests
+   CLOSED: [2015-12-31 Do 15:13]
+
+   - [X] Pull auf org-mode repository
+   - [X] ert
+   - [X] elint-buffer
+   - [X] Byte Compile
+   - [X] checkdoc
+   - [X] Screencast ablaufen lassen
+
+** DONE Dokumentation
+   CLOSED: [2016-07-29 Fr 15:49]
+
+   - [X] Hilfetexte überarbeiten
+   - [X] Text für initialen Knoten anpassen
+   - [X] Versionshistorie in org-index.el
+   - [X] Update aller Versionsnummern: Kommentar, Hilfetext, Variable
+     - Version 5.0
+   - [X] Update worg
+   - [X] Update 2484.de (Links merkwürdig)
+   - [X] Screencast wie http://danmidwood.com/content/2014/11/21/animated-paredit.html ?
+     Oder per http://www.cockos.com/licecap/
+     - https://github.com/howardabrams/demo-it
+
+** DONE Veröffentlichen
+   CLOSED: [2016-07-29 Fr 15:50]
+
+   - [X] github
+   - [X] Beschreibung auf worg
+
+* DONE 4.3
+  :PROPERTIES:
+  :ORDERED:  t
+  :END:
+** DONE Features
+
+   - [-] org-index--align-this-line ([2015-06-21 So] ?)
+   - [X] [2015-06-21 So] Sort: count, last-accessed und mixed. Wobei mixed = last-accessed
+     für datum = heute, count sonst
+   - [2015-06-21 So] customize
+     - [X] Neue customize group "org-index "
+     - [X] "Funktion org-index--special-column " ersetzen
+     - [X] "Variable org-index--special-columns " ersetzen
+     - [X] Funktion org-index--do-sort-index hat jetzt einen Parameter weniger
+       - [X] Sortierungsstrategie "mixed" einbauen:
+         - [X] org-index--get-sort-key anpassen
+         - [X] string< Vergleich erweitern
+     - [X] Beim org-index--parse-table prüfen, ob die Tabelle immer noch mixed sortiert
+       ist (am Folgetag in der Regel nicht mehr der Fall); dann neu sortieren.
+     - [X] "group-by" ersetzen aber Möglichkeit zum Auffinden von Duplikaten bewahren
+     - [X] "Variable org-index--flagged-columns " ersetzen
+     - [X] Funktion org-index--flag-p ersetzen
+   - [X] [2015-06-24 Mi] Meldung wenn Occur aktiv und Tasten an anderen Frame geschickt werden
+     - occur beendet sich dann.
+   - [X] [2015-06-29 Mo] Bei occur sollten mehrere Kommas in Folge zu einem zusammengefasst werden
+   - [-] Neue Funktion org-index-customize
+     - Statt dessen customize-group org-index
+   - [-] Customization für org-index-use-default-keybindings umsetzen (wird zur Zeit ignoriert)
+     - Nicht implementiert, weil unüblich
+
+** DONE Bugs
+   CLOSED: [2015-08-20 Do 19:42]
+
+   - [X] [2015-08-08 Sa] Occur,Sprung und dann nochmal Occur: Die Zielzeile ist nicht richtigt formatiert
+
+** DONE Refactoring
+   CLOSED: [2015-08-10 Mo 08:30]
+   
+   - [X] Liste mit Flags im index-Knoten ersetzen (siehe Features)
+
+** DONE Manuelle Tests der neuen Features
+   CLOSED: [2015-08-20 Do 19:42]
+   
+   Abgedeckt durch die vorhandenen Tests:
+
+   - [X] org-index-sort-by
+   - [X] org-index-yank-after-add
+   - [X] org-index-point-on-add
+   - [X] org-index-copy-heading-to-keywords
+   - [X] org-index-strip-ref-and-date-from-heading
+   - [X] org-index-edit-on-add
+   
+** DONE Neue automatische Tests ?
+   CLOSED: [2015-08-20 Do 19:43]
+
+   - [X] org-index-sort-by
+   - [X] org-index-edit-on-add ist nil aber es wird trotzdem gefragt
+     - Falsch geschaut.
+
+** TODO Standard Tests
+
+   - [X] Heuristische Tests:
+     - [X] occur mit Sprung zu Knoten
+     - [X] add
+     - [X] delete
+   - [X] ert
+   - [X] elint-buffer
+   - [X] Byte Compile
+   - [X] checkdoc
+   - [X] Assistent starten und einen Knoten hinzufügen
+
+** TODO Dokumentation
+
+   - [ ] Hilfetexte überarbeiten
+   - [ ] Text für initialen Knoten anpassen
+   - [ ] Versionshistorie in org-index.el
+   - [ ] Update aller Versionsnummern: Kommentar, Hilfetext, Variable
+
+** TODO Veröffentlichen
+
+   - [ ] github
+
+* DONE 4
+  CLOSED: [2015-03-27 Fr 10:42]
+** DONE Features
+   CLOSED: [2015-03-27 Fr 10:42]
+
+   - [X] C-u sollte Referenz mitgeben können
+
+** DONE Bugs
+   CLOSED: [2015-02-26 Do 06:55]
+
+   - [X] Prefix Argument kommt über default keybindings nicht in org-index an (z.B. unhighlight)
+   - [X] Fehlermeldung bei leerer Menge in occur ?
+   - [X] Enter mit '.' funktioniert nicht
+   - [X] S-return in occur buffer ruft einfach nur enter auf.
+   - [X] before-save hook sollte nur gesetzt werden, wenn umsortiert wurde
+   - [X] Im Ergebnis von occur sollte die Spaltenbreite beibehalten werden
+   - [X] In den occur buffer sollten Zeilen mit Property kopiert werden
+   - [X] Bei occur: Ohne Zeichen ist die Ausrichtung Okay, nach dem ersten Zeichen aber fehlerhaft
+   - [X] Nach "continue here" suchen
+   - [X] [2015-02-24 Di] add bei vorhandenem Eintrag 1166 fragt erneut anstatt stillen update zu machen
+   - [X] [2015-02-24 Di] Zeilen Fransen aus
+
+** DONE Refactoring
+   CLOSED: [2015-02-23 Mo 21:11]
+
+   - [X] Property org-index-ref wird nicht mehr genutzt
+   - [X] nach Einträgen "continue here" suchen
+   - [X] org-index--get-or-delete-line ersetzen
+   - [X] org-index--find-in-index ersetzen
+   - [X] org-index--complete-links entfernen
+   - [X] search-link und search-ref ersetzen
+   - [X] org-index--silent prüfen
+   - [X] invisibility-spec bereinigen
+
+** DONE Manuelle Tests der neuen Features
+   CLOSED: [2015-01-31 Sa 12:59]
+   
+   - [ ] Leave per org-marg-ring-goto
+
+** DONE Neue automatische Tests
+   CLOSED: [2015-02-23 Mo 21:11]
+
+   - [X] Return per org-mark-ring-goto
+   - [X] Kommt prefix argument an (unhighlight)
+   - [X] Funktionieren die default-keybindings ?
+   - [X] Test für hochzählen in occur oder zum update der Index-Zeilen
+
+** DONE Standard Tests
+   CLOSED: [2015-03-27 Fr 10:41]
+
+   - [X] ert
+   - [X] elint-buffer
+   - [X] Byte Compile
+   - [X] checkdoc
+   - [X] Assistent starten und einen Knoten dazufügen
+
+** DONE Dokumentation
+   CLOSED: [2015-03-27 Fr 10:41]
+
+   - [X] Versionshistorie in org-index.el
+   - [X] Update aller Versionsnummern: Kommentar, Hilfetext, Variable
+   - [X] Header updaten,
+   - [X] nach help
+   - [X] und worg kopieren
+   - [X] In der Dokumentation zwischen "link" und "ID" unterscheiden
+
+** DONE Veröffentlichen
+   CLOSED: [2015-03-27 Fr 10:41]
+
+   - [X] github
+
+* DONE 3.2
+  CLOSED: [2015-02-03 Di 15:29]
+** DONE Features
+   CLOSED: [2015-01-31 Sa 12:59]
+
+   - [X] Komplettes sort nur über idle-timer
+   - [X] Neues Kommando check
+   - [X] statistics als Unterkommando von Check
+   - [X] add kann auch update
+   - [X] kill-ts-and-ref-on-add
+   - [X] Beschleunigen erste Darstellung in occur noch vor einer Taste ?
+   - [X] Default-Keybindings mit Prefix C-c C-i statt C-c i
+     - Nein
+
+** DONE Bugs
+   CLOSED: [2015-01-31 Sa 13:03]
+
+   - [X] [2015-01-26 Mo] check-link hat falsche Links eingetragen
+   - [X] Nach Sichern eines Puffers (welcher ? Nicht alle.) springt der Fokus in den Index
+   - [X] [2015-01-29 Do] R1212 Firewall tauch in occur auf, aber return führt ganz woanders hin.
+   - [X] [2015-01-30 Fr] Während der Eingabe zu sort oder maintain lief der idle-timer zum sortieren
+
+** DONE Refactoring
+   CLOSED: [2015-01-18 So 15:22]
+
+** DONE Tests der neuen Features
+   CLOSED: [2015-01-31 Sa 12:59]
+
+   - [X] Alle drei Arten sort
+   - [X] promote-current-line
+   - [X] idle-timer
+   - [X] on-save hook
+     - [X] Auch nach reorder
+   - [X] check links testen
+
+** DONE Neue tests
+   CLOSED: [2015-01-31 Sa 12:59]
+
+   - [X] Neues Kommando check
+   - [X] Update nach add
+
+** DONE Standard Tests
+   CLOSED: [2015-01-31 Sa 18:27]
+
+   - [X] elint-buffer
+   - [X] ert
+   - [X] Byte Compile
+   - [X] checkdoc
+   - [X] ert-Test mit Emacs ohne org-index-id
+
+** DONE Dokumentation
+   CLOSED: [2015-01-31 Sa 18:33]
+
+   - [X] Versionshistorie in org-index.el
+   - [X] Update aller Versionsnummern: Kommentar, Hilfetext, Variable
+   - [X] Im Beispielindex Flags ergänzen
+
+** DONE Veröffentlichen
+   CLOSED: [2015-02-03 Di 15:29]
+
+   - [X] github
+
+* DONE 3.1
+  CLOSED: [2015-01-19 Mo 21:37]
+** DONE Features
+   CLOSED: [2015-01-18 So 15:18]
+
+   - [X] org-index-occur als indirekter Buffer
+     - [X] Beim kopieren der sichtbaren Zeilen aktuelle Cursorzeile wieder einnehmen
+   - [X] Gleich zu Anfang den Buffer davor und danach mit dem Font für Tabellen einfärben
+   - [X] Command enter braucht kein <return>
+
+** DONE Bugs
+   CLOSED: [2015-01-18 So 15:21]
+
+   - [X] [2014-12-17 Mi] multi-occur funktioniert nicht mehr
+   - [X] [2014-12-19 Fr] Fehlermeldung ohne Details "Cannot find your index table: "
+   - [X] [2014-12-19 Fr] org-index-id steht auf unbekanntem Wert 3b580dc4-01ca-48f1-a198-eca452809bd7
+   - [X] [2014-12-29 Mo] RET in occur-buffer funktioniert nicht
+   - [X] [2014-12-30 Di] kill-region funktioniert in occur-buffer
+   - [X] [2015-01-07 Mi] In Occur sind nach einem Fenster Zeilen sichtbar, die nicht mehr passen
+   - [X] [2015-01-12 Mo] Es werden nicht alle Zeilen angezeigt; vorläufiger Fix über "(+ 100 lines-wanted) ; vorläufiger Fix"
+   - [X] [2015-01-14 Mi] S-Return nach der Suche macht das falsche
+   - [X] [2015-01-14 Mi] Suche nach jv sollte leer sein, zeigt aber alle Zeilen
+   - [X] [2015-01-15 Do] 1160 wird mit occur nicht gefunden
+   - [X] [2015-01-15 Do] <backtab> nach der Suche zeigt nicht den Index
+   - [X] [2015-01-16 Fr] Cursor steht während Suche nicht immer in erster Spalte
+   - [X] [2015-01-19 Mo] "solaris" wird nach Ende der Suche nicht herausgehoben
+   - [X] [2015-01-20 Di] In Occur Eingabe "auslastung", dann Backspace bis "ausl" zeigt nicht mehr "ausleitung" an
+
+** DONE Refactoring
+   CLOSED: [2015-01-18 So 15:22]
+
+   - [X] Entferne org-index--headings ?
+     - Nein
+   - [X] occur sollte overlays maximaler länge erzeugen (damit das sammeln der sichtbaren Zeilen am Ende schneller geht)
+     - Zu kompliziert und auch so schnell genug
+   - [X] Entfernen org-index-copy-references-from-heading-to-property
+
+** DONE Tests
+   CLOSED: [2015-01-19 Mo 21:37]
+
+   - [X] ert
+   - [X] Byte Compile
+   - [X] Alle neuen Funktionen
+   - [X] elint-buffer
+   - [X] checkdoc
+   - [X] ert-Test mit Emacs ohne org-index-id
+
+** DONE Dokumentation
+   CLOSED: [2015-01-19 Mo 21:37]
+
+   - [X] org-index.el
+   - [X] Update aller Versionsnummern
+
+** DONE Veröffentlichen
+   CLOSED: [2015-01-19 Mo 21:37]
+
+   - [X] github
+
+* DONE 3.0
+  CLOSED: [2014-12-11 Do 18:00]
+  :PROPERTIES:
+  :ID:       3f812730-605a-4842-a9f0-f2f0fe74fff5
+  :END:
+** DONE Features
+   CLOSED: [2014-12-06 Sa 23:57]
+
+   - [X] Umstellen auf seperate Liste für Flags
+   - [X] Neues Kommando add
+     - [X] Ref auch in Property speichern
+     - [X] Es sollte eine Möglichkeit geben, die Überschrift zu editieren
+     - [X] Konfigurierbar: Ref in überschrift einfügen, Timestamp in Überschrift einfügen
+       - Nur ref
+     - [X] Auch die Spalte "Art" befüllen. Mit category ?
+     - [X] Spalteneigenschaft "edit" berücksichtigen
+   - [X] Neues Kommando delete
+   - [X] Kommandos entfernen
+     - [X] reuse
+     - [X] missing
+     - [X] put
+   - [X] yank-after-add berücksichtigen
+   - [X] Index zur Vorlage in temporärem Buffer erzeugen
+   - [X] Neue Tests für add, delete und statistics
+   - [X] Neues Kommando zum anlegen eines temporären Index
+     - [X] Kommando
+     - [X] Test
+   - [X] Test erweitern, so daß im temporären Index auch eine neue Zeile eingefügt wird
+   - [X] Entfernen
+     - [X] update
+     - [X] link
+     - [X] fill
+     - [X] +
+   - [X] enter sollte als einfachsten Fall den aktuellen Knoten haben (d.h. "<return>" statt ". <return>")
+     - t,l,c
+   - [X] occur sollte nur noch <return> kennen
+   - [X] highlight und unhighlight zusammenführen
+   - [X] org-index-default-keybindings
+
+** DONE Bugs
+   CLOSED: [2014-12-06 Sa 16:20]
+
+   - [X] Bei "add" im Knoten R1223 (der zu diesem Zeitpunkt noch keine Referenz hat), bekomme
+     ich keinen Wert für .category angeboten und nach Eingabe des Titels läuft die
+     Funktion auf einen Fehler.
+   - [X] organisation.org gilt als modifiziert
+   - [X] temporärer Index enthält keine Erklärung der Flags
+   - [X] In Buffer *org-index-occur* führt C-i i zur Fehlermeldung "before first headline"
+     - [2014-12-06 Sa] Gerade nicht
+
+** DONE Tests
+   CLOSED: [2014-12-07 So 00:00]
+
+   - [X] ert
+   - [X] Byte Compile
+   - [X] Alle neuen Funktionen
+   - [X] elint-buffer
+   - [X] checkdoc
+   - [X] Update aller Versionsnummern
+   - [X] ert-Test mit unverändertem Emacs
+
+** DONE Dokumentation
+   CLOSED: [2014-12-07 So 00:00]
+
+   - [X] org-index.el
+   - [X] org-index.org entfernen und Teile in die Hilfe einbauen
+   - [X] Dokumentation der Flags vervollständigen
+
+** DONE Refactoring
+   CLOSED: [2014-12-07 So 00:01]
+
+   - [X] Umstellen auf ganzzahlige Releasenummern
+   - [X] delete-trailing-whitespace
+
+** DONE Veröffentlichen
+   CLOSED: [2014-12-11 Do 18:00]
+* DONE 2.4.1
+  CLOSED: [2014-01-28 Di 22:44]
+** DONE Features
+   CLOSED: [2014-01-28 Di 22:44]
+
+   - [X] [2014-01-12 So] Im Occur-Buffer sollte TAB den Punkt in einenm anderen Fenster öffnen
+     - [X] Follow mode nach TAB
+   - [X] Im Occur buffer sollte Angabe "Showing only some matches" fundierter sein
+
+** Bugs
+** DONE Tests
+   CLOSED: [2014-01-28 Di 22:44]
+
+   - [X] Regression
+
+** Refactoring
+** DONE Veröffentlichen
+   CLOSED: [2014-01-28 Di 22:44]
+* DONE 2.4
+  CLOSED: [2014-01-03 Fr 19:57]
+** DONE Features
+   :PROPERTIES:
+   :ID:       a3c2ef93-f8e8-446e-9170-359ef66ad37b
+   :END:
+
+   - [X] Neue referenz per elisp ohne weitere Eingaben; Anregung Skip Collins.
+   - [X] References in properties; Anregung Skip Collins.
+   - [X] Existierende Referenz zurückgeben; Anregung Skip Collins.
+   - [-] Eigene Keymap für den Occur-Buffer
+     - Zu aufwendig; statt dessen Hinweis
+   - [X] Neue Flags: "p" für "point", "t" für "tags"
+     - Nicht "t" aber dafür x,y und z
+   - [X] Bei Defaultkommando "occur" im Prompt auch den Hinweis auf Möglichkeit "kw1,kw"
+   - [X] org-index-new-line
+   - [X] org-index-get-line
+   - [X] TAB toggles headlines in occur
+   - [X] Aufruf org-index mit what als Argument
+
+** DONE Bugs
+
+   - [-] Highlights sollten von Groß- Kleinschreibung unabhängig sein
+     [2013-12-25 Mi] Warum ?
+   - [X] Problem bei Knoten in organisation.org
+
+** DONE Tests
+   CLOSED: [2014-01-03 Fr 19:56]
+
+   - [X] Neue Flags p,x1,x2,x3
+   - [X] Regression
+   - [X] Byte Compile
+   - [X] Assistent
+     (setq org-index-id nil)
+
+** DONE Dokumentation
+   CLOSED: [2014-01-03 Fr 19:56]
+
+   - [X] org-index.el
+   - [X] org-index.org
+
+** DONE Refactoring
+   CLOSED: [2013-12-25 Mi 23:59]
+
+   - [X] Globale variable für Konfiguration und Status
+   - [X] org-index--retrieve-context
+   - [X] org-index--parse-and-adjust-table aufteilen in org-index--parse-table und org-index--adjust-table
+     - adjust-table integriert in sort-table
+   - [X] Berücksichtigung von org-index--silent in org-index--parse-table
+   - [X] Testen, daß ein Aufruf mit dieser Variable die Tabelle nicht verändert
+
+** DONE Veröffentlichen
+   CLOSED: [2014-01-03 Fr 19:57]
+* DONE 2.3
+  CLOSED: [2013-08-07 Mi 15:06]
+** DONE Features
+   
+   - [X] Assistent um einen minimalen Knoten zu erstellen
+   - [X] Unterstützung für standard emacs customization
+   - [X] Wenn ein "reorder" gewählt wurde, dann das auch im occur-Buffer anzeigen
+   - [X] incoccur
+     - [X] Basisfunktionalität
+     - [X] Statistik "x von y Zeilen" beim suchen
+   - [X] "+" mit eindeutiger Abkürzung sollte verstanden werden, z.B. "+inc" oder auch "+i"
+   - [X] Highlight der matches nach inoccur
+   - [X] In occur sollte C-Backspace das ganze Wort löschen
+   - [X] Abkürzung: "head" könnte zuerst in Index Tabelle nachschauen und im Zweifel über die
+     id dort gehen. Das wäre schneller.
+
+** DONE Bugs
+   CLOSED: [2013-06-28 Fr 22:27]
+   :PROPERTIES:
+   :ID:       8dd42519-6a83-401d-bec5-5f58e0305329
+   :END:
+
+   - [X] "+" führt zu "occur"
+   - [X] "occur" sollte nur vorübergehend in favtable springen
+   - [X] "srs" kann nicht gefunden werden (wohl weil im Buffer organisation.org)
+     - Missverständnis
+   - [X] Mindestens ein Fehler im Zusammenhang mit org 8.0: Suche nach "linux" und dann
+     Return auf erstem Eintrag liefert Fehler.
+     Nur ein Problem der Beta.
+   - [X] [2013-04-15 Mo] sort sortiert zwar, fügt danach aber auch eine neue Zeile ein
+     - Fehlbedienung: Habe "sort" statt "+sort" gesagt
+   - [X] Bei "head" inlinetasks ausnehmen
+   - [X] Return in occur-buffer sollte point in organisation.org nicht verschieben
+     - [2013-04-28 So] Okay.
+   - [X] Zweites occur hintereinander (z.B. für "fav") zeigt keine Überschrift mehr und RET funktioniert nicht.
+   - [X] Cursor sollte in ioccur nicht zu sehen sein
+   - [X] occur nach srs und dann RET führt in den falschen Knoten
+   - [X] [2013-05-25 Sa] Occur nach "favtable" oder "srs" führt nur in die favtable aber
+     nicht zum Knoten.
+   - [X] inoccur nach "projekt" dann DEL bis auf nil und "problem" liefert weniger Zeilen als "problem" direkt.
+   - [X] Zeigt manche Zeilen doppelt.
+   - [X] "h745" führt in den falschen Knoten
+   - [X] Ctrl-G wieder gangbar machen
+   - [X] multi-occur wird nicht aufgerufen
+   - [X] Suche nach srs funktioniert führt zu den Referenz-Nummern
+   - [X] Nach neuer Referenz führt "leave" nicht mehr aus der favtable zurück
+   - [X] Occur nach "problem,xa" findet zwar auch "Problem", beleuchtet es aber nicht.
+   - [X] h760 macht nicht das gewünschte
+   - [X] "+goto760" sollte das richtige machen; "+reorder" auch
+   - [X] "+sort" behauptet mehrere Kommandos zu treffen
+   - [X] "leave" nach "ref" funktioniert nicht wenn in favtable
+   - [X] "head" funktioniert nicht nach organisation.org hinein, z.B. "sell" und dann RET
+   - [X] Bei C-G während "occur" sollte die Überschrift angepasst werden
+   - [X] Occur nach Mailverteiler führt nicht dahin
+   
+** DONE Tests
+   CLOSED: [2013-07-27 Sa 22:31]
+
+   - [X] byte-compile
+     - Warnungen für cl
+   - [X] Assistenten nochmal durchlaufen lassen
+
+** DONE Dokumentation
+   CLOSED: [2013-07-27 Sa 22:05]
+
+   - [X] Anpassen org-index.el
+     - [X] Suche nach "favorites" oder "favt"
+   - [X] Anpassen org-index.org
+     - [X] Suche nach "favorites" oder "favt"
+   - [X] Schreibweise: "index table" statt "index-table"
+   - [X] In org-index.org beim Beispiel für occur auf das Hochzählen verweisen
+   - [X] Den incremental Aspekt erläutern
+
+** DONE Aufräumen
+   CLOSED: [2013-07-27 Sa 22:05]
+
+   - [X] org-favtable--quick-hack-lines wieder ausbauen
+   - [X] debug-search entfernen
+
+** DONE Refactoring
+   CLOSED: [2013-06-16 So 13:20]
+
+   - [X] char umbenennen. In key.
+
+** DONE Vorbereiten
+   CLOSED: [2013-07-27 Sa 22:31]
+   
+   - [X] Tabelle in org-index.org auf ursprünglichem Stand ?
+   - [X] org-index@ferntreffer.de
+   
+** DONE Veröffentlichen
+   CLOSED: [2013-08-02 Fr 13:46]
+
+   - [X] worg
+   - [X] Mailing-Liste
+
+* DONE 2.2
+  CLOSED: [2013-03-18 Mo 10:49]
+** DONE Features
+   CLOSED: [2013-02-24 So 18:28]
+
+   - [X] org-favtable--windowconfig-before und org-favtable--marker-outside-before sollten Listen (Stacks) sein
+   - [X] org-mark-ring-goto berücksichtigen
+   - [X] Eingabe wie "h224" erlauben
+
+** DONE Bugs
+
+   - [X] [2013-02-05 Di] Occur versteht nicht mehr mehrere Wörter. Vergessen: Durch Komma trennen.
+   - [X] "link" in der Favoriten-Tabelle sollte keinen Link auf die Favoriten-Tabelle
+     erzeugen. Eher sich wie "fill" verhalten ? Nein.
+   - [-] "leave" und "C-c &" funktionieren mindestens einmal [2013-02-25 Mo 11:39] nicht.
+   - [X] Kann keinen Link auf "Mailverteiler" erzeugen
+
+** Tests
+** Refactoring
+** Prüfen
+** DONE Veröffentlichen
+   CLOSED: [2013-03-06 Mi 14:51]
+* DONE 2.1
+** DONE Features
+   CLOSED: [2013-03-18 Mo 10:49]
+
+   - [X] Org-Mode links verwalten; eigene Spalte dafür
+   - [X] Zeile mit Spaltenbreiten direkt über der ersten horizontalen Linie sollte möglich sein
+   - [X] Occur sollte auch mit mehreren Wörtern (durch Leerzeichen getrennt) umgehen können
+   - [X] Umbenennen in org-index ? Nein.
+   - [X] Auffüllen einer referenz, wenn nur ein Link vorhanden ist und umgekehrt
+   - [X] Head sollte link verwenden, wenn vorhanden
+   - [X] Spalten ref und link zwingend aber nicht zwingend gefüllt
+   - [X] Fehlermeldungen beginnen mit Großbuchstaben
+   - [X] Kommando, um Lücken in den Referenzen zu finden
+   - [X] "ref" und link sollten :reuse: berücksichtigen
+   - [X] Mehr Spalten verpflichtend (z.B. count)
+   - [X] org-reftable-update--line sollte:
+     - [X] mit :unused: und :reuse: zurecht kommen
+     - [X] links finden
+   - [X] org-reftable-update-line bei den einzelnen Kommandos
+
+** DONE Bugs
+   CLOSED: [2013-01-24 Do 19:08]
+   :PROPERTIES:
+   :ID:       3ad613d2-a0e6-45af-a073-b89f0c45e8a6
+   :END:
+
+   - [X] reorder (z.B. nach ref) und dann occur (z.B. nach streamserve) zeigt Einträge
+     immer noch nach count.
+   - [X] [2012-12-21 Fr] Fehler beim Erstellen eines neuen Links, bei "leave": Wrong type
+     argument: integer-or-marker-p, nil
+   - [X] [2013-01-02 Mi] Occur für "Branding" dann auf "R608" Return führt zu
+     Fehlermeldung: or: Symbol's value as variable is void: count
+   - [X] [2013-01-02 Mi] Occur nach "probleme" und dann C-c C-c auf R644 führt zu Fehler
+   - [X] [2013-01-03 Do] Fill in der Tabelle auf R577 holt sich die id aus
+     organisation.org/Kalender statt aus projekte.org/R577
+   - [X] [2013-01-19 Sa] Fill in der Tabelle auf R577 füllt statt dessen die erste Zeile der Tabelle
+   - [X] [2013-01-03 Do] Head auf dem Eintrag "VMs verschieben" führt zu exception, weil Zeile nicht gefunden
+   - [X] [2013-01-15 Di] C-M-RET auf R661 nach occur paris bringt Fehlermeldung
+   - [X] [2013-01-16 Mi] reorder for ref und dann occur nach dcon zeigt die Ergebnisse nach count geordnet an
+   - [X] [2013-01-18 Fr] Auf R661: fill behauptet, der Link wäre schon gesetzt
+   - [X] C-+ in favtable auf R555 springt nach oben
+
+** DONE Tests
+   CLOSED: [2013-03-18 Mo 10:50]
+
+   - [X] Tests, wenn nur ein Link vorhanden ist (und keine Referenz): Funktioniert noch alles ?
+   - [X] Spalten ref und link zwingend aber nicht zwingend gefüllt
+   - [X] Kommandos durchgehen: Sollten auch mit Links funktionieren
+   - [X] Workflow mit Referenzen :unused: order :reuse: ausprobieren
+   - [X] Update count wenn nur Link gefüllt ?
+
+** DONE Refactoring
+   CLOSED: [2013-01-22 Di 20:42]
+
+   - [X] Umbenennen in org-reflinktable ? org-navtable ? org-navreftable ? org-favtable.
+     - [X] Dokumentation anpassen
+     - [X] Suche nach reftable und reference
+   - [X] org-reftable-qh-helper durch lexical-let (?) ersetzen
+   - [X] Funktionen zum holen eines bestimmten Feldes
+
+** TODO Prüfen
+
+   - [X] byte-compile
+   - [X] org-table-get-field gerechtfertigt ?
+   - [ ] columns noch statt org-reftable-columns
+   - [ ] Fehlermeldung bei Ref ohne Zahl und bei weder Ref noch Link
+   - [ ] Wird org-favtable--windowconfig-before überschrieben oder nicht, wenn es etwas enthält ?
+
+** TODO Veröffentlichen
+
+* DONE Release 2.0
+  CLOSED: [2012-12-12 Mi 13:31]
+
+** Bugs, Feature, etc
+
+   - [X] Tests
+     - [X] Spezielle Spalten
+       - [X] Verschieben
+       - [X] Weglassen
+       - [X] Nur eine Überschriftszeile
+     - [X] Bevorzugte Aktion bei bestimmten Anwendungsfällen
+       - [X] add und leave
+       - [X] Referenz unter Cursor:
+         - [X] Innerhalb
+         - [X] Außerhalb
+       - [X] Markierung
+         - [X] Innerhalb
+         - [X] Außerhalb
+   - [X] Update Dokumentation
+   - [X] Update Kommentare, Korrektur der Einrückung ("continue here")
+   - [X] Prüfen auf ungenutzte Variablen
+   - [X] Testen mit byte-code-compiler auf globale Symbole
+   - [X] Neues Feature: pending-input
+   - [X] Verkürzte Liste von Befehlen
+   - [X] Umbenannte Befehle anpassen
+   - [X] occur und multi-occur zusammen
+   - [X] Weitere Tests
+     - [X] occur und multi-occur
+     - [X] ref unter Cursor und nach Abfrage
+     - [X] multi-occur nach erster Tabellenspalte
+     - [X] multi-occur unter Cursor
+     - [X] Jeden Befehl durchspielen:
+       - [X] occur
+       - [X] head
+       - [X] new
+       - [X] enter
+       - [X] leave
+       - [X] goto
+       - [X] help
+       - [X] all
+       - [X] reorder
+       - [X] sort
+       - [X] update
+       - [X] highlight
+       - [X] unhighlight
+   - [X] Veröffentlichen
+     - [X] org-reftable@ferntreffer.de eintragen und anlegen
+     - [X] Worg editieren
+     - [X] Nachricht an Newsgroup
+
+* DONE Release 1.3
+
+   - Tests
+     - Jede der 6 Funktionen
+     - Impliziter und expliziter Aufruf
+     - Jede Art, sie mit Argumenten zu versorgen
+     - Jede Position des Cursors vorher
+       - Im Knoten innerhalb der Tabelle
+       - Im Knoten außerhalb der Tabelle
+       - Außerhalb des Knotens
+
+     - [X] enter
+     - [X] leave
+     - [X] search
+     - [X] add
+     - [X] occur
+     - [X] multi-occur
+
+
+     - [X] Invoicing-usecase CheckSaveVoucher ist langsam
+     - [X] occur sollte auch aus dem occur-buffer heraus die aktuelle Referenz zurückgeben
+     - [-] window-configuration als stack
+     - [X] Bei Restore prüfen, ob *Occur*-buffer noch sichtbar
+     - [X] Öffnen des Knotens
+     - [X] C-- C-+ m 277 und dann C-- C-+ l bringt bei zweiter Wiederholung error
+     - [X] Neue Zeile mit active region funktioniert nicht mehr
+     - [X] occur mit active-region sollte funktionieren
+     - [X] Doku kürzen und ergänzen 
+
+Ausgelagerte Doku:
+
+
