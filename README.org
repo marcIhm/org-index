@@ -17,7 +17,6 @@
 *** Implementation
 
     - org-index.el :: The complete lisp source
-    - oidx.org :: TODOs and History for the development of org-index
 
 *** Tests
     
