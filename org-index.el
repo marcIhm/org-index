@@ -296,7 +296,9 @@ those pieces."
 (defvar org-index--context-occur nil "Position and line used for occur in edit buffer.")
 (defvar org-index--context-node nil "Buffer and position for node in edit buffer.")
 (defvar org-index--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
-(defvar org-index--short-help-displayed "True, if short help message has been displayed.")
+(defvar org-index--display-short-help nil "True, if short help should be displayed.")
+(defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
+(defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help example sort find-ref highlight maintain) "List of commands available.")
@@ -483,7 +485,9 @@ interactive calls."
                    command (mapconcat 'symbol-name org-index--commands ",")))
         
         ;; read command; if requested display help in read-loop
-        (setq command (org-index--read-command (eq command 'short-help))))
+        (setq org-index--display-short-help (eq command 'short-help))
+        (setq command (org-index--read-command))
+        (setq org-index--display-short-help nil))
 
       ;;
       ;; Get search string, if required; process possible sources one after
@@ -853,12 +857,11 @@ Optional argument ARG is passed on."
         char command)
     (while continue
       (if (sit-for 1)
-          (message "org-index (Type SPC for list, '?' for details on subcommands)-"))
+          (message "org-index (? for detailed prompt) -"))
       (setq char (read-key-sequence nil))
+      (if (string= char " ") (setq char "?"))
       (setq command (cdr (assoc char (org-index--get-shortcut-chars))))
-      (if (or (string= char " ")
-              (string= char "?")
-              command)
+      (if command
           (progn
             (org-index command nil arg)
             (setq continue nil))
@@ -900,24 +903,34 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         minibuffer-setup-fun
         command)
     (setq org-index--short-help-displayed nil)
-    (setq minibuffer-setup-fun
-          `(lambda ()
-             (setq minibuffer-scroll-window (get-buffer-window ,org-index--short-help-buffer-name))
-             (org-defkey minibuffer-local-completion-map "?" 'org-index--minibuffer-short-help-helper)
-             (org-defkey ido-completion-map "?" 'org-index--minibuffer-short-help-helper)
-             (if ,with-short-help (org-index--minibuffer-short-help-helper))))
-    (add-hook 'minibuffer-setup-hook minibuffer-setup-fun)
+    (add-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
+    (add-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
     (unwind-protect
-        (setq command (intern (org-completing-read
-                               (concat "Please choose "
-                                       (if with-short-help "" "('?' for short help)")
-                                       ": ")
-                               (mapcar 'symbol-name org-index--commands))))
-      (remove-hook 'minibuffer-setup-hook minibuffer-setup-fun))
-             
-    (when org-index--short-help-displayed
-      (quit-windows-on org-index--short-help-buffer-name))
+        (setq command
+              (intern (completing-read
+                       (concat
+                        "Please choose"
+                        (if org-index--display-short-help "" " (? for short help)")
+                        ": ")
+                       (mapcar 'symbol-name org-index--commands) nil t)))
+      (remove-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
+      (remove-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
+      (when org-index--short-help-displayed
+        (quit-windows-on org-index--short-help-buffer-name)))
     command))
+
+
+(defun org-index--minibuffer-setup-function ()
+  "Prepare minibuffer for `org-index--read-command'"
+  (setq org-index--minibuffer-saved-key (local-key-binding (kbd "?")))
+  (local-set-key (kbd "?") 'org-index--minibuffer-short-help-helper)
+  (if org-index--display-short-help (org-index--minibuffer-short-help-helper)))
+
+
+(defun org-index--minibuffer-exit-function ()
+  "Restore minibuffer after `org-index--read-command'"
+  (local-set-key (kbd "?") org-index--minibuffer-saved-key)
+  (setq org-index--minibuffer-saved-key nil))
 
 
 (defun org-index--minibuffer-short-help-helper ()
