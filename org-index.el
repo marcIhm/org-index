@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.1.0
+;; Version: 5.1.1
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -86,7 +86,7 @@
 
 ;;; Change Log:
 
-;;   [2016-08-05 Fr] Version 5.1.0
+;;   [2016-08-05 Fr] Version 5.1.1
 ;;   - Offering help during query for subcommands
 ;;   - Removed org-index-default-keybindings
 ;;   - Renamed subcommand multi-occur to find-ref
@@ -168,7 +168,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.1.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.1.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -354,7 +354,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.1.0 of org-index.el.
+This is version 5.1.1 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -400,7 +400,7 @@ of subcommands to choose from:
 
   help: Show complete help text of org-index.
 
-  short-help: [?] Show one line description of each subcommand.
+  short-help: [?] Show one-line description of each subcommand.
     I.e. show this list but only first sentence each.
 
   example: Create an example index, that will not be saved.
@@ -960,6 +960,14 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (kill-region (point) (point-max))
         (keep-lines "^  [-a-z]+:" (point-min) (point-max))
         (align-regexp (point-min) (point-max) "\\(\\s-*\\):")
+        (goto-char (point-min))
+        (while (re-search-forward "\\. *$" nil t)
+          (replace-match "" nil nil))
+        (goto-char (point-min))
+        (re-search-forward "short-help")
+        (end-of-line)
+        (insert " (this text)")
+        (goto-char (point-min))        
         (unless (= (line-number-at-pos (point-max)) (1+ (length org-index--commands)))
           (error "Internal error, unable to properly extract one-line descriptions of subcommands"))
         (setq org-index--short-help-text (buffer-string)))))
