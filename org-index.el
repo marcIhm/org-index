@@ -771,7 +771,7 @@ interactive calls."
            ((eq sort-what 'index)
             (setq sort
                   (intern
-                   (org-icompleting-read
+                   (completing-read
                     "Please choose column to sort index table: "
                     (cl-copy-list sorts)
                     nil t nil nil (symbol-name org-index-sort-by))))
@@ -921,14 +921,14 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
 
 
 (defun org-index--minibuffer-setup-function ()
-  "Prepare minibuffer for `org-index--read-command'"
+  "Prepare minibuffer for `org-index--read-command'."
   (setq org-index--minibuffer-saved-key (local-key-binding (kbd "?")))
   (local-set-key (kbd "?") 'org-index--minibuffer-short-help-helper)
   (if org-index--display-short-help (org-index--minibuffer-short-help-helper)))
 
 
 (defun org-index--minibuffer-exit-function ()
-  "Restore minibuffer after `org-index--read-command'"
+  "Restore minibuffer after `org-index--read-command'."
   (local-set-key (kbd "?") org-index--minibuffer-saved-key)
   (setq org-index--minibuffer-saved-key nil))
 
@@ -967,7 +967,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (re-search-forward "short-help")
         (end-of-line)
         (insert " (this text)")
-        (goto-char (point-min))        
+        (goto-char (point-min))
         (unless (= (line-number-at-pos (point-max)) (1+ (length org-index--commands)))
           (error "Internal error, unable to properly extract one-line descriptions of subcommands"))
         (setq org-index--short-help-text (buffer-string)))))
