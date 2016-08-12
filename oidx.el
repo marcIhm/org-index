@@ -131,7 +131,7 @@
 (ert-deftest oidx-test-short-help ()
   (oidx-with-test-setup
     (global-set-key (kbd "C-c i") 'org-index-dispatch)
-    (execute-kbd-macro (kbd "C-c i ?"))
+    (execute-kbd-macro (kbd "C-c i ? h e l p <return>"))
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
       (should (= (line-number-at-pos) 19)))))
