@@ -2487,7 +2487,7 @@ If OTHER in separate window."
   "Perform command occur."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
-        (these-commands " Note, that these commands of org-index, if invoked from the occur buffer, update it accordingly: edit, kill.")
+        (these-commands " NOTE: If you invoke the org-index subcommands edit or kill from within the occur buffer, the index is updated accordingly.")
         (lines-wanted (window-body-height))
         (lines-found 0)                      ; number of lines found
         words                                ; list words that should match
@@ -2744,7 +2744,7 @@ If OTHER in separate window."
                              " Showing all %d matches for "
                            " Showing one window of matches for ")
                          "\"" search-text
-                         "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count." these-commands "\n")
+                         "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count.\n" these-commands "\n")
                  (length all-lines))
                 'face 'org-agenda-dimmed-todo-face))
               org-index--headings)))
