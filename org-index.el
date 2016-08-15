@@ -1248,7 +1248,7 @@ Argument COLUMN and VALUE specify line to get."
     (let (char prompt search-ref search-id search-fingerprint)
     
       ;; start with short prompt but give more help on next iteration
-      (setq prompt "Please specify, where to go in index (0-9.,space,backspace,return or ? for help): ")
+      (setq prompt "Please specify, where to go in index (0-9,.,space,backspace,return or ? for short help): ")
     
       ;; read one character
       (while (not (memq char (append (number-sequence ?0 ?9) (list ?\d ?\b ?\r ?\j ?\s ?.))))
@@ -2539,7 +2539,7 @@ If OTHER in separate window."
     (setq help-text (cons
                      (concat
                       (propertize "Incremental occur" 'face 'org-todo)
-                      (propertize  "; `?' toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
+                      (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
                      (concat
                       (propertize
                        (org-index--wrap
