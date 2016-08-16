@@ -1248,12 +1248,12 @@ Argument COLUMN and VALUE specify line to get."
     (let (char prompt search-ref search-id search-fingerprint)
     
       ;; start with short prompt but give more help on next iteration
-      (setq prompt "Please specify, where to go in index (0-9,.,space,backspace,return or ? for short help): ")
+      (setq prompt "Please specify, where to go in index (0-9,.,space,backspace,return or ? for short help) - ")
     
       ;; read one character
       (while (not (memq char (append (number-sequence ?0 ?9) (list ?\d ?\b ?\r ?\j ?\s ?.))))
         (setq char (read-char prompt))
-        (setq prompt "Go to index table and specific position. Digits specify a reference number to got to, <space> goes to top of index, <backspace> or <delete> to last line created and <return> or `.' to index line of current node. Please choose: "))
+        (setq prompt "Go to specific position in index table. Digits specify a reference number, <space> goes to top of index, <backspace> or <delete> to last line created and <return> or `.' to index line of current node. Please choose - "))
     
       (if (memq char (number-sequence ?0 ?9))
           ;; read rest of digits
@@ -2734,7 +2734,7 @@ If OTHER in separate window."
       (setq org-index--occur-help-text
             (cons
              (org-index--wrap
-              (propertize "Search is done;    `?' toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
+              (propertize "Search is done;    ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
              (concat
               (org-index--wrap
                (propertize
