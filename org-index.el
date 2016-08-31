@@ -736,7 +736,7 @@ interactive calls."
 
           (setq args (org-index--collect-values-from-user org-index-edit-on-yank))
           (if (plist-get args 'yank)
-              (plist-put args 'yank (replace-regexp-in-string "|" (regexp-quote "\\vert") (plist-get args 'yank) nil 'literal)))
+              (plist-put args 'yank (replace-regexp-in-string "|" "\\vert" (plist-get args 'yank) nil 'literal)))
           (setq args (plist-put args 'category "yank"))
           (apply 'org-index--do-new-line args)
           
