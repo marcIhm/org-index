@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.1.3
+;; Version: 5.1.4
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -168,7 +168,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.1.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.1.4" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -354,7 +354,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.1.3 of org-index.el.
+This is version 5.1.4 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
