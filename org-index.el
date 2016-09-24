@@ -1125,7 +1125,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
                     (delete-region (line-beginning-position) (line-end-position))
                     (insert line)
                     (put-text-property (line-beginning-position) (line-end-position)
-                                       'org-index-lbp (cdr org-index--context-index))))
+                                       'org-index-lbp (car org-index--context-index))))
               (error "Occur buffer and index buffer do not match any longer"))
           (message "Occur buffer has gone, cannot switch back."))
       (setq org-index--context-occur nil))
