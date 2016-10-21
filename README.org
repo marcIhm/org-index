@@ -1,4 +1,4 @@
-#+TITLE org-index
+* org-index
 
   A personal adaptive index for org.
   
@@ -12,37 +12,38 @@
 
     http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
 
-* Table of Content 						      :TOC_3:
- - [[#files][Files]]
-   - [[#implementation][Implementation]]
-   - [[#tests][Tests]]
-   - [[#screencasts][Screencasts]]
-   - [[#custom-merge-driver-for-git][Custom merge-driver for git]]
+** Table of Content						      :TOC_3:
+ - [[#org-index][org-index]]
+   - [[#files][Files]]
+     - [[#implementation][Implementation]]
+     - [[#tests][Tests]]
+     - [[#screencasts][Screencasts]]
+     - [[#custom-merge-driver-for-git][Custom merge-driver for git]]
 
-* Files
+** Files
 
-** Implementation
+*** Implementation
 
-   - org-index.el :: The complete lisp source
+    - org-index.el :: The complete lisp source
 
-** Tests
-   
-   - oidx.el :: ert-tests for org-index
-   - test.bat :: Windows command file to start a specifically prepared emacs for the tests
-   - test-init.el :: Customizations for the tests
+*** Tests
+    
+    - oidx.el :: ert-tests for org-index
+    - test.bat :: Windows command file to start a specifically prepared emacs for the tests
+    - test-init.el :: Customizations for the tests
 
-** Screencasts
+*** Screencasts
 
-   These files have been used to produce the screencast on http://2484.de/org-index.html:
+    These files have been used to produce the screencast on http://2484.de/org-index.html:
 
-   - screencast.bat :: Windows command file to start a specifically prepared emacs for the screencast
-   - screencast.el :: The lisp code used to play the screencast
-   - screencast-init.el :: Customizations for screencast
-   - screencast.org :: Internal Notes about the screencast
-		       
-** Custom merge-driver for git
+    - screencast.bat :: Windows command file to start a specifically prepared emacs for the screencast
+    - screencast.el :: The lisp code used to play the screencast
+    - screencast-init.el :: Customizations for screencast
+    - screencast.org :: Internal Notes about the screencast
+		       	
+*** Custom merge-driver for git
 
-   For instructions on how to employ a custom merge-driver, see:
-   https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver
+    For instructions on how to employ a custom merge-driver, see:
+    https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver
 
-   - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table
+    - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table
