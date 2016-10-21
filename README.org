@@ -1,4 +1,4 @@
-* org-index
+#+TITLE org-index
 
   A personal adaptive index for org.
   
@@ -12,30 +12,37 @@
 
     http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
 
-** Files
+* Table of Content 						      :TOC_3:
+ - [[#files][Files]]
+   - [[#implementation][Implementation]]
+   - [[#tests][Tests]]
+   - [[#screencasts][Screencasts]]
+   - [[#custom-merge-driver-for-git][Custom merge-driver for git]]
 
-*** Implementation
+* Files
 
-    - org-index.el :: The complete lisp source
+** Implementation
 
-*** Tests
-    
-    - oidx.el :: ert-tests for org-index
-    - test.bat :: Windows command file to start a specifically prepared emacs for the tests
-    - test-init.el :: Customizations for the tests
+   - org-index.el :: The complete lisp source
 
-*** Screencasts
+** Tests
+   
+   - oidx.el :: ert-tests for org-index
+   - test.bat :: Windows command file to start a specifically prepared emacs for the tests
+   - test-init.el :: Customizations for the tests
 
-    These files have been used to produce the screencast on http://2484.de/org-index.html:
+** Screencasts
 
-    - screencast.bat :: Windows command file to start a specifically prepared emacs for the screencast
-    - screencast.el :: The lisp code used to play the screencast
-    - screencast-init.el :: Customizations for screencast
-    - screencast.org :: Internal Notes about the screencast
-			
-*** Custom merge-driver for git
+   These files have been used to produce the screencast on http://2484.de/org-index.html:
 
-    For instructions on how to employ a custom merge-driver, see:
-    https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver
+   - screencast.bat :: Windows command file to start a specifically prepared emacs for the screencast
+   - screencast.el :: The lisp code used to play the screencast
+   - screencast-init.el :: Customizations for screencast
+   - screencast.org :: Internal Notes about the screencast
+		       
+** Custom merge-driver for git
 
-    - merge-org-inde.rb :: Simple ruby script to aid during git merges of your index table
+   For instructions on how to employ a custom merge-driver, see:
+   https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver
+
+   - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table
