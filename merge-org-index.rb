@@ -1,5 +1,17 @@
 #!/usr/bin/ruby
-
+#
+# A custom merge-driver for org-index.
+#
+# It comes with these restrictions
+# - Your index must be placed as a single in its own file
+# - It expects exactly the three argument %O %A %B as described in the link below;
+#   extra arguments are ignored
+# - There is no automatic merge; an editor (emacs) will be invoked in any case
+#
+# See:     https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver
+#
+# for details on using this driver with git
+# 
 require 'tempfile'
 require 'fileutils'
 

@@ -33,6 +33,9 @@
     - screencast-init.el :: Customizations for screencast
     - screencast.org :: Internal Notes about the screencast
 			
-*** Merge driver for git
+*** Custom merge-driver for git
+
+    For instructions on how to employ a custom merge-driver, see:
+    https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver
 
     - merge-org-inde.rb :: Simple ruby script to aid during git merges of your index table
