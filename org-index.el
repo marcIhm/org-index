@@ -86,11 +86,14 @@
 
 ;;; Change Log:
 
+;;   [2016-10-19 We] Version 5.1.4
+;;   - Bugfixes
+;;
 ;;   [2016-08-26 Fr] Version 5.1.3
 ;;   - Offering help during query for subcommands
 ;;   - Removed org-index-default-keybindings
 ;;   - Renamed subcommand multi-occur to find-ref
-;;   - Subcommands add and need no longer be invoked from heading
+;;   - Subcommands add needs no longer be invoked from heading
 ;;   - Many Bugfixes
 ;;
 ;;   [2015-12-29 Tu] Version 5.0.2
@@ -721,7 +724,6 @@ interactive calls."
         (let (args)
 
           (setq args (org-index--collect-values-from-user org-index-edit-on-ref))
-          (setq args (plist-put args 'category "yank"))
           (setq args (plist-put args 'ref org-index--nextref))
           (apply 'org-index--do-new-line args)
 
@@ -2302,7 +2304,7 @@ CREATE-REF and TAG-WITH-REF if given."
 
 
 (defun org-index--collect-values-from-user (cols &optional defaults)
-  "Collect values for adding a new yank-line.
+  "Collect values for adding a new line.
 Argument COLS gives list of columns to edit.
 Optional argument DEFAULTS gives default values."
   
