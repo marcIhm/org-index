@@ -32,3 +32,7 @@
     - screencast.el :: The lisp code used to play the screencast
     - screencast-init.el :: Customizations for screencast
     - screencast.org :: Internal Notes about the screencast
+			
+*** Merge driver for git
+
+    - merge-org-inde.rb :: Simple ruby script to aid during git merges of your index table
