@@ -13,7 +13,6 @@
 # for details on using this driver with git
 # 
 require 'tempfile'
-require 'fileutils'
 
 class OrgTable < Hash
 
@@ -94,7 +93,6 @@ other = OrgTable.new(ARGV[2])
   fail "Part #{part.to_s} does not match in current and other" unless current[part] == other[part]
 end
 
-e_name = '/tmp/merge-org-index.org'
 edit_hint = '  Please merge manually:
 
   - Merge or Select one of two lines from sections "CONFLICTS, current" 
@@ -106,16 +104,16 @@ edit_hint = '  Please merge manually:
   - Remove all marker lines with "wwww" and this comment
 
 '
-File.open(e_name,'w') do |e_file|
+File.open(ARGV[1],'w') do |file|
 
   [:before_heading, :heading, :before_table].each do |part|
-    e_file.write current[part]
+    file.write current[part]
   end
 
-  e_file.write edit_hint
+  file.write edit_hint
 
   [:table_caption, :table_hline].each do |part|
-    e_file.write current[part]
+    file.write current[part]
   end
 
   inters = current[:lines].keys & other[:lines].keys
@@ -138,22 +136,20 @@ File.open(e_name,'w') do |e_file|
     end
   end
 
-  e_file.write current.format("CONFLICTS, current",conflicts)
-  e_file.write other.format("CONFLICTS, other",conflicts)
-  e_file.write ancestor.format("CONFLICTS, ancestor",conflicts)
-  e_file.write other.format("other only",oonly)
-  e_file.write current.format("current only",conly)
-  e_file.write current.format("current modified",cmod)
-  e_file.write other.format("other modified",omod)
-  e_file.write current.format("common",common)
-  
-  e_file.write current[:after_table]
+  file.write current.format("CONFLICTS, current",conflicts) +
+             other.format("CONFLICTS, other",conflicts) +
+             ancestor.format("CONFLICTS, ancestor",conflicts) +
+             other.format("other only",oonly) +
+             current.format("current only",conly) +
+             current.format("current modified",cmod) +
+             other.format("other modified",omod) +
+             current.format("common",common) +
+             current[:after_table]
 
 end
 
-system "emacs -nw --eval '(setq org-startup-folded 2)' #{e_name}"
+system "emacs -nw --eval '(setq org-startup-folded 2)' #{ARGV[1]}"
 puts "Trying to parse the edited file ..."
-edited=OrgTable.new(e_name)
+edited=OrgTable.new(ARGV[1])
 puts "Okay."
-fail "edit hint hast not been removed from #{e_name}" if edited[:before_table].include?(edit_hint)
-FileUtils::mv e_name,ARGV[0]
+fail "edit hint hast not been removed from #{ARGV[1]}" if edited[:before_table].include?(edit_hint)
