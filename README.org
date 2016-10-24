@@ -43,20 +43,5 @@
 		       	
 *** Custom merge-driver for git
 
-    - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table
-	 
-    To employ this driver, you need this in your .git/config:
-    (assuming, that you have saved into /usr/bin/merge-org-index.rb)
-
-#+BEGIN_EXAMPLE
-[merge "merge-org-index"]
-	name = merge driver for org-index
-	driver = /usr/bin/merge-org-index.rb %O %A %B
-	recursive = binary
-#+END_EXAMPLE
-	
-    and this in your .git/info/attributes
-
-#+BEGIN_EXAMPLE
-index.org merge=merge-org-index
-#+END_EXAMPLE
+    - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table;
+      see the comments within the file for instructions	 

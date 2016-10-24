@@ -9,10 +9,19 @@
 #   extra arguments are ignored
 # - There is no automatic merge; an editor (emacs) will be invoked in any case
 #
-# See:     https://git-scm.com/docs/gitattributes#_defining_a_custom_merge_driver
+# To employ this driver, you need this in your .git/config:
+# (assuming, that you have saved into /usr/bin/merge-org-index.rb)
 #
-# for details on using this driver with git
-# 
+#  [merge "merge-org-index"]
+#        name = merge driver for org-index
+#        driver = /usr/bin/merge-org-index.rb %O %A %B
+#        recursive = binary
+#
+# and this in your .git/info/attributes
+#
+#  index.org merge=merge-org-index
+#
+
 
 require 'tempfile'
 
