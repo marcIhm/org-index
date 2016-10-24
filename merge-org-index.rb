@@ -1,4 +1,5 @@
 #!/usr/bin/ruby
+
 #
 # A custom merge-driver for org-index.
 #
@@ -12,6 +13,7 @@
 #
 # for details on using this driver with git
 # 
+
 require 'tempfile'
 
 class OrgTable < Hash
@@ -85,14 +87,6 @@ class OrgTable < Hash
          
 end
 
-ancestor = OrgTable.new(ARGV[0])
-current = OrgTable.new(ARGV[1])
-other = OrgTable.new(ARGV[2])
-
-[:before_heading, :heading, :before_table, :table_caption, :table_hline, :after_table].each do |part|
-  fail "Part #{part.to_s} does not match in current and other" unless current[part] == other[part]
-end
-
 edit_hint = '  Please merge manually:
 
   - Merge or Select one of two lines from sections "CONFLICTS, current" 
@@ -104,6 +98,15 @@ edit_hint = '  Please merge manually:
   - Remove all marker lines with "wwww" and this comment
 
 '
+
+ancestor = OrgTable.new(ARGV[0])
+current = OrgTable.new(ARGV[1])
+other = OrgTable.new(ARGV[2])
+
+[:before_heading, :heading, :before_table, :table_caption, :table_hline, :after_table].each do |part|
+  fail "Part #{part.to_s} does not match in current and other" unless current[part] == other[part]
+end
+
 File.open(ARGV[1],'w') do |file|
 
   [:before_heading, :heading, :before_table].each do |part|
