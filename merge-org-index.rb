@@ -28,6 +28,7 @@ require 'tempfile'
 class OrgTable < Hash
 
   def initialize name
+    puts "Reading file #{name}"
     match_data = File.new(name).read.match(Regexp.new('
 \A  
 (?<before_heading>(^\s*\R)*)
@@ -47,8 +48,14 @@ class OrgTable < Hash
     
     lines = Hash.new
     self[:table_body].split(/\R/).each_with_index do |line,lineno|
+      next if line =~ /^\s*$/
       cols = line.split("|").drop(1).map(&:strip)
-      cols.each { |col| fail "Found marker line from merge in #{name} in line #{lineno}: line" if col.match(/^wwww+$/) }
+      skip = false
+      cols.each { |col| skip = true if col.match(/^wwww+$/) }
+      if skip
+        warn "Found marker line from merge in #{name} in line #{lineno}: #{line}"
+        next
+      end
       uid = [:ref, :id, :yank].map { |c| cols[columns[c]].strip }.join("|||")
       fail "Line with uid #{uid} appears for the second time: #{line}" if lines[uid]
       lines[uid] = Hash.new
@@ -105,6 +112,7 @@ edit_hint = '  Please merge manually:
   - Keep all lines from sections "current modified" and "other modified"
   - Keep section "common"
   - Remove all marker lines with "wwww" and this comment
+  - Remark: "common" is the last section; you do not need to look any further
 
 '
 
