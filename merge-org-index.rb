@@ -168,7 +168,7 @@ File.open(ARGV[1],'w') do |file|
 
 end
 
-system "emacs -nw --eval '(setq org-startup-folded 2)' #{ARGV[1]}"
+system "emacs -nw --eval '(setq org-startup-folded 2) (pop-to-buffer (find-file \"#{ARGV[1]}\")) (org-mode)"
 puts "Trying to parse the edited file ..."
 edited=OrgTable.new(ARGV[1])
 puts "Okay."
