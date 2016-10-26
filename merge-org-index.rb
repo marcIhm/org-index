@@ -184,7 +184,10 @@ File.open(ARGV[1],'w') do |file|
 
 end
 
-system "emacs -nw --eval '(setq org-startup-folded 2) (pop-to-buffer (find-file \"#{ARGV[1]}\")) (org-mode)"
+file = Dir.pwd + "/" + ARGV[1]
+command = "/usr/bin/emacs-w32.exe --eval '(setq org-startup-folded 2) (pop-to-buffer (find-file \"#{file}\")) (org-mode)' #{file}"
+puts "Executing: " + command
+system command
 puts "Trying to parse the edited file ..."
 edited=OrgTable.new(ARGV[1])
 puts "Okay."
