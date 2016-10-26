@@ -48,7 +48,7 @@ OptionParser.new do |opts|
   if ARGV.length != 3
     puts "Error: Need exactly three filenames"
     puts opts
-    exit
+    exit 1
   end
 end
 
