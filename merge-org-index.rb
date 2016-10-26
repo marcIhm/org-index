@@ -24,6 +24,35 @@
 
 
 require 'tempfile'
+require 'optparse'
+
+options = Hash.new
+
+OptionParser.new do |opts|
+  opts.banner = "Usage: merge-org-index.rb ANCESTOR CURRENT OTHER [options]"
+  opts.separator "Merge driver specifically for index-file of org-index.el"
+
+  options[:emacs]='emacs'
+  opts.on("-e","--emacs BINARY",
+          "Use this emacs binary invoked to edit merge candidate; default: #{options[:emacs]}") do |bin|
+    options[:emacs] = bin
+  end
+
+  opts.on("-h", "--help", "Prints this help") do
+    puts opts
+    exit
+  end
+
+  opts.parse!
+
+  if ARGV.length != 3
+    puts "Error: Need exactly three filenames"
+    puts opts
+    exit
+  end
+end
+
+
 
 class OrgTable < Hash
 
@@ -185,7 +214,7 @@ File.open(ARGV[1],'w') do |file|
 end
 
 file = Dir.pwd + "/" + ARGV[1]
-command = "/usr/bin/emacs-w32.exe --eval '(setq org-startup-folded 2) (pop-to-buffer (find-file \"#{file}\")) (org-mode)' #{file}"
+command = "#{options[emacs]} --eval '(setq org-startup-folded 2) (pop-to-buffer (find-file \"#{file}\")) (org-mode)'"
 puts "Executing: " + command
 system command
 puts "Trying to parse the edited file ..."
