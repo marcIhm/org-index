@@ -57,7 +57,11 @@ class OrgTable < Hash
         next
       end
       uid = [:ref, :id, :yank].map { |c| cols[columns[c]].strip }.join("|||")
-      fail "Line with uid #{uid} appears for the second time: #{line}" if lines[uid]
+      if lines[uid]
+        warn "Line with uid #{uid} appears for the second time: #{line}"
+        self[:duplicates] += line
+        next
+      end
       lines[uid] = Hash.new
       lines[uid][:cols] = cols
       lines[uid][:line] = line + "\n"
@@ -95,10 +99,18 @@ class OrgTable < Hash
   def format text,part
     formatted = ""
     if part.length > 0
-      formatted += self.format_line(:keywords => text, :markup => 'w')
+      formatted = self.format_line(:keywords => text, :markup => 'w')
       part.each { |key| formatted += self[:lines][key][:line] }
     end
     formatted
+  end
+         
+  def format_duplicates text
+    if self[:duplicates]
+      self.format_line(:keywords => text, :markup => 'w') + self[:duplicates]
+    else
+      ""
+    end
   end
          
 end
@@ -109,6 +121,8 @@ edit_hint = '  Please merge manually:
     and "CONFLICTS, other"; use "CONFLICTS, ancestor" as a reference
   - Remove lines from "other only"
   - Keep lines from "current only"
+  - Remove lines from "current duplicates"
+  - Remove lines from "other duplicates"
   - Keep all lines from sections "current modified" and "other modified"
   - Keep section "common"
   - Remove all marker lines with "wwww" and this comment
@@ -161,6 +175,8 @@ File.open(ARGV[1],'w') do |file|
              ancestor.format("CONFLICTS, ancestor",conflicts) +
              other.format("other only",oonly) +
              current.format("current only",conly) +
+             current.format_duplicates("current duplicates") +
+             other.format_duplicates("other duplicates") +
              current.format("current modified",cmod) +
              other.format("other modified",omod) +
              current.format("common",common) +
