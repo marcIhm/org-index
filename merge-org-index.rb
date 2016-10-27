@@ -1,27 +1,26 @@
 #!/usr/bin/ruby
 
-#
-# A custom merge-driver for org-index.
-#
-# It comes with these restrictions
-# - Your index must be placed as a single in its own file
-# - It expects exactly the three argument %O %A %B as described in the link below;
-#   extra arguments are ignored
-# - There is no automatic merge; an editor (emacs) will be invoked in any case
-#
-# To employ this driver, you need this in your .git/config:
-# (assuming, that you have saved into /usr/bin/merge-org-index.rb)
-#
-#  [merge "merge-org-index"]
-#        name = merge driver for org-index
-#        driver = /usr/bin/merge-org-index.rb %O %A %B
-#        recursive = binary
-#
-# and this in your .git/info/attributes
-#
-#  index.org merge=merge-org-index
-#
+desc = 'A custom merge-driver for org-index.
 
+It comes with these restrictions:
+- Your index must be placed as a single in its own file
+- It expects exactly the three argument %O %A %B which specify the filenames of
+  the ancestor, current and other branches version of the file to be merged.
+- There is no automatic merge; an editor (emacs) will be invoked in any case
+
+To employ this driver, you need to put this in your .git/config:
+(assuming, that you have saved this file into /usr/bin)
+
+ [merge "merge-org-index"]
+       name = merge driver for org-index
+       driver = /usr/bin/merge-org-index.rb %O %A %B
+       recursive = binary
+
+and this in your .git/info/attributes
+
+ index.org merge=merge-org-index
+
+'
 
 require 'tempfile'
 require 'optparse'
@@ -34,16 +33,27 @@ OptionParser.new do |opts|
 
   options[:emacs]='emacs'
   opts.on("-e","--emacs BINARY",
-          "Use this emacs binary invoked to edit merge candidate; default: #{options[:emacs]}") do |bin|
+          "Use this emacs binary to edit merge candidate; default: #{options[:emacs]}") do |bin|
     options[:emacs] = bin
   end
 
-  opts.on("-h", "--help", "Prints this help") do
+  opts.on("-h","-?","--help","show this text") do
     puts opts
     exit
   end
 
-  opts.parse!
+  opts.on("-d","--description","show description and hints on how to use this script with git") do
+    puts desc
+    exit
+  end
+
+  begin
+    opts.parse!(ARGV)
+  rescue OptionParser::InvalidOption => e
+    puts e
+    puts opts
+    exit 1
+  end
 
   if ARGV.length != 3
     puts "Error: Need exactly three filenames"
