@@ -224,7 +224,7 @@ File.open(ARGV[1],'w') do |file|
 end
 
 file = Dir.pwd + "/" + ARGV[1]
-command = "#{options[emacs]} --eval '(setq org-startup-folded 2) (pop-to-buffer (find-file \"#{file}\")) (org-mode)'"
+command = "#{options[:emacs]} --eval '(setq org-startup-folded 2) (pop-to-buffer (find-file \"#{file}\")) (org-mode)'"
 puts "Executing: " + command
 system command
 puts "Trying to parse the edited file ..."
