@@ -84,6 +84,7 @@ class OrgTable < Hash
     columns = Hash.new
     self[:table_caption].split(/\R/)[0].split("|").drop(1).map(&:strip).map {|s| s.sub(/-/,"_")}.map(&:to_sym).each_with_index {|x,i| columns[x] = i}
     self[:table_columns] = columns
+    self[:has_marker_lines] = false
     
     lines = Hash.new
     self[:table_body].split(/\R/).each_with_index do |line,lineno|
@@ -93,6 +94,7 @@ class OrgTable < Hash
       cols.each { |col| skip = true if col.match(/^wwww+$/) }
       if skip
         warn "Found marker line from merge in #{name} in line #{lineno}: #{line}"
+        self[:has_marker_lines] = true
         next
       end
       uid = [:ref, :id, :yank].map { |c| cols[columns[c]].strip }.join("|||")
@@ -224,10 +226,14 @@ File.open(ARGV[1],'w') do |file|
 end
 
 file = Dir.pwd + "/" + ARGV[1]
-arguments = " --eval '(setq org-startup-folded 2) (pop-to-buffer (find-file \"#{file}\")) (org-mode)'"
-puts "Executing: " + options[:emacs] + arguments
-system options[:emacs], arguments
+args = ["(setq org-startup-folded 2)",
+        "(setq org-startup-align-all-tables t)",
+        "(pop-to-buffer (find-file \"#{file}\"))",
+        "(org-mode)"].map {|x| ["--eval",x]}.flatten
+puts "Executing: " + options[:emacs] + " " + args.join(" ")
+system options[:emacs], *args
 puts "Trying to parse the edited file ..."
 edited=OrgTable.new(ARGV[1])
-puts "Okay."
-fail "edit hint hast not been removed from #{ARGV[1]}" if edited[:before_table].include?(edit_hint)
+warn "Edit hint has not been removed from #{ARGV[1]}" if edited[:before_table].include?(edit_hint.split("\n").first.strip)
+fail "Found marker lines in #{ARGV[1]}" if edited[:has_marker_lines]
+puts "Done."
