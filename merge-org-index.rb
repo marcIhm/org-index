@@ -4,12 +4,13 @@ desc = 'A custom merge-driver for org-index.
 
 It comes with these restrictions:
 - Your index must be placed as a single in its own file
-- It expects exactly the three argument %O %A %B which specify the filenames of
-  the ancestor, current and other branches version of the file to be merged.
-- There is no automatic merge; an editor (emacs) will be invoked in any case
+- It expects exactly the three argument which specify the filenames of
+  ancestor, current and other branches version of the file to be merged.
+- There is no automatic merge; an editor (emacs) will be invoked 
+  in most cases
 
 To employ this driver, you need to put this in your .git/config:
-(assuming, that you have saved this file into /usr/bin)
+(assuming, that you have saved this script into /usr/bin)
 
  [merge "merge-org-index"]
        name = merge driver for org-index
@@ -29,7 +30,7 @@ options = Hash.new
 
 OptionParser.new do |opts|
   opts.banner = "Usage: merge-org-index.rb ANCESTOR CURRENT OTHER [options]"
-  opts.separator "Merge driver specifically for index-file of org-index.el"
+  opts.separator desc.split("\n").first.strip
 
   options[:emacs]='emacs'
   opts.on("-e","--emacs BINARY",
@@ -137,10 +138,10 @@ class OrgTable < Hash
     fmttd
   end
   
-  def format text,part
+  def format part,text
     formatted = ""
     if part.length > 0
-      formatted = self.format_line(:keywords => text, :markup => 'w')
+      formatted = self.format_line(:keywords => text, :markup => 'w') if text
       part.each { |key| formatted += self[:lines][key][:line] }
     end
     formatted
@@ -192,8 +193,8 @@ File.open(ARGV[1],'w') do |file|
   end
 
   inters = current[:lines].keys & other[:lines].keys
-  conly = current[:lines].keys - other[:lines].keys
-  oonly = other[:lines].keys - current[:lines].keys
+  conly = current[:lines].keys - inters
+  oonly = other[:lines].keys - inters
 
   cmod = Array.new
   omod = Array.new
@@ -211,16 +212,16 @@ File.open(ARGV[1],'w') do |file|
     end
   end
 
-  file.write current.format("CONFLICTS, current",conflicts) +
-             other.format("CONFLICTS, other",conflicts) +
-             ancestor.format("CONFLICTS, ancestor",conflicts) +
-             other.format("other only",oonly) +
-             current.format("current only",conly) +
-             current.format_duplicates("current duplicates") +
+  file.write current.format(conflicts,"CONFLICTS, current") +
+             other.format(conflicts,"CONFLICTS, other") +
+             ancestor.format(conflicts,"CONFLICTS, ancestor") +
+             other.format(oonly,"other only") +
+             current.format(conly,"current only") +
+             current.format_duplicates(cmod,"current duplicates") +
              other.format_duplicates("other duplicates") +
-             current.format("current modified",cmod) +
-             other.format("other modified",omod) +
-             current.format("common",common) +
+             current.format("current modified") +
+             other.format(omod,"other modified") +
+             current.format(common,"common") +
              current[:after_table]
 
 end
