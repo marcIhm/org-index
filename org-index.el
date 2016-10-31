@@ -247,7 +247,7 @@ those pieces."
                   (const category)
                   (const keywords))))
 
-(defcustom org-index-edit-on-yank '(yank keywords)
+(defcustom org-index-edit-on-yank '(keywords yank)
   "List of columns to edit when adding new text to yank."
   :group 'org-index
   :type '(repeat (choice
