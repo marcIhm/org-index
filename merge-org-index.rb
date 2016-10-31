@@ -217,9 +217,9 @@ File.open(ARGV[1],'w') do |file|
              ancestor.format(conflicts,"CONFLICTS, ancestor") +
              other.format(oonly,"other only") +
              current.format(conly,"current only") +
-             current.format_duplicates(cmod,"current duplicates") +
+             current.format_duplicates("current duplicates") +
              other.format_duplicates("other duplicates") +
-             current.format("current modified") +
+             current.format(cmod,"current modified") +
              other.format(omod,"other modified") +
              current.format(common,"common") +
              current[:after_table]
