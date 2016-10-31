@@ -161,8 +161,10 @@ edit_hint = '  Please merge manually:
 
   - Merge or Select one of two lines from sections "CONFLICTS, current" 
     and "CONFLICTS, other"; use "CONFLICTS, ancestor" as a reference
-  - Remove lines from "other only"
-  - Keep lines from "current only"
+  - Keep lines from "current added"
+  - Remove lines from "current removed"
+  - Keep lines from "other added"
+  - Remove lines from "other removed"
   - Remove lines from "current duplicates"
   - Remove lines from "other duplicates"
   - Keep all lines from sections "current modified" and "other modified"
@@ -172,12 +174,13 @@ edit_hint = '  Please merge manually:
 
 '
 
+# Remark, this does not conform with the git documentation ?!
 ancestor = OrgTable.new(ARGV[0])
-current = OrgTable.new(ARGV[1])
-other = OrgTable.new(ARGV[2])
+current = OrgTable.new(ARGV[2])
+other = OrgTable.new(ARGV[1])
 
 [:before_heading, :heading, :before_table, :table_caption, :table_hline, :after_table].each do |part|
-  fail "Part #{part.to_s} does not match in current and other" unless current[part] == other[part]
+  warn "Part #{part.to_s} does not match in current and other" unless current[part] == other[part]
 end
 
 File.open(ARGV[1],'w') do |file|
@@ -193,9 +196,25 @@ File.open(ARGV[1],'w') do |file|
   end
 
   inters = current[:lines].keys & other[:lines].keys
-  conly = current[:lines].keys - inters
-  oonly = other[:lines].keys - inters
-
+  cadd = Array.new
+  ormv = Array.new
+  (current[:lines].keys - inters).each do |key|
+    if ancestor[:lines][key]
+      ormv << key
+    else
+      cadd << key
+    end
+  end
+  oadd = Array.new
+  crmv = Array.new
+  (other[:lines].keys - inters).each do |key|
+    if ancestor[:lines][key]
+      crmv << key
+    else
+      oadd << key
+    end
+  end
+  
   cmod = Array.new
   omod = Array.new
   common = Array.new
@@ -215,8 +234,10 @@ File.open(ARGV[1],'w') do |file|
   file.write current.format(conflicts,"CONFLICTS, current") +
              other.format(conflicts,"CONFLICTS, other") +
              ancestor.format(conflicts,"CONFLICTS, ancestor") +
-             other.format(oonly,"other only") +
-             current.format(conly,"current only") +
+             current.format(cadd,"current added") +
+             ancestor.format(crmv,"current removed") +
+             other.format(oadd,"other added") +
+             ancestor.format(ormv,"other removed") +
              current.format_duplicates("current duplicates") +
              other.format_duplicates("other duplicates") +
              current.format(cmod,"current modified") +
