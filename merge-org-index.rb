@@ -122,6 +122,7 @@ class OrgTable < Hash
 
   def format_line fields
     fmttd = self[:table_hline].dup
+    fmttd.gsub!('+','|')
     self[:table_columns].each_key do |key|
       if fields[key]
         text = fields[key]
@@ -133,7 +134,6 @@ class OrgTable < Hash
       fmttd.sub!(/-+/) do |match|
         (' ' + text + markup * match.length)[0,match.length - 1] + ' '
       end
-      fmttd.gsub!('+','|')
     end
     fmttd
   end
@@ -160,13 +160,14 @@ end
 edit_hint = "  This merge is manual, section by section.
 
   Each section starts with a stretch of 'wwwwwww' and a
-  heading (e.g. '+ current added'). The first character of
-  the heading (one of ?,+,-), gives a hint on how to treat 
-  this section:
+  heading (e.g. '+ current added'); its first character
+  (one of ?,+,-), gives a hint on how to treat the section:
 
     ? : You need to select manually one line from several secions
     + : Should be kept
     - : Should be removed
+
+  The headings themselves should be removed in any case.
 
 "
 
