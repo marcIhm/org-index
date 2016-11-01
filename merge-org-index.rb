@@ -157,22 +157,18 @@ class OrgTable < Hash
          
 end
 
-edit_hint = '  Please merge manually:
+edit_hint = "  This merge is manual, section by section.
 
-  - Merge or Select one of two lines from sections "CONFLICTS, current" 
-    and "CONFLICTS, other"; use "CONFLICTS, ancestor" as a reference
-  - Keep lines from "current added"
-  - Remove lines from "current removed"
-  - Keep lines from "other added"
-  - Remove lines from "other removed"
-  - Remove lines from "current duplicates"
-  - Remove lines from "other duplicates"
-  - Keep all lines from sections "current modified" and "other modified"
-  - Keep section "common"
-  - Remove all marker lines with "wwww" and this comment
-  - Remark: "common" is the last section; you do not need to look any further
+  Each section starts with a stretch of 'wwwwwww' and a
+  heading (e.g. '+ current added'). The first character of
+  the heading (one of ?,+,-), gives a hint on how to treat 
+  this section:
 
-'
+    ? : You need to select manually one line from several secions
+    + : Should be kept
+    - : Should be removed
+
+"
 
 # Remark, this does not conform with the git documentation ?!
 ancestor = OrgTable.new(ARGV[0])
@@ -231,18 +227,18 @@ File.open(ARGV[1],'w') do |file|
     end
   end
 
-  file.write current.format(conflicts,"CONFLICTS, current") +
-             other.format(conflicts,"CONFLICTS, other") +
-             ancestor.format(conflicts,"CONFLICTS, ancestor") +
-             current.format(cadd,"current added") +
-             ancestor.format(crmv,"current removed") +
-             other.format(oadd,"other added") +
-             ancestor.format(ormv,"other removed") +
-             current.format_duplicates("current duplicates") +
-             other.format_duplicates("other duplicates") +
-             current.format(cmod,"current modified") +
-             other.format(omod,"other modified") +
-             current.format(common,"common") +
+  file.write current.format(conflicts,"? CONFLICTS, current") +
+             other.format(conflicts,"? CONFLICTS, other") +
+             ancestor.format(conflicts,"? CONFLICTS, ancestor") +
+             current.format(cadd,"+ current added") +
+             ancestor.format(crmv,"- current removed") +
+             other.format(oadd,"+ other added") +
+             ancestor.format(ormv,"- other removed") +
+             current.format_duplicates("- current duplicates") +
+             other.format_duplicates("- other duplicates") +
+             current.format(cmod,"+ current modified") +
+             other.format(omod,"+ other modified") +
+             current.format(common,"+ common") +
              current[:after_table]
 
 end
