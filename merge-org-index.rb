@@ -131,8 +131,8 @@ class OrgTable < Hash
         text = ''
         markup = fields[:markup] || ' '
       end
-      fmttd.sub!(/--+/) do |match|
-        (' ' + text + markup * match.length)[0,match.length - 1] + ' '
+      fmttd.sub!(/\|-+\|/) do |match|
+        ('| ' + text + markup * match.length)[0,match.length - 2] + ' |'
       end
     end
     fmttd
