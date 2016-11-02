@@ -67,8 +67,8 @@ end
 
 class OrgTable < Hash
 
-  def initialize name
-    puts "Reading file #{name}"
+  def initialize name, text
+    puts "Reading file #{name} as #{text}"
     match_data = File.new(name).read.match(Regexp.new('
 \A  
 (?<before_heading>(^\s*\R)*)
@@ -117,7 +117,7 @@ class OrgTable < Hash
   end
 
   def line key
-    self[:lines][key][:line]
+    self[:lines][key][:line].gsub(/\s+\|/," |").gsub(/\|\s+/,"| ")
   end
 
   def format_line fields
@@ -172,9 +172,9 @@ edit_hint = "  This merge is manual, section by section.
 "
 
 # Remark, this does not conform with the git documentation ?!
-ancestor = OrgTable.new(ARGV[0])
-current = OrgTable.new(ARGV[2])
-other = OrgTable.new(ARGV[1])
+ancestor = OrgTable.new(ARGV[0],"ancestor")
+current = OrgTable.new(ARGV[2],"current")
+other = OrgTable.new(ARGV[1],"other")
 
 [:before_heading, :heading, :before_table, :table_caption, :table_hline, :after_table].each do |part|
   warn "Part #{part.to_s} does not match in current and other" unless current[part] == other[part]
@@ -193,6 +193,7 @@ File.open(ARGV[1],'w') do |file|
   end
 
   inters = current[:lines].keys & other[:lines].keys
+
   cadd = Array.new
   ormv = Array.new
   (current[:lines].keys - inters).each do |key|
@@ -202,6 +203,7 @@ File.open(ARGV[1],'w') do |file|
       cadd << key
     end
   end
+
   oadd = Array.new
   crmv = Array.new
   (other[:lines].keys - inters).each do |key|
