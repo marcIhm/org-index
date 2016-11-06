@@ -116,7 +116,7 @@ class OrgTable < Hash
     self[:lines][key][:cols][self[:table_columns][col]]
   end
 
-  def line key
+  def digest key
     self[:lines][key][:line].gsub(/\s+\|/," |").gsub(/\|\s+/,"| ")
   end
 
@@ -219,11 +219,11 @@ File.open(ARGV[1],'w') do |file|
   common = Array.new
   conflicts = Array.new
   inters.each do |key|
-    if current.line(key) == other.line(key)
+    if current.digest(key) == other.digest(key)
       common << key
-    elsif other.line(key) == ancestor.line(key)
+    elsif other.digest(key) == ancestor.digest(key)
       cmod << key
-    elsif current.line(key) == ancestor.line(key)
+    elsif current.digest(key) == ancestor.digest(key)
       omod << key
     else
       conflicts << key
