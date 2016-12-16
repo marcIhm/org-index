@@ -1219,8 +1219,8 @@ retrieves the value of the count-column for reference number 12.
 Argument COLUMN is a symbol, either ref or id,
 argument VALUE specifies the value to search for."
   ;; check arguments
-  (unless (memq column '(ref id))
-    (error "Argument column can only be 'ref' or 'id'"))
+  (unless (memq column '(ref id keywords 'yank))
+    (error "Argument column can only be 'ref', 'id', 'keywords' or 'yank'"))
 
   (unless value
     (error "Need a value to search for"))
