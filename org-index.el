@@ -86,6 +86,9 @@
 
 ;;; Change Log:
 
+;;   [2017-01-18 Mi] Version 5.1.5
+;;   - Compatibility issue with emacs 24 (font-lock-ensure)
+;;
 ;;   [2016-10-19 We] Version 5.1.4
 ;;   - Bugfixes
 ;;
@@ -2738,8 +2741,9 @@ If OTHER in separate window."
       (org-mode)
       (setq truncate-lines t)
       (if all-lines (org-index--align-and-fontify-current-line (length all-lines)))
-      (font-lock-ensure)
-      (font-lock-flush)
+      (when (fboundp 'font-lock-ensure)
+        (font-lock-ensure)
+        (font-lock-flush))
       (when all-lines-lbp
           (while (not (org-at-table-p))
             (forward-line -1))

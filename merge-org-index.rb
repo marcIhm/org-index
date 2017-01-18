@@ -100,7 +100,8 @@ class OrgTable < Hash
       end
       uid = [:ref, :id, :yank].map { |c| cols[columns[c]].strip }.join("|||")
       if lines[uid]
-        warn "Line with uid #{uid} appears for the second time: #{line}"
+        warn "Line with uid '#{uid}' appears again: #{line}"
+        self[:duplicates] ||= ""
         self[:duplicates] += line
         next
       end
@@ -168,6 +169,8 @@ edit_hint = "  This merge is manual, section by section.
     - : Should be removed
 
   The headings themselves should be removed in any case.
+
+  Having edited this file you may git add and commit.
 
 "
 
