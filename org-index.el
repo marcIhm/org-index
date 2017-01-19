@@ -280,6 +280,7 @@ those pieces."
 (defvar org-index--saved-positions nil "Saved positions within current buffer and index buffer; filled by ‘org-index--save-positions’.")
 (defvar org-index--headings nil "Headlines of index-table as a string.")
 (defvar org-index--headings-visible nil "Visible part of headlines of index-table as a string.")
+(defvar org-index--id-focused-node nil "Id of focused node (if any)")
 
 ;; Variables to hold context and state
 (defvar org-index--last-fingerprint nil "Fingerprint of last line created.")
@@ -307,7 +308,7 @@ those pieces."
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 
 ;; static information for this program package
-(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help example sort find-ref highlight maintain) "List of commands available.")
+(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus set-focus example sort find-ref highlight maintain) "List of commands available.")
 (defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
@@ -405,6 +406,13 @@ of subcommands to choose from:
     Can be invoked from index, from occur or from a headline.
 
   help: Show complete help text of org-index.
+
+  focus: [f] Return to (i.e. focus on) the node. 
+    The focused node needs to be set previously. Useful, if you 
+    mostly work in one node but make frequent excursions to others.
+
+  set-focus: [F] Set focus to current node.
+    Does not make it part of the index.
 
   short-help: [?] Show one-line description of each subcommand.
     I.e. show this list but only first sentence each.
@@ -828,6 +836,28 @@ interactive calls."
                 (setq message-text (format "Highlighted references in %s" where)))))))
 
 
+       ((eq command 'focus)
+
+        (if org-index--id-focused-node
+            (let (marker)
+              (setq marker (org-id-find org-index--id-focused-node 'marker))
+              (unless marker (error "Could not find focused node"))
+              (pop-to-buffer-same-window (marker-buffer marker))
+              (goto-char (marker-position marker))
+              (org-index--unfold-buffer)
+              (move-marker marker nil)
+              (setq message-text "Moved to focused node"))
+          (setq message-text "No node is focused, use set-focus")))
+
+       
+       ((eq command 'set-focus)
+        (let ((focus-id (org-id-get-create)))
+          (with-current-buffer org-index--buffer
+            (org-entry-put org-index--point "id-focused-node" focus-id)
+            (setq org-index--id-focused-node focus-id)
+            (setq message-text "Focus has been set on node"))))
+
+       
        ((eq command 'maintain)
         (setq message-text (org-index--do-maintain)))
 
@@ -1392,6 +1422,9 @@ Argument COLUMN and VALUE specify line to get."
       (while (and (org-at-table-p)
                   (not (setq ref-field (org-index--get-or-set-field 'ref))))
         (forward-line))
+
+      ;; Get id of focused node (if any)
+      (setq org-index--id-focused-node (org-entry-get nil "id-focused-node"))
 
       ;; Some Checking
       (unless ref-field
