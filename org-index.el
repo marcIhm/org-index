@@ -568,7 +568,7 @@ interactive calls."
       ;;
 
       ;; Arrange for beeing able to return
-      (when (and (memq command '(occur head index example sort maintain))
+      (when (and (memq command '(occur head index example sort maintain focus))
                  (not (string= (buffer-name) org-index--occur-buffer-name)))
         (org-mark-ring-push))
 
@@ -841,13 +841,13 @@ interactive calls."
         (if org-index--id-focused-node
             (let (marker)
               (setq marker (org-id-find org-index--id-focused-node 'marker))
-              (unless marker (error "Could not find focused node"))
+              (unless marker (error "Could not find focus-node"))
               (pop-to-buffer-same-window (marker-buffer marker))
               (goto-char (marker-position marker))
               (org-index--unfold-buffer)
               (move-marker marker nil)
-              (setq message-text "Moved to focused node"))
-          (setq message-text "No node is focused, use set-focus")))
+              (setq message-text "Jumped to focus-node"))
+          (setq message-text "No focus-node, use set-focus")))
 
        
        ((eq command 'set-focus)
@@ -855,7 +855,7 @@ interactive calls."
           (with-current-buffer org-index--buffer
             (org-entry-put org-index--point "id-focused-node" focus-id)
             (setq org-index--id-focused-node focus-id)
-            (setq message-text "Focus has been set on node"))))
+            (setq message-text "Focus has been set on current node"))))
 
        
        ((eq command 'maintain)
