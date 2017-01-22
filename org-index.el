@@ -1,9 +1,9 @@
 ;;; org-index.el --- A personal adaptive index for org
 
-;; Copyright (C) 2011-2016 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.1.4
+;; Version: 5.2.0
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -86,8 +86,9 @@
 
 ;;; Change Log:
 
-;;   [2017-01-18 Mi] Version 5.1.5
-;;   - Compatibility issue with emacs 24 (font-lock-ensure)
+;;   [2017-01-22 Su] Version 5.2.0
+;;   - New command 'focus'
+;;   - Fixed compatibility issue with emacs 24 (font-lock-ensure)
 ;;
 ;;   [2016-10-19 We] Version 5.1.4
 ;;   - Bugfixes
@@ -174,7 +175,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.1.4" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.2.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -361,7 +362,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.1.4 of org-index.el.
+This is version 5.2.0 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -407,12 +408,12 @@ of subcommands to choose from:
 
   help: Show complete help text of org-index.
 
-  focus: [f] Return to (i.e. focus on) the node. 
-    The focused node needs to be set previously. Useful, if you 
-    mostly work in one node but make frequent excursions to others.
-
-  set-focus: [F] Set focus to current node.
-    Does not make it part of the index.
+  focus: [f] Return to focus-node; need to set-focus [F] before.
+    The focused node is a single and special node, the location
+    of which is remembered and which can be found with a single
+    key-sequence; it need not be part of the index though.  This
+    can be useful, if you mostly work in one node, but make
+    frequent excursions to others.
 
   short-help: [?] Show one-line description of each subcommand.
     I.e. show this list but only first sentence each.
@@ -1023,7 +1024,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (end-of-line)
         (insert " (this text)")
         (goto-char (point-min))
-        (unless (= (line-number-at-pos (point-max)) (1+ (length org-index--commands)))
+        (unless (= (line-number-at-pos (point-max)) (length org-index--commands))
           (error "Internal error, unable to properly extract one-line descriptions of subcommands"))
         (setq org-index--short-help-text (buffer-string)))))
 
