@@ -68,8 +68,8 @@
 (ert-deftest oidx-test-create-and-retrieve-yank ()
   (oidx-with-test-setup
     (oidx-do "y a n k <return> f o o <return> b a r <return>")
-    (oidx-do "o c c u r <return> b a r <return>")
-    (should (string= "foo" (current-kill 0)))))
+    (oidx-do "o c c u r <return> f o o <return>")
+    (should (string= "bar" (current-kill 0)))))
 
 
 (ert-deftest oidx-test-respect-sequence-yank ()
@@ -134,7 +134,7 @@
     (execute-kbd-macro (kbd "C-c i ? h e l p <return>"))
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
-      (should (= (line-number-at-pos) 19)))))
+      (should (= (line-number-at-pos) 20)))))
 
 
 (ert-deftest oidx-test-occur-result ()
@@ -311,7 +311,7 @@
 
 (ert-deftest oidx-test-yank ()
   (oidx-with-test-setup
-    (oidx-do "y a n k <return> f o o b a r")
+    (oidx-do "y a n k <return> q u x <return> f o o b a r")
     (oidx-do "i n d e x <return> .")
     (oidx-do "c o l u m n <return> k b a z")
     (oidx-do "o c c u r <return> b a z <return>")
@@ -323,7 +323,7 @@
 
 (ert-deftest oidx-test-delete-yank ()
   (oidx-with-test-setup
-    (oidx-do "y a n k <return> f o o")
+    (oidx-do "y a n k <return> f o o <return> b a r <return>")
     (oidx-do "o c c u r <return> f o o <return>")
     (oidx-do "k i l l <return>")
     (oidx-do "o c c u r <return> f o o <return>")
@@ -503,9 +503,9 @@
   (oidx-with-test-setup
     (previous-line 2)
     (org-cycle)
-    (forward-line)
-    (org-end-of-line)
-    (insert "\n** Neu")
+    (forward-line 4)
+    (insert "** Neu\n")
+    (forward-line -1)
     (oidx-do "p i n g <return>")
     (should (string= org-index--message-text
                      "'--4--' (parent node, 1 level up) has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', keywords are 'eins-drei' and ready to yank '--4--'."))))
@@ -628,8 +628,8 @@
     (setq org-index--last-sort org-index-sort-by)
     (org-agenda-file-to-front oidx-ert-work-file)
     (switch-to-buffer oidx-work-buffer)
-;;    (basic-save-buffer)
-;;    (org-id-update-id-locations (list oidx-ert-work-file) t)
+    (basic-save-buffer)
+    (org-id-update-id-locations (list oidx-ert-work-file) t)
     (delete-other-windows)
     (org-back-to-heading)
     (beginning-of-line)))
@@ -734,8 +734,8 @@
 
 ")
       (forward-line -1)
-;;      (basic-save-buffer)
-;;      (org-id-update-id-locations (list oidx-ert-index-file) t)
+      (basic-save-buffer)
+      (org-id-update-id-locations (list oidx-ert-index-file) t)
       (org-table-align))))
 
 
