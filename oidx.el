@@ -162,6 +162,15 @@
     (should (looking-at ".* --8--"))))
 
 
+(ert-deftest oidx-test-focus ()
+  (oidx-with-test-setup
+    (oidx-do "o c c u r <return> z w e i <down> <return>")
+    (oidx-do "s e t - f o c u s <return>")
+    (beginning-of-buffer)
+    (oidx-do "f o c u s <return>")
+    (should (looking-at ".* --8--"))))
+
+
 (ert-deftest oidx-test-find-ref ()
   (oidx-with-test-setup
     (oidx-do "f i n d - r e f <return> 4 <return>")
@@ -679,14 +688,35 @@
     (mapcar (lambda (x)
               (set x (eval (car (get x 'standard-value)))))
             customizable)
-    (setq org-index-id new-id)))
+
+    ;; save some standard org-variables
+    (unless oidx-saved-id (setq oidx-saved-id org-index-id))
+    (setq org-index-id new-id)
+
+    (unless oidx-saved-id-locations (setq oidx-saved-id-locations org-id-locations))
+    (setq org-id-locations nil)
+
+    (unless oidx-id-track-globally (setq oidx-id-track-globally org-id-track-globally))
+    (setq org-id-track-globally nil)))
 
 
 (defun oidx-restore-saved-state ()
   (if oidx-saved-state
       (mapc (lambda (x) (set (car x) (cdr x))) oidx-saved-state)
       (setq org-index-id oidx-saved-id)
-    (error "No saved state to restore")))
+      (error "No saved state to restore"))
+
+  (when oidx-saved-id
+    (setq org-index-id oidx-saved-id)
+    (setq oidx-saved-id nil))
+  
+  (when oidx-saved-id-locations
+    (setq org-id-locations oidx-saved-id-locations)
+    (setq oidx-saved-id-locations))
+
+  (when oidx-id-track-globally
+    (setq org-id-track-globally oidx-id-track-globally)
+    (setq oidx-id-track-globally nil)))
 
 
 ;;
