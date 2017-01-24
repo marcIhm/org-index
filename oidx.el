@@ -53,7 +53,9 @@
 (defvar oidx-ert-work-file (concat temporary-file-directory "oidx-ert-work.org"))
 (defvar oidx-work-buffer nil)
 (defvar oidx-index-buffer nil)
-
+(defvar oidx-saved-id nil)
+(defvar oidx-saved-id-locations nil)
+(defvar oidx-id-track-globally nil)
 
 ;;
 ;; All tests
@@ -712,10 +714,10 @@
   
   (when oidx-saved-id-locations
     (setq org-id-locations oidx-saved-id-locations)
-    (setq oidx-saved-id-locations))
+    (setq oidx-saved-id-locations nil))
 
   (when oidx-id-track-globally
-    (setq org-id-track-globally oidx-id-track-globally)
+;;    (setq org-id-track-globally oidx-id-track-globally)
     (setq oidx-id-track-globally nil)))
 
 
