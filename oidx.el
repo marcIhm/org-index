@@ -55,7 +55,7 @@
 (defvar oidx-index-buffer nil)
 (defvar oidx-saved-id nil)
 (defvar oidx-saved-id-locations nil)
-(defvar oidx-id-track-globally nil)
+(defvar oidx-saved-agenda-files nil)
 
 ;;
 ;; All tests
@@ -640,7 +640,8 @@
     (org-agenda-file-to-front oidx-ert-work-file)
     (switch-to-buffer oidx-work-buffer)
     (basic-save-buffer)
-    (org-id-update-id-locations (list oidx-ert-work-file) t)
+    (let (log-size message-log-max)
+      (org-id-update-id-locations (list oidx-ert-work-file) t))
     (delete-other-windows)
     (org-back-to-heading)
     (beginning-of-line)))
@@ -698,8 +699,8 @@
     (unless oidx-saved-id-locations (setq oidx-saved-id-locations org-id-locations))
     (setq org-id-locations nil)
 
-    (unless oidx-id-track-globally (setq oidx-id-track-globally org-id-track-globally))
-    (setq org-id-track-globally nil)))
+    (unless oidx-saved-agenda-files org-agenda-files)
+    (setq org-agenda-files nil)))
 
 
 (defun oidx-restore-saved-state ()
@@ -716,9 +717,9 @@
     (setq org-id-locations oidx-saved-id-locations)
     (setq oidx-saved-id-locations nil))
 
-  (when oidx-id-track-globally
-;;    (setq org-id-track-globally oidx-id-track-globally)
-    (setq oidx-id-track-globally nil)))
+  (when oidx-saved-agenda-files
+    (setq org-agenda-files oidx-saved-agenda-files)
+    (setq oidx-saved-agenda-files)))
 
 
 ;;
@@ -728,7 +729,7 @@
 (defun oidx-prepare-test-index ()
   (let ((test-id "1f44f43c-1a37-4d55-oidx-test-index"))
     (oidx-save-and-set-state test-id)
-;;    (org-id-add-location test-id oidx-ert-index-file)
+    (org-id-add-location test-id oidx-ert-index-file)
     (unless oidx-index-buffer
       (setq oidx-index-buffer (find-file-noselect oidx-ert-index-file)))
     (with-current-buffer oidx-index-buffer
@@ -767,7 +768,8 @@
 ")
       (forward-line -1)
       (basic-save-buffer)
-      (org-id-update-id-locations (list oidx-ert-index-file) t)
+      (let (log-size message-log-max)
+        (org-id-update-id-locations (list oidx-ert-work-file) t))
       (org-table-align))))
 
 

@@ -268,7 +268,6 @@ those pieces."
 
 ;; Variables to hold the configuration of the index table
 (defvar org-index--maxrefnum nil "Maximum number from reference table, e.g. 153.")
-(defvar org-index--nextref nil "Next reference, that can be used, e.g. 'R154'.")
 (defvar org-index--head nil "Header before number (e.g. 'R').")
 (defvar org-index--tail nil "Tail after number (e.g. '}' or ')'.")
 (defvar org-index--numcols nil "Number of columns in index table.")
@@ -296,7 +295,7 @@ those pieces."
 (defvar org-index--occur-stack nil "Stack with overlays for hiding lines.")
 (defvar org-index--occur-tail-overlay nil "Overlay to cover invisible lines.")
 (defvar org-index--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
-(defvar org-index--last-sort nil "Last column, the index has been sorted after.")
+(defvar org-index--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar org-index--sort-timer nil "Timer to sort index in correct order.")
 (defvar org-index--aligned nil "Remember for this Emacs session, if table has been aligned at least once.")
 (defvar org-index--edit-widgets nil "List of widgets used to edit.")
@@ -408,12 +407,14 @@ of subcommands to choose from:
 
   help: Show complete help text of org-index.
 
-  focus: [f] Return to focus-node; need to set-focus [F] before.
+  focus: [f] Return to focus-node; need to set-focus before.
     The focused node is a single and special node, the location
     of which is remembered and which can be found with a single
     key-sequence; it need not be part of the index though.  This
-    can be useful, if you mostly work in one node, but make
+    can be useful, if you mostly work in a single node, but make
     frequent excursions to others.
+
+  set-focus: [F] Set focus-node for command focus.
 
   short-help: [?] Show one-line description of each subcommand.
     I.e. show this list but only first sentence each.
@@ -482,7 +483,7 @@ interactive calls."
       ;;
 
       ;; lets assume, that it has been sorted this way (we try hard to make sure)
-      (unless org-index--last-sort (setq org-index--last-sort org-index-sort-by))
+      (unless org-index--last-sort-assumed (setq org-index--last-sort-assumed org-index-sort-by))
       ;; rearrange for index beeing sorted into default sort order after 300 secs of idle time
       (unless org-index--sort-timer
         (setq org-index--sort-timer
@@ -733,15 +734,16 @@ interactive calls."
 
        ((eq command 'ref)
 
-        (let (args)
+        (let (args newref)
 
           (setq args (org-index--collect-values-from-user org-index-edit-on-ref))
-          (setq args (plist-put args 'ref org-index--nextref))
+          (setq newref (org-index--get-save-maxrefnum))
+          (setq args (plist-put args 'ref newref))
           (apply 'org-index--do-new-line args)
 
-          (setq kill-new-text org-index--nextref)
+          (setq kill-new-text newref)
 
-          (setq message-text (format "Added new row with ref '%s'" org-index--nextref))))
+          (setq message-text (format "Added new row with ref '%s'" newref))))
 
 
        ((eq command 'yank)
@@ -853,7 +855,8 @@ interactive calls."
        
        ((eq command 'set-focus)
         (let ((focus-id (org-id-get-create)))
-          (with-current-buffer org-index--buffer
+          (save-excursion
+            (set-buffer org-index--buffer)
             (org-entry-put org-index--point "id-focused-node" focus-id)
             (setq org-index--id-focused-node focus-id)
             (setq message-text "Focus has been set on current node"))))
@@ -930,7 +933,7 @@ Optional argument KEYS-VALUES specifies content of new line."
     (if (not (memq ref  '(t nil)))
         (error "Column 'ref' accepts only 't' or 'nil'"))
     (when ref
-      (setq ref org-index--nextref)
+      (setq ref (org-index--get-newx-refnum))
       (setq keys-values (plist-put keys-values 'ref ref)))
 
     (apply 'org-index--do-new-line keys-values)
@@ -1024,7 +1027,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (end-of-line)
         (insert " (this text)")
         (goto-char (point-min))
-        (unless (= (line-number-at-pos (point-max)) (length org-index--commands))
+        (unless (= (line-number-at-pos (point-max)) (1+ (length org-index--commands)))
           (error "Internal error, unable to properly extract one-line descriptions of subcommands"))
         (setq org-index--short-help-text (buffer-string)))))
 
@@ -1368,14 +1371,12 @@ Argument COLUMN and VALUE specify line to get."
   "Parse content of index table."
 
   (let (ref-field
-        id-field
         initial-point
         end-of-headings
         start-of-headings)
 
     (with-current-buffer org-index--buffer
 
-      (setq org-index--maxrefnum 0)
       (setq initial-point (point))
 
       (org-index--go-below-hline)
@@ -1443,37 +1444,48 @@ Argument COLUMN and VALUE specify line to get."
                                          (regexp-quote org-index--tail)))
       (setq org-index--ref-format (concat org-index--head "%d" org-index--tail))
 
-      ;; check if the table still seems to be sorted mixed
+      ;; check, if the table still seems to be sorted mixed
       (goto-char org-index--below-hline)
       (when (eq org-index-sort-by 'mixed)
+        (let (count-first-line count-second-line)
           (org-index--go-below-hline)
-          (if (string< (org-index--get-or-set-field 'last-accessed)
-                       (org-index--get-mixed-time))
-              (org-index--do-sort-index org-index-sort-by)))
+          (setq count-first-line (string-to-number (org-index--get-or-set-field 'count)))
+          (forward-line)
+          (setq count-second-line (string-to-number (org-index--get-or-set-field 'count)))
+          (forward-line -1)
+          (if (and (string< (org-index--get-or-set-field 'last-accessed)
+                            (org-index--get-mixed-time))
+                   (< count-first-line count-second-line))
+              (org-index--do-sort-index org-index-sort-by))))
       
-      ;; Go through table to find maximum number and do some checking
-      (let ((refnum 0))
+      ;; read property or go through table to find maximum number
+      (setq org-index--maxrefnum (org-entry-get org-index--point "max-refnum"))
+      (if org-index--maxrefnum
+          (setq org-index--maxrefnum (string-to-number org-index--maxrefnum))
+        (setq org-index--maxrefnum 0)
+        (let ((refnum 0))
+          
+          (while (org-at-table-p)
+            (setq ref-field (org-index--get-or-set-field 'ref))
+            (if ref-field
+                (if (string-match org-index--ref-regex ref-field)
+                    ;; grab number
+                    (setq refnum (string-to-number (match-string 1 ref-field)))))
+            (if (> refnum org-index--maxrefnum) (setq org-index--maxrefnum refnum))
+            (forward-line)))
+        (org-index--get-save-maxrefnum t))
 
-        (while (org-at-table-p)
-
-          (setq ref-field (org-index--get-or-set-field 'ref))
-          (setq id-field (org-index--get-or-set-field 'id))
-
-          (if ref-field
-              (if (string-match org-index--ref-regex ref-field)
-                  ;; grab number
-                  (setq refnum (string-to-number (match-string 1 ref-field)))
-                (kill-whole-line)
-                (message "Removing line from index-table whose ref does not contain a number")))
-
-          ;; check, if higher ref
-          (if (> refnum org-index--maxrefnum) (setq org-index--maxrefnum refnum))
-
-          (forward-line 1)))
-
-      (setq org-index--nextref (format "%s%d%s" org-index--head (1+ org-index--maxrefnum) org-index--tail))
       ;; go back to initial position
       (goto-char initial-point))))
+
+
+(defun org-index--get-save-maxrefnum (&optional no-inc)
+  "Get next reference, increment number and store it in index"
+  (unless no-inc (setq org-index--maxrefnum (1+ org-index--maxrefnum)))
+  (save-excursion
+    (set-buffer org-index--buffer)
+    (org-entry-put org-index--point "max-refnum" (number-to-string org-index--maxrefnum)))
+  (format "%s%d%s" org-index--head org-index--maxrefnum org-index--tail))
 
 
 (defun org-index--refresh-parse-table ()
@@ -1579,7 +1591,8 @@ Argument COLUMN and VALUE specify line to get."
           ;; restore modification state
           (set-buffer-modified-p is-modified)))
 
-        (setq org-index--last-sort sort))))
+      (setq org-index--last-sort-assumed sort)
+      (setq org-index--last-sort-actual sort))))
 
 
 (defun org-index--do-sort-lines (what)
@@ -1997,7 +2010,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
         ref-field
         key)
 
-    (unless sort (setq sort org-index--last-sort)) ; use default value
+    (unless sort (setq sort org-index--last-sort-assumed)) ; use default value
 
     (when (or with-ref
               (eq sort 'ref))
@@ -2188,7 +2201,7 @@ CREATE-REF and TAG-WITH-REF if given."
 
       (when (and create-ref
                  (not ref))
-        (setq ref org-index--nextref)
+        (setq ref (org-index--get-save-maxrefnum))
         (setq args (plist-put args 'ref ref)))
 
       
@@ -2207,7 +2220,7 @@ CREATE-REF and TAG-WITH-REF if given."
                     (cons "Updated index line" nil))))
 
         ;; no id here, create new line in index
-        (if ref (setq ref (plist-put args 'ref org-index--nextref)))
+        (if ref (setq args (plist-put args 'ref ref)))
         (setq yank (apply 'org-index--do-new-line args))
 
         (setq ret
