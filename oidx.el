@@ -1,11 +1,11 @@
 ;;; oidx.el --- Regression Tests for org-index.el
 
-;; Copyright (C) 2011-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; Keywords: outlines, regression-tests, elisp
 ;; Requires: org, org-index
-;; Version: 1.4
+;; Version: 1.5.0
 
 ;; This file is not part of GNU Emacs.
 
@@ -136,7 +136,7 @@
     (execute-kbd-macro (kbd "C-c i ? h e l p <return>"))
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
-      (should (= (line-number-at-pos) 20)))))
+      (should (= (line-number-at-pos) 21)))))
 
 
 (ert-deftest oidx-test-occur-result ()
@@ -158,7 +158,7 @@
 (ert-deftest oidx-test-mark-ring ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> z w e i <down> <return>")
-    (oidx-do "o c c u r <return> e i n s <down> <return>")
+    (oidx-do "o c c u r <return> e i n s <return>")
     (should (looking-at ".* --13--"))
     (org-mark-ring-goto)
     (should (looking-at ".* --8--"))))
@@ -173,6 +173,20 @@
     (should (looking-at ".* --8--"))))
 
 
+(ert-deftest oidx-test-migrate-index ()
+  (oidx-with-test-setup
+    (oidx-do "o c c u r <return> e i n s <return>")
+    (forward-char 2)
+    (should (looking-at "--13--"))
+    (with-current-buffer "oidx-ert-index.org"
+      (org-entry-delete (point)  "max-ref"))
+    (oidx-do "o c c u r <return> e i n s <return>")
+    (forward-char 2)
+    (should (looking-at "--13--"))
+    (oidx-do "i n d e x <return> SPC")
+    (should (string= (org-entry-get (point) "max-ref") "--14--"))))
+
+
 (ert-deftest oidx-test-find-ref ()
   (oidx-with-test-setup
     (oidx-do "f i n d - r e f <return> 4 <return>")
@@ -182,7 +196,7 @@
       (kill-line))
     (should (string= (buffer-name) "*Occur*"))
     (should (oidx-check-buffer "*Occur*"
-                               "bd5e61fe29ee9884a7006849bb0428a4"))))
+                               "e5210bd309fc4abf0df550cfd5be7a63"))))
 
 
 (ert-deftest oidx-test-no-id ()
@@ -208,13 +222,14 @@
        (lambda (x)
          (beginning-of-buffer)
          (while (search-forward x nil t)
-           (replace-match "replaced")))
+           (backward-delete-char (length x))
+           (insert "replaced")))
        (list (org-entry-get (point) "ID") 
              (with-temp-buffer (org-insert-time-stamp nil nil t))))
       (org-index--go-below-hline)
       (org-table-align))
     (should (oidx-check-buffer "*org-index-example-index*" 
-                               "274fcd460e79fa7330f997a91f0ecdf8"))))
+                               "0cd76a72e306ea880f19de339268ede4"))))
 
 
 (ert-deftest oidx-test-node-above-index ()
@@ -498,9 +513,9 @@
     (previous-line 2)
     (forward-char 2)
     (insert "foo ")
-    (oidx-do "m a i n t a i n <return> u p d a t e <return> y")
+    (oidx-do "m a i n t a i n <return> u p d a t e <return> y") ; "foo " should be transported to index
     (should (oidx-check-buffer oidx-index-buffer 
-                               "0650826ee7192ea12e32214e5446569c"))))
+                               "1ec880fb4296d3ecb9688ea29c1ea752"))))
 
 (ert-deftest oidx-test-ping ()
   (oidx-with-test-setup
@@ -532,7 +547,7 @@
 (ert-deftest oidx-test-sort-by ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> e i n s <return>")    
-    (should (equal (oidx-get-refs) '(1 2 3 4 5 6 7 8 9 10 11 12 14 13)))
+    (should (equal (oidx-get-refs) '(1 2 3 4 5 6 7 8 9 10 11 12 13 14)))
 
     (setq org-index-sort-by 'last-accessed)
     (org-index--sort-silent)
@@ -612,7 +627,8 @@
       (goto-char (point-min))
       (org-mode)
       (while (search-forward-regexp org-ts-regexp-both nil t)
-        (replace-match "erased"))
+        (backward-delete-char 15)
+        (insert "erased"))
       (org-map-entries
        (lambda () (if (org-entry-get (point) "ID") (org-entry-put (point) "ID" "erased"))))
       (message "--- Start of complete Buffer content %s ---\n%s\n--- End of complete buffer content"
@@ -631,6 +647,8 @@
 
 (defun oidx-setup-test ()
   (interactive)
+  (if org-index--sort-timer
+      (cancel-timer org-index--sort-timer))
   ;; remove any left over buffers
   (oidx-remove-work-buffers)
   ;; create them new
@@ -639,9 +657,8 @@
     (setq org-index--last-sort org-index-sort-by)
     (org-agenda-file-to-front oidx-ert-work-file)
     (switch-to-buffer oidx-work-buffer)
-    (basic-save-buffer)
-    (let (log-size message-log-max)
-      (org-id-update-id-locations (list oidx-ert-work-file) t))
+;;    (basic-save-buffer)
+;;    (org-id-update-id-locations (list oidx-ert-work-file) t)
     (delete-other-windows)
     (org-back-to-heading)
     (beginning-of-line)))
@@ -649,10 +666,12 @@
   
 (defun oidx-teardown-test ()
   (interactive)
+  (remove-hook 'before-save-hook 'org-index--sort-silent)
   (progn (oidx-restore-saved-state)
          (with-current-buffer oidx-work-buffer (set-buffer-modified-p nil))
          (with-current-buffer oidx-index-buffer (set-buffer-modified-p nil)))
-  (org-remove-file oidx-ert-work-file))
+  (org-remove-file oidx-ert-work-file)
+  (setq org-index--head nil))
 
 
 (defun oidx-remove-work-buffers ()
@@ -663,10 +682,8 @@
               (with-current-buffer b
                 (set-buffer-modified-p nil))
               (kill-buffer b))))
-        (list "*org-index-occur*"
-              "oidx-ert-index.org"
-              "oidx-ert-work.org"
-              "*org-index-example-index*"))
+        (list "oidx-ert-index.org"
+              "oidx-ert-work.org"))
   (setq oidx-work-buffer nil
         oidx-index-buffer nil))
 
@@ -729,6 +746,7 @@
 (defun oidx-prepare-test-index ()
   (let ((test-id "1f44f43c-1a37-4d55-oidx-test-index"))
     (oidx-save-and-set-state test-id)
+    (remove-hook 'before-save-hook 'org-index--sort-silent)
     (org-id-add-location test-id oidx-ert-index-file)
     (unless oidx-index-buffer
       (setq oidx-index-buffer (find-file-noselect oidx-ert-index-file)))
@@ -744,6 +762,7 @@
        "* oidx-test-index
   :PROPERTIES:
   :ID:       " test-id "
+  :max-ref:  --14--
   :END:
        
 
@@ -767,9 +786,9 @@
 
 ")
       (forward-line -1)
-      (basic-save-buffer)
-      (let (log-size message-log-max)
-        (org-id-update-id-locations (list oidx-ert-work-file) t))
+;;      (basic-save-buffer)
+      ;;      (org-id-update-id-locations (list oidx-ert-work-file) t)
+      (setq org-index--head nil)
       (org-table-align))))
 
 

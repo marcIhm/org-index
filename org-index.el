@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.2.0
+;; Version: 5.2.1
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -55,7 +55,8 @@
 ;;  - Add these lines to your .emacs:
 ;;
 ;;    (require 'org-index)
-;;    (global-set-key (kbd "C-c i") 'org-index-dispatch) ; this is optional
+;;    (global-set-key (kbd "C-c i") 'org-index-dispatch) ; this is optional but recommended
+;;    (org-index-prepare-when-idle)  ; this is optional, not needed initially; see its description
 ;;
 ;;  - Restart your Emacs to make these lines effective.
 ;;
@@ -86,9 +87,11 @@
 
 ;;; Change Log:
 
-;;   [2017-01-22 Su] Version 5.2.0
+;;   [2017-01-28 Sa] Version 5.2.1
 ;;   - New command 'focus'
+;;   - Speeded on speed by using the stored property "max-ref"
 ;;   - Fixed compatibility issue with emacs 24 (font-lock-ensure)
+;;   - Bugfixes
 ;;
 ;;   [2016-10-19 We] Version 5.1.4
 ;;   - Bugfixes
@@ -312,7 +315,7 @@ those pieces."
 (defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
-(defconst org-index--sort-idle-delay 300 "Delay in seconds after which buffer will sorted.")
+(defconst org-index--idle-delay 68 "Delay in seconds after which buffer will sorted or fontified.")
 (defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
 (defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
 
@@ -487,7 +490,7 @@ interactive calls."
       ;; rearrange for index beeing sorted into default sort order after 300 secs of idle time
       (unless org-index--sort-timer
         (setq org-index--sort-timer
-              (run-with-idle-timer org-index--sort-idle-delay t 'org-index--sort-silent)))
+              (run-with-idle-timer org-index--idle-delay t 'org-index--sort-silent)))
 
 
       ;;
@@ -737,7 +740,7 @@ interactive calls."
         (let (args newref)
 
           (setq args (org-index--collect-values-from-user org-index-edit-on-ref))
-          (setq newref (org-index--get-save-maxrefnum))
+          (setq newref (org-index--get-save-maxref))
           (setq args (plist-put args 'ref newref))
           (apply 'org-index--do-new-line args)
 
@@ -811,7 +814,7 @@ interactive calls."
                              ""))
                    (symbol-name sort)
                    org-index-sort-by
-                   org-index--sort-idle-delay
+                   org-index--idle-delay
                    (second groups-and-counts)
                    (symbol-name sort)
                    (third groups-and-counts))))
@@ -929,11 +932,11 @@ Optional argument KEYS-VALUES specifies content of new line."
 
   (let ((ref (plist-get keys-values 'ref)))
     (org-index--verify-id)
-    (org-index--parse-table)
+    (org-index--parse-table t)
     (if (not (memq ref  '(t nil)))
         (error "Column 'ref' accepts only 't' or 'nil'"))
     (when ref
-      (setq ref (org-index--get-newx-refnum))
+      (setq ref (org-index--get-save-maxref))
       (setq keys-values (plist-put keys-values 'ref ref)))
 
     (apply 'org-index--do-new-line keys-values)
@@ -1263,7 +1266,7 @@ argument VALUE specifies the value to search for."
     (error "Need a value to search for"))
   
   (org-index--verify-id)
-  (org-index--parse-table)
+  (org-index--parse-table t)
 
   (org-index--get-line column value))
 
@@ -1367,10 +1370,11 @@ Argument COLUMN and VALUE specify line to get."
   (setq org-index--within-occur (string= (buffer-name) org-index--occur-buffer-name)))
 
 
-(defun org-index--parse-table ()
+(defun org-index--parse-table (&optional no-reformat)
   "Parse content of index table."
 
   (let (ref-field
+        ref-num
         initial-point
         end-of-headings
         start-of-headings)
@@ -1380,9 +1384,11 @@ Argument COLUMN and VALUE specify line to get."
       (setq initial-point (point))
 
       (org-index--go-below-hline)
+      (unless no-reformat (org-reveal))
 
       ;; align and fontify table once for this emacs session
-      (unless org-index--aligned
+      (unless (or org-index--aligned no-reformat)
+        (message "Aligning and fontifying index table (once per emacs session)...")
         (org-table-align) ; needs to happen before fontification to be effective ?
         (let ((is-modified (buffer-modified-p))
               (below (point)))
@@ -1395,7 +1401,7 @@ Argument COLUMN and VALUE specify line to get."
 
       (org-index--go-below-hline)
       (beginning-of-line)
-
+      
       ;; get headings to display during occur
       (setq end-of-headings (point))
       (while (org-at-table-p) (forward-line -1))
@@ -1403,89 +1409,101 @@ Argument COLUMN and VALUE specify line to get."
       (setq start-of-headings (point))
       (setq org-index--headings-visible (substring-no-properties (org-index--copy-visible start-of-headings end-of-headings)))
       (setq org-index--headings (buffer-substring start-of-headings end-of-headings))
-
+      
       ;; count columns
       (org-table-goto-column 100)
       (setq org-index--numcols (- (org-table-current-column) 1))
-
+      
       ;; go to top of table
       (while (org-at-table-p)
         (forward-line -1))
       (forward-line)
-
+      
       ;; parse line of headings
       (org-index--parse-headings)
 
-      ;; parse list of flags
-      (goto-char org-index--point)
-
-      ;; Retrieve any decorations around the number within the first nonempty ref-field
+      ;; read property or go through table to find maximum number
       (goto-char org-index--below-hline)
-      (while (and (org-at-table-p)
-                  (not (setq ref-field (org-index--get-or-set-field 'ref))))
-        (forward-line))
-
+      (setq ref-field (or (org-entry-get org-index--point "max-ref")
+                          (org-index--migrate-maxref-to-property)))
+      
+      (unless org-index--head (org-index--get-decoration-from-ref-field ref-field))
+      (setq org-index--maxrefnum (org-index--extract-refnum ref-field))
+    
       ;; Get id of focused node (if any)
       (setq org-index--id-focused-node (org-entry-get nil "id-focused-node"))
 
-      ;; Some Checking
-      (unless ref-field
-        (org-index--report-index-error "Reference column is empty"))
-
-      (unless (string-match "^\\([^0-9]*\\)\\([0-9]+\\)\\([^0-9]*\\)$" ref-field)
-        (org-index--report-index-error
-         "First reference in index table ('%s') does not contain a number" ref-field))
-
-      ;; These are the decorations used within the first ref of index
-      (setq org-index--head (match-string 1 ref-field))
-      (setq org-index--tail (match-string 3 ref-field))
-      (setq org-index--ref-regex (concat (regexp-quote org-index--head)
-                                         "\\([0-9]+\\)"
-                                         (regexp-quote org-index--tail)))
-      (setq org-index--ref-format (concat org-index--head "%d" org-index--tail))
-
       ;; check, if the table still seems to be sorted mixed
-      (goto-char org-index--below-hline)
-      (when (eq org-index-sort-by 'mixed)
-        (let (count-first-line count-second-line)
-          (org-index--go-below-hline)
-          (setq count-first-line (string-to-number (org-index--get-or-set-field 'count)))
-          (forward-line)
-          (setq count-second-line (string-to-number (org-index--get-or-set-field 'count)))
-          (forward-line -1)
-          (if (and (string< (org-index--get-or-set-field 'last-accessed)
-                            (org-index--get-mixed-time))
-                   (< count-first-line count-second-line))
-              (org-index--do-sort-index org-index-sort-by))))
-      
-      ;; read property or go through table to find maximum number
-      (setq org-index--maxrefnum (org-entry-get org-index--point "max-refnum"))
-      (if org-index--maxrefnum
-          (setq org-index--maxrefnum (string-to-number org-index--maxrefnum))
-        (setq org-index--maxrefnum 0)
-        (let ((refnum 0))
-          
-          (while (org-at-table-p)
-            (setq ref-field (org-index--get-or-set-field 'ref))
-            (if ref-field
-                (if (string-match org-index--ref-regex ref-field)
-                    ;; grab number
-                    (setq refnum (string-to-number (match-string 1 ref-field)))))
-            (if (> refnum org-index--maxrefnum) (setq org-index--maxrefnum refnum))
-            (forward-line)))
-        (org-index--get-save-maxrefnum t))
+      (unless no-reformat
+        (goto-char org-index--below-hline)
+        (when (eq org-index-sort-by 'mixed)
+          (let (count-first-line count-second-line)
+            (setq count-first-line (string-to-number (concat (org-index--get-or-set-field 'count) " 0")))
+            (forward-line)
+            (setq count-second-line (string-to-number (concat (org-index--get-or-set-field 'count) " 0")))
+            (forward-line -1)
+            (if (and (string< (org-index--get-or-set-field 'last-accessed)
+                              (org-index--get-mixed-time))
+                     (< count-first-line count-second-line))
+                (org-index--do-sort-index org-index-sort-by)))))
 
+      ;; save position below hline
+      (org-index--go-below-hline)
       ;; go back to initial position
       (goto-char initial-point))))
 
 
-(defun org-index--get-save-maxrefnum (&optional no-inc)
+(defun org-index--get-decoration-from-ref-field (ref-field)
+  (unless (string-match "^\\([^0-9]*\\)\\([0-9]+\\)\\([^0-9]*\\)$" ref-field)
+    (org-index--report-index-error
+     "Reference in index table ('%s') does not contain a number" ref-field))
+
+  ;; These are the decorations used within the first ref of index
+  (setq org-index--head (match-string 1 ref-field))
+  (setq org-index--tail (match-string 3 ref-field))
+  (setq org-index--ref-regex (concat (regexp-quote org-index--head)
+                                     "\\([0-9]+\\)"
+                                     (regexp-quote org-index--tail)))
+  (setq org-index--ref-format (concat org-index--head "%d" org-index--tail)))
+
+
+(defun org-index--extract-refnum (ref-field)
+  (unless (string-match org-index--ref-regex ref-field)
+    (org-index--report-index-error
+     "Reference '%s' is not formatted properly (does not match '%s')" ref-field org-index--ref-regex))
+  (string-to-number (match-string 1 ref-field)))
+
+
+(defun org-index--migrate-maxref-to-property ()
+  "One-time migration: No property; need to go through whole table once to find max"
+  (org-index--go-below-hline)
+  (let (ref-field ref)
+    (message "One-time migration to set index-property maxref...")
+    (unless org-index--maxrefnum (setq org-index--maxrefnum 0))
+    (while (org-at-table-p)
+      (setq ref-field (org-index--get-or-set-field 'ref))
+      (when ref-field
+        (unless org-index--head (org-index--get-decoration-from-ref-field ref-field))
+        (setq ref-num (org-index--extract-refnum ref-field))
+        (if (> ref-num org-index--maxrefnum) (setq org-index--maxrefnum ref-num)))
+      (forward-line))
+    (unless org-index--maxrefnum
+      (org-index--report-index-error "No reference found in property max-ref and none in index."))
+    (setq ref (org-index--get-save-maxref t))
+    (org-index--go-below-hline)
+    (message "Done.")
+    ref))          
+
+
+(defun org-index--get-save-maxref (&optional no-inc)
   "Get next reference, increment number and store it in index"
-  (unless no-inc (setq org-index--maxrefnum (1+ org-index--maxrefnum)))
-  (save-excursion
-    (set-buffer org-index--buffer)
-    (org-entry-put org-index--point "max-refnum" (number-to-string org-index--maxrefnum)))
-  (format "%s%d%s" org-index--head org-index--maxrefnum org-index--tail))
+  (let (ref)
+    (unless no-inc (setq org-index--maxrefnum (1+ org-index--maxrefnum)))
+    (setq ref (format org-index--ref-format org-index--maxrefnum))
+    (save-excursion
+      (set-buffer org-index--buffer)
+      (org-entry-put org-index--point "max-ref" ref))
+    ref))
 
 
 (defun org-index--refresh-parse-table ()
@@ -1780,6 +1798,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
     (with-current-buffer buffer
       (goto-char (point-max))
       (insert (format "* %s %s\n" firstref title))
+      (org-entry-put org-index--point "max-ref" firstref)
       (if temporary
           (insert "
   Below you find your temporary index table, which WILL NOT LAST LONGER
@@ -2201,7 +2220,7 @@ CREATE-REF and TAG-WITH-REF if given."
 
       (when (and create-ref
                  (not ref))
-        (setq ref (org-index--get-save-maxrefnum))
+        (setq ref (org-index--get-save-maxref))
         (setq args (plist-put args 'ref ref)))
 
       
@@ -3028,11 +3047,24 @@ If OTHER in separate window."
   "Sort index for default column to remove any effects of temporary sorting."
   (save-excursion
     (org-index--verify-id)
-    (org-index--parse-table)
+    (org-index--parse-table t)
     (org-index--on nil nil
       (org-index--do-sort-index org-index-sort-by)
       (org-table-align)
       (remove-hook 'before-save-hook 'org-index--sort-silent))))
+
+
+(defun org-index--idle-prepare ()
+  "For parsing table when idle."
+  (org-index--verify-id)
+  (org-index--parse-table))
+
+
+(defun org-index-prepare-when-idle ()
+  "Optionally fontify and sort index-table when idle, so that first interactive call is faster.
+You only need this if your index has grown so large, that first invocation of org-index needs 
+a noticable amount of time."
+  (run-with-idle-timer org-index--idle-delay nil 'org-index--idle-prepare))
 
 
 (defun org-index--copy-visible (beg end)
