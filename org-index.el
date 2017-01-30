@@ -87,9 +87,10 @@
 
 ;;; Change Log:
 
-;;   [2017-01-28 Sa] Version 5.2.1
+;;   [2017-01-29 Su] Version 5.2.1
 ;;   - New command 'focus'
-;;   - Speeded on speed by using the stored property "max-ref"
+;;   - Improved on speed by using the stored property "max-ref"
+;;   - Added org-index-prepare-when-idle
 ;;   - Fixed compatibility issue with emacs 24 (font-lock-ensure)
 ;;   - Bugfixes
 ;;
