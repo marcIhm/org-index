@@ -145,7 +145,8 @@
     (should (string= (buffer-name) "oidx-ert-work.org"))
     (should (looking-at "* --13--"))
     (should (oidx-check-buffer "*org-index-occur*" 
-                               "22b80bbff1f3cae7e1e51b4f0a556c13"))))
+                               "f4e2382ec0f7bd47e54547ac33df5975"
+                               "oidx-test-occur-result"))))
 
 
 (ert-deftest oidx-test-occur-increment-count ()
@@ -158,7 +159,7 @@
 (ert-deftest oidx-test-mark-ring ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> z w e i <down> <return>")
-    (oidx-do "o c c u r <return> e i n s <return>")
+    (oidx-do "o c c u r <return> e i n s <down> <return>")
     (should (looking-at ".* --13--"))
     (org-mark-ring-goto)
     (should (looking-at ".* --8--"))))
@@ -196,7 +197,8 @@
       (kill-line))
     (should (string= (buffer-name) "*Occur*"))
     (should (oidx-check-buffer "*Occur*"
-                               "e5210bd309fc4abf0df550cfd5be7a63"))))
+                               "e5210bd309fc4abf0df550cfd5be7a63"
+                               "oidx-test-find-ref"))))
 
 
 (ert-deftest oidx-test-no-id ()
@@ -229,7 +231,8 @@
       (org-index--go-below-hline)
       (org-table-align))
     (should (oidx-check-buffer "*org-index-example-index*" 
-                               "0cd76a72e306ea880f19de339268ede4"))))
+                               "0cd76a72e306ea880f19de339268ede4"
+                               "oidx-test-example"))))
 
 
 (ert-deftest oidx-test-node-above-index ()
@@ -407,7 +410,8 @@
     (mark-whole-buffer)
     (oidx-do "s o r t <return> b u f f e r <return> y")
     (should (oidx-check-buffer "*org-index-scratch*"
-                               "38b8370137849afadb54b553b2090d57"))))
+                               "38b8370137849afadb54b553b2090d57"
+                               "oidx-test-sort-buffer"))))
 
 
 (ert-deftest oidx-test-highlight ()
@@ -515,7 +519,8 @@
     (insert "foo ")
     (oidx-do "m a i n t a i n <return> u p d a t e <return> y") ; "foo " should be transported to index
     (should (oidx-check-buffer oidx-index-buffer 
-                               "1ec880fb4296d3ecb9688ea29c1ea752"))))
+                               "b592b3e5d124c106fd3ae0aa573f6e88"
+                               "oidx-test-update-all-lines"))))
 
 (ert-deftest oidx-test-ping ()
   (oidx-with-test-setup
@@ -547,7 +552,7 @@
 (ert-deftest oidx-test-sort-by ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> e i n s <return>")    
-    (should (equal (oidx-get-refs) '(1 2 3 4 5 6 7 8 9 10 11 12 13 14)))
+    (should (equal (oidx-get-refs) '(1 2 3 4 5 6 7 8 9 10 11 12 14 13)))
 
     (setq org-index-sort-by 'last-accessed)
     (org-index--sort-silent)
@@ -609,33 +614,47 @@
         refs)))
 
 
-(defun oidx-check-buffer (buffer expected)
-  (let ((found (oidx-hash-buffer buffer)))
+(defun oidx-check-buffer (buffer expected tname)
+  (let ((found (oidx-hash-buffer buffer tname)))
     (if (string= found expected)
         t
       (message "Hash for buffer %s expected %s but found %s." buffer expected found)
       nil)))
 
 
-(defun oidx-hash-buffer (buffer)
-  (let (text)
+(defun oidx-hash-buffer (buffer tname)
+  (let (text rtext hash pbuf (pbufname "oidx-ert-output"))
     (with-current-buffer buffer
       (setq text (buffer-substring (point-min) (point-max))))
     (with-temp-buffer
       (beginning-of-buffer)
       (insert text)
-      (goto-char (point-min))
       (org-mode)
+      (goto-char (point-min))
       (while (search-forward-regexp org-ts-regexp-both nil t)
         (backward-delete-char 15)
         (insert "erased"))
+      (goto-char (point-min))
+      (while (search-forward-regexp  "[a-z0-9]\\{8\\}-[a-z0-9]\\{4\\}-[a-z0-9]\\{4\\}-[a-z0-9]\\{4\\}-[a-z0-9]\\{12\\}" nil t)
+        (backward-delete-char 36)
+        (insert "erased"))
       (org-map-entries
        (lambda () (if (org-entry-get (point) "ID") (org-entry-put (point) "ID" "erased"))))
-      (message "--- Start of complete Buffer content %s ---\n%s\n--- End of complete buffer content"
-               buffer (buffer-substring-no-properties (point-min) (point-max)))
+      (setq rtext (buffer-substring-no-properties (point-min) (point-max)))
       ;; calculate hash
-      (secure-hash 
-       'md5 (buffer-substring-no-properties (point-min) (point-max))))))
+      (setq hash (secure-hash 'md5 rtext))
+      ;; collect content for reference
+      (let ((pbuf (get-buffer-create pbufname)))
+        (with-current-buffer pbuf (goto-char (point-max)))
+        (princ (format "\n\n\nTest %s:\n" tname) pbuf)
+        (princ "START OF COMPLETE BUFFER CONTENT\n" pbuf)
+        (princ "-=-=-=-=-=-=-=-=-=-=-=-=-\n" pbuf)
+        (princ buffer pbuf)
+        (princ rtext pbuf)
+        (princ "-=-=-=-=-=-=-=-=-=-=-=-=-\n" pbuf)
+        (princ (format "END OF COMPLETE BUFFER CONTENT\nHash value is: %s\n\n" hash) pbuf)
+        (message "Content and hash in buffer %s" pbufname))
+      hash)))
 
 
 (defun oidx-hash-this-buffer () 
@@ -649,6 +668,9 @@
   (interactive)
   (if org-index--sort-timer
       (cancel-timer org-index--sort-timer))
+  (if (get-buffer "*org-index-occur*") (kill-buffer "*org-index-occur*"))
+  (setq org-index--last-sort-assumed 'mixed)
+  (setq org-index--maxrefnum nil)
   ;; remove any left over buffers
   (oidx-remove-work-buffers)
   ;; create them new
