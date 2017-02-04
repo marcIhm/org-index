@@ -12,14 +12,14 @@ It comes with these restrictions:
 To employ this driver, you need to put this in your .git/config:
 (assuming, that you have saved this script into /usr/bin)
 
- [merge "merge-org-index"]
-       name = merge driver for org-index
-       driver = /usr/bin/merge-org-index.rb %O %A %B
-       recursive = binary
+  [merge "merge-org-index"]
+        name = merge driver for org-index
+        driver = /usr/bin/merge-org-index.rb %O %A %B
+        recursive = binary
 
-and this in your .git/info/attributes
+and this in your .git/info/attributes:
 
- index.org merge=merge-org-index
+  index.org merge=merge-org-index
 
 '
 
@@ -136,29 +136,30 @@ class OrgTable < Hash
         ('| ' + text + markup * match.length)[0,match.length - 2] + ' |'
       end
     end
-    fmttd
+    fmttd.chomp + "\n"
   end
   
   def format part,text
-    formatted = ""
+    fmttd = ""
     if part.length > 0
-      formatted = self.format_line(:keywords => text, :markup => 'w') if text
-      part.each { |key| formatted += self[:lines][key][:line] }
+      fmttd = self.format_line(:keywords => text, :markup => 'w') if text
+      part.each { |key| fmttd += self[:lines][key][:line]; }
     end
-    formatted
+    fmttd
   end
          
   def format_duplicates text
     if self[:duplicates]
-      self.format_line(:keywords => text, :markup => 'w') + self[:duplicates]
+      self.format_line(:keywords => text, :markup => 'w') + self[:duplicates].chomp + "\n"
     else
-      ""
+      "\n"
     end
   end
          
 end
 
-edit_hint = "  This merge is manual, section by section.
+edit_hint = "  This editor is invoked to let you merge changes in your index;
+it needs to be done manually, section by section.
 
   Each section starts with a stretch of 'wwwwwww' and a
   heading (e.g. '+ current added'); its first character
@@ -168,9 +169,22 @@ edit_hint = "  This merge is manual, section by section.
     + : Should be kept
     - : Should be removed
 
-  The headings themselves should be removed in any case.
+  Description for some sections:
+    duplicates: lines, that also appear below in 'common' and can
+      be removed.
+    common: lines which are common in both versions, should be kept.
+      Also this is guaranteed to be the last section, so you dont need
+      to scroll further down.
 
-  Having edited this file you may git add and commit.
+  When editing a section, you should always remove its heading, i.e. 
+  the line with 'wwwww'.
+
+  Having edited all the sections you may continue like this:
+  (assuming that you started with 'git rebase'):
+  - 'git status' to see if any other file needs merging
+  - edit those other files manually with an editor
+  - 'git add' for all files that you edited, especially your index
+  - 'git rebase --continue' to finish the merge
 
 "
 
@@ -261,3 +275,5 @@ edited=OrgTable.new(ARGV[1])
 warn "Edit hint has not been removed from #{ARGV[1]}" if edited[:before_table].include?(edit_hint.split("\n").first.strip)
 fail "Found marker lines in #{ARGV[1]}" if edited[:has_marker_lines]
 puts "Done."
+
+exit 0
