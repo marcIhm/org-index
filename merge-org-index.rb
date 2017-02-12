@@ -152,7 +152,7 @@ class OrgTable < Hash
     if self[:duplicates]
       self.format_line(:keywords => text, :markup => 'w') + self[:duplicates].chomp + "\n"
     else
-      "\n"
+      ""
     end
   end
          
@@ -204,6 +204,7 @@ File.open(ARGV[1],'w') do |file|
   end
 
   file.write edit_hint
+  puts edit_hint
 
   [:table_caption, :table_hline].each do |part|
     file.write current[part]
