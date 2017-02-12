@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.2.1
+;; Version: 5.2.2
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -46,6 +46,10 @@
 ;;  To start using your index, invoke subcommands 'add', 'ref' and 'yank'
 ;;  to create entries and 'occur' to find them.
 ;;
+;;  Note: A subset of similar functions is already present in org: Try
+;;  org-sparse-tree, choose '/' and start your search term with a '*' to
+;;  search headlines only. This might already be enough for some cases.
+;;
 ;;
 ;; Setup:
 ;;
@@ -55,8 +59,8 @@
 ;;  - Add these lines to your .emacs:
 ;;
 ;;    (require 'org-index)
-;;    (global-set-key (kbd "C-c i") 'org-index-dispatch) ; this is optional but recommended
-;;    (org-index-prepare-when-idle)  ; this is optional, not needed initially; see its description
+;;    (global-set-key (kbd "C-c i") 'org-index-dispatch) ; optional but recommended
+;;    (org-index-prepare-when-idle)  ; optional, only needed when startup is slow
 ;;
 ;;  - Restart your Emacs to make these lines effective.
 ;;
@@ -87,7 +91,7 @@
 
 ;;; Change Log:
 
-;;   [2017-01-29 Su] Version 5.2.1
+;;   [2017-02-11 Sa] Version 5.2.2
 ;;   - New command 'focus'
 ;;   - Improved on speed by using the stored property "max-ref"
 ;;   - Added org-index-prepare-when-idle
@@ -179,7 +183,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.2.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.2.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -284,7 +288,7 @@ those pieces."
 (defvar org-index--saved-positions nil "Saved positions within current buffer and index buffer; filled by ‘org-index--save-positions’.")
 (defvar org-index--headings nil "Headlines of index-table as a string.")
 (defvar org-index--headings-visible nil "Visible part of headlines of index-table as a string.")
-(defvar org-index--id-focused-node nil "Id of focused node (if any)")
+(defvar org-index--id-focused-node nil "Id of focused node (if any).")
 
 ;; Variables to hold context and state
 (defvar org-index--last-fingerprint nil "Fingerprint of last line created.")
@@ -301,7 +305,8 @@ those pieces."
 (defvar org-index--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar org-index--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar org-index--sort-timer nil "Timer to sort index in correct order.")
-(defvar org-index--aligned nil "Remember for this Emacs session, if table has been aligned at least once.")
+(defvar org-index--aligned 0 "For this Emacs session: remember number of table lines aligned.")
+(defvar org-index--align-interactive most-positive-fixnum "Number of rows to align in org-index--parse-table.")
 (defvar org-index--edit-widgets nil "List of widgets used to edit.")
 (defvar org-index--context-index nil "Position and line used for index in edit buffer.")
 (defvar org-index--context-occur nil "Position and line used for occur in edit buffer.")
@@ -365,7 +370,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.2.0 of org-index.el.
+This is version 5.2.2 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -476,7 +481,7 @@ interactive calls."
       (org-index--verify-id)
 
       ;; Get configuration of index table
-      (org-index--parse-table)
+      (org-index--parse-table org-index--align-interactive t)
 
       ;; store context information
       (org-index--retrieve-context)
@@ -859,8 +864,7 @@ interactive calls."
        
        ((eq command 'set-focus)
         (let ((focus-id (org-id-get-create)))
-          (save-excursion
-            (set-buffer org-index--buffer)
+          (with-current-buffer org-index--buffer
             (org-entry-put org-index--point "id-focused-node" focus-id)
             (setq org-index--id-focused-node focus-id)
             (setq message-text "Focus has been set on current node"))))
@@ -933,7 +937,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 
   (let ((ref (plist-get keys-values 'ref)))
     (org-index--verify-id)
-    (org-index--parse-table t)
+    (org-index--parse-table)
     (if (not (memq ref  '(t nil)))
         (error "Column 'ref' accepts only 't' or 'nil'"))
     (when ref
@@ -1000,12 +1004,12 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
       (setq height-after (window-height win))
       (goto-char (point-min))
       (end-of-line)
-      (insert 
+      (insert
        (if (> height-before height-after)
            "."
          (concat ", "
                  (substitute-command-keys "\\[scroll-other-window]")
-                 " to scroll:")))     
+                 " to scroll:")))
       (goto-char (point-min)))))
 
 
@@ -1124,7 +1128,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   
 
 (defun org-index--edit-c-c-c-c ()
-  "Function to  invoked on C-c C-c in Edit buffer."
+  "Function to invoke on C-c C-c in Edit buffer."
   (interactive)
 
   (let ((obuf (get-buffer org-index--occur-buffer-name))
@@ -1267,7 +1271,7 @@ argument VALUE specifies the value to search for."
     (error "Need a value to search for"))
   
   (org-index--verify-id)
-  (org-index--parse-table t)
+  (org-index--parse-table)
 
   (org-index--get-line column value))
 
@@ -1371,8 +1375,10 @@ Argument COLUMN and VALUE specify line to get."
   (setq org-index--within-occur (string= (buffer-name) org-index--occur-buffer-name)))
 
 
-(defun org-index--parse-table (&optional no-reformat)
-  "Parse content of index table."
+(defun org-index--parse-table (&optional num-lines-to-format check-sort-mixed)
+  "Parse content of index table.
+Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration.
+Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
   (let (ref-field
         ref-num
@@ -1380,27 +1386,50 @@ Argument COLUMN and VALUE specify line to get."
         end-of-headings
         start-of-headings)
 
+    (unless num-lines-to-format (setq num-lines-to-format 0))
+
     (with-current-buffer org-index--buffer
 
       (setq initial-point (point))
 
       (org-index--go-below-hline)
-      (unless no-reformat (org-reveal))
+      (org-reveal)
+
+      ;; if table is sorted mixed and it was sorted correctly yesterday, it could still be wrong today; so check
+      (when (and check-sort-mixed (eq org-index-sort-by 'mixed))
+        (goto-char org-index--below-hline)
+        (let (count-first-line count-second-line)
+          (setq count-first-line (string-to-number (concat (org-index--get-or-set-field 'count) " 0")))
+          (forward-line)
+          (setq count-second-line (string-to-number (concat (org-index--get-or-set-field 'count) " 0")))
+          (forward-line -1)
+          (if (and (string< (org-index--get-or-set-field 'last-accessed)
+                            (org-index--get-mixed-time))
+                   (< count-first-line count-second-line))
+              (org-index--do-sort-index org-index-sort-by)))
+        (org-index--go-below-hline))
 
       ;; align and fontify table once for this emacs session
-      (unless (or org-index--aligned no-reformat)
-        (message "Aligning and fontifying index table (once per emacs session)...")
-        (org-table-align) ; needs to happen before fontification to be effective ?
-        (let ((is-modified (buffer-modified-p))
-              (below (point)))
-          (while (org-at-table-p)
-            (forward-line))
-          (font-lock-fontify-region below (point))
-          (org-index--go-below-hline)
-          (setq org-index--aligned t)
-          (set-buffer-modified-p is-modified)))
+      (when (> num-lines-to-format org-index--aligned)
+        (org-index--go-below-hline)
+        (message "Aligning and fontifying %s lines of index table (once per emacs session)..."
+                 (if (= num-lines-to-format most-positive-fixnum) "all" (format "%d" num-lines-to-format)))
+        (save-restriction
+          (let (from to)
+            (forward-line -3)
+            (setq from (point))
+            (setq to (org-table-end))
+            (when (< num-lines-to-format most-positive-fixnum)
+              (forward-line (+ 3 num-lines-to-format))
+              (narrow-to-region from (point))
+              (setq to (min (point) to)))
+            (goto-char org-index--below-hline)
+            (org-table-align)
+            (font-lock-fontify-region from to)))
+        (setq org-index--aligned num-lines-to-format)
+        (org-index--go-below-hline)
+        (message "Done."))
 
-      (org-index--go-below-hline)
       (beginning-of-line)
       
       ;; get headings to display during occur
@@ -1434,20 +1463,6 @@ Argument COLUMN and VALUE specify line to get."
       ;; Get id of focused node (if any)
       (setq org-index--id-focused-node (org-entry-get nil "id-focused-node"))
 
-      ;; check, if the table still seems to be sorted mixed
-      (unless no-reformat
-        (goto-char org-index--below-hline)
-        (when (eq org-index-sort-by 'mixed)
-          (let (count-first-line count-second-line)
-            (setq count-first-line (string-to-number (concat (org-index--get-or-set-field 'count) " 0")))
-            (forward-line)
-            (setq count-second-line (string-to-number (concat (org-index--get-or-set-field 'count) " 0")))
-            (forward-line -1)
-            (if (and (string< (org-index--get-or-set-field 'last-accessed)
-                              (org-index--get-mixed-time))
-                     (< count-first-line count-second-line))
-                (org-index--do-sort-index org-index-sort-by)))))
-
       ;; save position below hline
       (org-index--go-below-hline)
       ;; go back to initial position
@@ -1455,10 +1470,11 @@ Argument COLUMN and VALUE specify line to get."
 
 
 (defun org-index--get-decoration-from-ref-field (ref-field)
+  "Extract decoration from a reference like 'R102'."
   (unless (string-match "^\\([^0-9]*\\)\\([0-9]+\\)\\([^0-9]*\\)$" ref-field)
     (org-index--report-index-error
      "Reference in index table ('%s') does not contain a number" ref-field))
-
+  
   ;; These are the decorations used within the first ref of index
   (setq org-index--head (match-string 1 ref-field))
   (setq org-index--tail (match-string 3 ref-field))
@@ -1469,6 +1485,7 @@ Argument COLUMN and VALUE specify line to get."
 
 
 (defun org-index--extract-refnum (ref-field)
+  "Extract the number from a complete reference like 'R102'."
   (unless (string-match org-index--ref-regex ref-field)
     (org-index--report-index-error
      "Reference '%s' is not formatted properly (does not match '%s')" ref-field org-index--ref-regex))
@@ -1476,9 +1493,9 @@ Argument COLUMN and VALUE specify line to get."
 
 
 (defun org-index--migrate-maxref-to-property ()
-  "One-time migration: No property; need to go through whole table once to find max"
+  "One-time migration: No property; need to go through whole table once to find max."
   (org-index--go-below-hline)
-  (let (ref-field ref)
+  (let (ref-field ref-num ref)
     (message "One-time migration to set index-property maxref...")
     (unless org-index--maxrefnum (setq org-index--maxrefnum 0))
     (while (org-at-table-p)
@@ -1489,20 +1506,20 @@ Argument COLUMN and VALUE specify line to get."
         (if (> ref-num org-index--maxrefnum) (setq org-index--maxrefnum ref-num)))
       (forward-line))
     (unless org-index--maxrefnum
-      (org-index--report-index-error "No reference found in property max-ref and none in index."))
+      (org-index--report-index-error "No reference found in property max-ref and none in index"))
     (setq ref (org-index--get-save-maxref t))
     (org-index--go-below-hline)
     (message "Done.")
-    ref))          
+    ref))
 
 
 (defun org-index--get-save-maxref (&optional no-inc)
-  "Get next reference, increment number and store it in index"
+  "Get next reference, increment number and store it in index.
+Optional argument NO-INC skips automatic increment on maxref."
   (let (ref)
     (unless no-inc (setq org-index--maxrefnum (1+ org-index--maxrefnum)))
     (setq ref (format org-index--ref-format org-index--maxrefnum))
-    (save-excursion
-      (set-buffer org-index--buffer)
+    (with-current-buffer org-index--buffer
       (org-entry-put org-index--point "max-ref" ref))
     ref))
 
@@ -1580,7 +1597,7 @@ Argument COLUMN and VALUE specify line to get."
         (org-index--go-below-hline)
         (forward-line 0)
         (setq top (point))
-        (while (org-at-table-p) (forward-line))
+        (goto-char (org-table-end))
 
         ;; kill all empty rows at bottom
         (while (progn
@@ -1610,8 +1627,7 @@ Argument COLUMN and VALUE specify line to get."
           ;; restore modification state
           (set-buffer-modified-p is-modified)))
 
-      (setq org-index--last-sort-assumed sort)
-      (setq org-index--last-sort-actual sort))))
+      (setq org-index--last-sort-assumed sort))))
 
 
 (defun org-index--do-sort-lines (what)
@@ -2944,7 +2960,11 @@ If OTHER in separate window."
                   (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
                   (kill-new yank)
                   (org-mark-ring-goto)
-                  (format "Copied '%s' (no node is associated)" yank))
+                  (if (s-starts-with-p "http" yank)
+                      (progn
+                        (browse-url yank)
+                        (format "Opened '%s' in browser (and copied it too)" yank))
+                    (format "Copied '%s' (no node is associated)" yank)))
               (error "Internal error, this line contains neither id, nor reference, nor text to yank")))))
     (message "Not at table")))
 
@@ -3048,23 +3068,23 @@ If OTHER in separate window."
   "Sort index for default column to remove any effects of temporary sorting."
   (save-excursion
     (org-index--verify-id)
-    (org-index--parse-table t)
+    (org-index--parse-table)
     (org-index--on nil nil
       (org-index--do-sort-index org-index-sort-by)
-      (org-table-align)
       (remove-hook 'before-save-hook 'org-index--sort-silent))))
 
 
 (defun org-index--idle-prepare ()
   "For parsing table when idle."
   (org-index--verify-id)
-  (org-index--parse-table))
+  (org-index--parse-table most-positive-fixnum t))
 
 
 (defun org-index-prepare-when-idle ()
   "Optionally fontify and sort index-table when idle, so that first interactive call is faster.
-You only need this if your index has grown so large, that first invocation of org-index needs 
+You only need this if your index has grown so large, that first invocation of org-index needs
 a noticable amount of time."
+  (setq org-index--align-interactive 400)
   (run-with-idle-timer org-index--idle-delay nil 'org-index--idle-prepare))
 
 
