@@ -46,10 +46,6 @@
 ;;  To start using your index, invoke subcommands 'add', 'ref' and 'yank'
 ;;  to create entries and 'occur' to find them.
 ;;
-;;  Note: A subset of similar functions is already present in org: Try
-;;  org-sparse-tree, choose '/' and start your search term with a '*' to
-;;  search headlines only. This might already be enough for some cases.
-;;
 ;;
 ;; Setup:
 ;;
@@ -218,7 +214,7 @@ mixed  First, show all index entries, which have been
 	  (const count)
 	  (const mixed)))
 
-(defcustom org-index-dispatch-key (kbd "C-c i")
+(defcustom org-index-dispatch-key [C-c ?i]
   "Key to invoke ort-index-dispatch, which is the central entry
 function for org-index."
   :group 'org-index
