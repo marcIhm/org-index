@@ -218,6 +218,32 @@ mixed  First, show all index entries, which have been
 	  (const count)
 	  (const mixed)))
 
+(defcustom org-index-dispatch-key (kbd "C-c i")
+  "Key to invoke ort-index-dispatch, which is the central entry
+function for org-index."
+  :group 'org-index
+  :set (lambda (s v)
+         (set-default s (eval v))
+         (global-set-key (eval org-index-dispatch-key) 'org-index-dispatch))
+  :initialize (lambda (s v)
+                (set-default s (eval v))
+                (global-set-key (eval org-index-dispatch-key) 'org-index-dispatch))
+  :type 'key-sequence)
+
+(defcustom org-index-prepare-when-idle nil
+  "Optionally fontify and sort index-table when idle, so that first interactive call is faster.
+You only need this if your index has grown so large, that first invocation of org-index needs
+a noticable amount of time."
+  :group 'org-index
+  :set (lambda (s v)
+         (set-default s v)
+         (message "Change will become effective on next restart"))
+  :initialize (lambda (s v)
+                (when v
+                  (setq org-index--align-interactive 400)
+                  (run-with-idle-timer org-index--idle-delay nil 'org-index--idle-prepare)))
+  :type 'boolean)
+
 (defcustom org-index-yank-after-add 'ref
   "Specifies which column should be yanked after adding a new index row.
 Valid values are some columns of index table."
