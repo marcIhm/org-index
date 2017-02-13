@@ -49,22 +49,20 @@
 ;;
 ;; Setup:
 ;;
-;;  - Place this file in a directory from your load-path,
+;;  - Place this file in a directory of your load-path,
 ;;    e.g. org-mode/contrib/lisp.
 ;;
 ;;  - Add these lines to your .emacs:
 ;;
 ;;    (require 'org-index)
-;;    (global-set-key (kbd "C-c i") 'org-index-dispatch) ; optional but recommended
-;;    (org-index-prepare-when-idle)  ; optional, only needed when startup is slow
 ;;
 ;;  - Restart your Emacs to make these lines effective.
 ;;
 ;;  - Invoke `org-index'; on first run it will assist in creating your
 ;;    index table.
 ;;
-;;  - Optionally invoke `M-x org-customize' to tune some settings (choose
-;;    group org-index).
+;;  - Optionally invoke `M-x org-customize' (group 'Org Index') to tune
+;;    some settings, e.g. the global prefix key 'C-c i'.
 ;;
 ;;
 ;; Further information:
@@ -92,6 +90,7 @@
 ;;   - Improved on speed by using the stored property "max-ref"
 ;;   - Added org-index-prepare-when-idle
 ;;   - Fixed compatibility issue with emacs 24 (font-lock-ensure)
+;;   - Added more customizations
 ;;   - Bugfixes
 ;;
 ;;   [2016-10-19 We] Version 5.1.4
@@ -246,14 +245,6 @@ Valid values are some columns of index table."
   :group 'org-index
   :type '(choice
 	  (const ref)
-	  (const category)
-	  (const keywords)))
-
-(defcustom org-index-point-on-add 'keywords
-  "Specifies in which column point will land when adding a new index row.
-Valid values are some columns of index table."
-  :group 'org-index
-  :type '(choice
 	  (const category)
 	  (const keywords)))
 
