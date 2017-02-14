@@ -214,7 +214,7 @@ mixed  First, show all index entries, which have been
 	  (const mixed)))
 
 (defcustom org-index-dispatch-key [C-c ?i]
-  "Key to invoke ort-index-dispatch, which is the central entry
+  "Key to invoke org-index-dispatch, which is the central entry
 function for org-index."
   :group 'org-index
   :set (lambda (s v)
