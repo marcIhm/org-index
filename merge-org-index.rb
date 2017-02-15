@@ -272,7 +272,7 @@ args = ["(setq org-startup-folded 2)",
 puts "Executing: " + options[:emacs] + " " + args.join(" ")
 system options[:emacs], *args
 puts "Trying to parse the edited file ..."
-edited=OrgTable.new(ARGV[1])
+edited=OrgTable.new(ARGV[1],"edited")
 warn "Edit hint has not been removed from #{ARGV[1]}" if edited[:before_table].include?(edit_hint.split("\n").first.strip)
 fail "Found marker lines in #{ARGV[1]}" if edited[:has_marker_lines]
 puts "Done."
