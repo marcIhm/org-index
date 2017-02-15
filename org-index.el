@@ -213,16 +213,15 @@ mixed  First, show all index entries, which have been
 	  (const count)
 	  (const mixed)))
 
-(defcustom org-index-dispatch-key [C-c ?i]
+(defcustom org-index-dispatch-key "i"
   "Key to invoke org-index-dispatch, which is the central entry
 function for org-index."
   :group 'org-index
-  :set (lambda (s v)
-         (set-default s (eval v))
-         (global-set-key (eval org-index-dispatch-key) 'org-index-dispatch))
-  :initialize (lambda (s v)
-                (set-default s (eval v))
-                (global-set-key (eval org-index-dispatch-key) 'org-index-dispatch))
+  :initialize 'custom-initialize-set
+  :set (lambda (var val)
+         (message "foo %s %s" var (type-of (aref val 0)))
+         (set-default var val)
+         (global-set-key org-index-dispatch-key 'org-index-dispatch))
   :type 'key-sequence)
 
 (defcustom org-index-prepare-when-idle nil
