@@ -219,7 +219,6 @@ function for org-index."
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
-         (message "foo %s %s" var (type-of (aref val 0)))
          (set-default var val)
          (global-set-key org-index-dispatch-key 'org-index-dispatch))
   :type 'key-sequence)
@@ -1437,6 +1436,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
               (setq to (min (point) to)))
             (goto-char org-index--below-hline)
             (org-table-align)
+            (setq to (min (point-max) to))
             (font-lock-fontify-region from to)))
         (setq org-index--aligned num-lines-to-format)
         (org-index--go-below-hline)
@@ -2678,7 +2678,6 @@ If OTHER in separate window."
       (if in-c-backspace
           (setq key "<backspace>")
         (setq search-text (mapconcat 'identity (reverse (cons word words)) ","))
-                        (message "foo")
 
         ;; read key, if selected frame has not changed
         (if (eq initial-frame (selected-frame))
