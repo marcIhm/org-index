@@ -353,7 +353,7 @@
 (ert-deftest oidx-test-delete-yank ()
   (oidx-with-test-setup
     (oidx-do "y a n k <return> f o o <return> b a r <return>")
-    (oidx-do "o c c u r <return> f o o <return>")
+    (oidx-do "o c c u r <return> f o o <right>")
     (oidx-do "k i l l <return>")
     (oidx-do "o c c u r <return> f o o <return>")
     (should (= org-index--occur-lines-collected 0))))
@@ -601,17 +601,18 @@
 
 
 (defun oidx-get-refs ()
-    (org-index--on nil nil
-      (let (refs ref-field)
-        (while (org-at-table-p)
-          (setq ref-field (org-index--get-or-set-field 'ref))
-          (string-match org-index--ref-regex ref-field)
-          (setq refs (cons
-                      (string-to-number (match-string 1 ref-field))
-                      refs))
-          (forward-line))
-        (pp refs t)
-        refs)))
+  (let (refs ref-field)
+    (with-current-buffer org-index--buffer
+      (org-index--go-below-hline)
+      (while (org-at-table-p)
+        (setq ref-field (org-index--get-or-set-field 'ref))
+        (string-match org-index--ref-regex ref-field)
+        (setq refs (cons
+                    (string-to-number (match-string 1 ref-field))
+                    refs))
+        (forward-line)))
+    (pp refs t)
+    refs))
 
 
 (defun oidx-check-buffer (buffer expected tname)
