@@ -159,7 +159,7 @@ class OrgTable < Hash
 end
 
 edit_hint = "  This editor is invoked to let you merge changes in your index;
-it needs to be done manually, section by section.
+  it needs to be done manually, section by section.
 
   Each section starts with a stretch of 'wwwwwww' and a
   heading (e.g. '+ current added'); its first character
@@ -273,7 +273,7 @@ puts "Executing: " + options[:emacs] + " " + args.join(" ")
 system options[:emacs], *args
 puts "Trying to parse the edited file ..."
 edited=OrgTable.new(ARGV[1],"edited")
-warn "Edit hint has not been removed from #{ARGV[1]}" if edited[:before_table].include?(edit_hint.split("\n").first.strip)
+warn "Edit hint has not been removed from #{ARGV[1]}" if edited[:before_table].include?("wwwww")
 fail "Found marker lines in #{ARGV[1]}" if edited[:has_marker_lines]
 puts "Done."
 
