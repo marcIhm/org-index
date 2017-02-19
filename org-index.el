@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.2.2
+;; Version: 5.2.3
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -56,12 +56,12 @@
 ;;
 ;;    (require 'org-index)
 ;;
-;;  - Restart your Emacs to make these lines effective.
+;;  - Restart your Emacs to make this effective.
 ;;
 ;;  - Invoke `org-index'; on first run it will assist in creating your
 ;;    index table.
 ;;
-;;  - Optionally invoke `M-x org-customize' (group 'Org Index') to tune
+;;  - Optionally invoke `M-x org-customize', group 'Org Index', to tune
 ;;    some settings, e.g. the global prefix key 'C-c i'.
 ;;
 ;;
@@ -85,9 +85,10 @@
 
 ;;; Change Log:
 
-;;   [2017-02-11 Sa] Version 5.2.2
+;;   [2017-02-18 Sa] Version 5.2.3
 ;;   - New command 'focus'
-;;   - Improved on speed by using the stored property "max-ref"
+;;   - Speeded up org-index--parse-table with the stored property "max-ref"
+;;   - Speeded up org-index--on with search
 ;;   - Added org-index-prepare-when-idle
 ;;   - Fixed compatibility issue with emacs 24 (font-lock-ensure)
 ;;   - Added more customizations
@@ -178,7 +179,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.2.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.2.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -214,8 +215,7 @@ mixed  First, show all index entries, which have been
 	  (const mixed)))
 
 (defcustom org-index-dispatch-key "i"
-  "Key to invoke org-index-dispatch, which is the central entry
-function for org-index."
+  "Key to invoke ‘org-index-dispatch’, which is the central entry function for ‘org-index’."
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
@@ -223,18 +223,22 @@ function for org-index."
          (global-set-key org-index-dispatch-key 'org-index-dispatch))
   :type 'key-sequence)
 
+(defcustom org-index-idle-delay 68
+  "Delay in seconds after which buffer will sorted or fontified when emacs is idle."
+  :group 'org-index
+  :type 'integer)
+
 (defcustom org-index-prepare-when-idle nil
   "Optionally fontify and sort index-table when idle, so that first interactive call is faster.
 You only need this if your index has grown so large, that first invocation of org-index needs
 a noticable amount of time."
   :group 'org-index
-  :set (lambda (s v)
-         (set-default s v)
-         (message "Change will become effective on next restart"))
-  :initialize (lambda (s v)
-                (when v
-                  (setq org-index--align-interactive 400)
-                  (run-with-idle-timer org-index--idle-delay nil 'org-index--idle-prepare)))
+  :initialize 'custom-initialize-set
+  :set (lambda (var val)
+         (set-default var val)
+         (when val
+           (setq org-index--align-interactive 200)
+           (run-with-idle-timer org-index-idle-delay nil 'org-index--idle-prepare)))
   :type 'boolean)
 
 (defcustom org-index-yank-after-add 'ref
@@ -317,7 +321,7 @@ those pieces."
 (defvar org-index--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar org-index--sort-timer nil "Timer to sort index in correct order.")
 (defvar org-index--aligned 0 "For this Emacs session: remember number of table lines aligned.")
-(defvar org-index--align-interactive most-positive-fixnum "Number of rows to align in org-index--parse-table.")
+(defvar org-index--align-interactive most-positive-fixnum "Number of rows to align in ‘org-index--parse-table’.")
 (defvar org-index--edit-widgets nil "List of widgets used to edit.")
 (defvar org-index--context-index nil "Position and line used for index in edit buffer.")
 (defvar org-index--context-occur nil "Position and line used for occur in edit buffer.")
@@ -332,7 +336,6 @@ those pieces."
 (defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
-(defconst org-index--idle-delay 68 "Delay in seconds after which buffer will sorted or fontified.")
 (defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
 (defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
 
@@ -381,7 +384,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.2.2 of org-index.el.
+This is version 5.2.3 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -507,7 +510,7 @@ interactive calls."
       ;; rearrange for index beeing sorted into default sort order after 300 secs of idle time
       (unless org-index--sort-timer
         (setq org-index--sort-timer
-              (run-with-idle-timer org-index--idle-delay t 'org-index--sort-silent)))
+              (run-with-idle-timer org-index-idle-delay t 'org-index--sort-silent)))
 
 
       ;;
@@ -831,7 +834,7 @@ interactive calls."
                              ""))
                    (symbol-name sort)
                    org-index-sort-by
-                   org-index--idle-delay
+                   org-index-idle-delay
                    (second groups-and-counts)
                    (symbol-name sort)
                    (third groups-and-counts))))
@@ -1446,8 +1449,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
       
       ;; get headings to display during occur
       (setq end-of-headings (point))
-      (while (org-at-table-p) (forward-line -1))
-      (forward-line)
+      (goto-char (org-table-begin))
       (setq start-of-headings (point))
       (setq org-index--headings-visible (substring-no-properties (org-index--copy-visible start-of-headings end-of-headings)))
       (setq org-index--headings (buffer-substring start-of-headings end-of-headings))
@@ -1457,9 +1459,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
       (setq org-index--numcols (- (org-table-current-column) 1))
       
       ;; go to top of table
-      (while (org-at-table-p)
-        (forward-line -1))
-      (forward-line)
+      (goto-char (org-table-begin))
       
       ;; parse line of headings
       (org-index--parse-headings)
@@ -1482,7 +1482,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
 
 (defun org-index--get-decoration-from-ref-field (ref-field)
-  "Extract decoration from a reference like 'R102'."
+  "Extract decoration from a REF-FIELD."
   (unless (string-match "^\\([^0-9]*\\)\\([0-9]+\\)\\([^0-9]*\\)$" ref-field)
     (org-index--report-index-error
      "Reference in index table ('%s') does not contain a number" ref-field))
@@ -1497,7 +1497,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
 
 (defun org-index--extract-refnum (ref-field)
-  "Extract the number from a complete reference like 'R102'."
+  "Extract the number from a complete reference REF-FIELD like 'R102'."
   (unless (string-match org-index--ref-regex ref-field)
     (org-index--report-index-error
      "Reference '%s' is not formatted properly (does not match '%s')" ref-field org-index--ref-regex))
@@ -2549,7 +2549,7 @@ Optional argument DEFAULTS gives default values."
     (org-set-tags-to new-tags)))
 
 
-(defun org-index--go (&optional column value)
+(defun org-index--go (column value)
   "Position cursor on index line where COLUMN equals VALUE.
 Return t or nil, leave point on line or at top of table, needs to be in buffer initially."
   (let (found)
@@ -2557,17 +2557,23 @@ Return t or nil, leave point on line or at top of table, needs to be in buffer i
     (unless (eq (current-buffer) org-index--buffer)
       (error "This is a bug: Not in index buffer"))
 
-    ;; loop over lines
-    (goto-char org-index--below-hline)
-    (if column
-        (progn
-          (forward-line -1)
-          (while (and (not found)
-                      (forward-line)
-                      (org-at-table-p))
-            (setq found (string= value (org-index--get-or-set-field column)))))
-      (setq found t))
+    (unless value
+      (error "Cannot search for nil"))
+    
+    (if (string= value "")
+        (error "Cannot search for empty string"))
 
+    (if (<= (length value) 2)
+        (warn "Searching for short string '%s' will be slow" value))
+
+    (goto-char org-index--below-hline)
+    (forward-line 0)
+    (save-restriction
+      (narrow-to-region (point) (org-table-end))
+      (while (and (not found)
+                  (search-forward value nil t))
+        (setq found (string= value (org-index--get-or-set-field column)))))
+    
     ;; return value
     (if found
         t
@@ -2612,7 +2618,6 @@ If OTHER in separate window."
         words                                ; list words that should match
         occur-buffer
         begin ; position of first line
-        narrow                         ; start of narrowed buffer
         help-text                      ; cons with help text short and long
         search-text                    ; description of text to search for
         done                           ; true, if loop is done
@@ -2647,11 +2652,7 @@ If OTHER in separate window."
     (forward-line 0)
     (setq begin (point))
     (forward-line -1)
-    (setq narrow (point))
-    (while (org-at-table-p)
-      (forward-line))
-    (narrow-to-region narrow (point))
-    (goto-char (point-min))
+    (narrow-to-region (point) (org-table-end))
     (forward-line)
 
     ;; initialize help text
@@ -2779,7 +2780,7 @@ If OTHER in separate window."
         (line-move -1 t)
         (line-move 1 t))
 
-       ;; anything else terminates loop
+       ;; anything else terminates input loop
        (t (setq done t))))
 
     ;; put back input event, that caused the loop to end
@@ -3062,8 +3063,7 @@ If OTHER in separate window."
   (goto-char org-index--below-hline)
   (if (eq org-index-sort-by 'count)
       (progn
-        (while (org-at-table-p)
-          (forward-line))
+        (goto-char (org-table-end))
         (forward-line -1)
         (org-table-insert-row t))
     (org-table-insert-row))
@@ -3080,23 +3080,17 @@ If OTHER in separate window."
   (save-excursion
     (org-index--verify-id)
     (org-index--parse-table)
-    (org-index--on nil nil
-      (org-index--do-sort-index org-index-sort-by)
-      (remove-hook 'before-save-hook 'org-index--sort-silent))))
+    (with-current-buffer org-index--buffer
+      (save-excursion
+        (goto-char org-index--below-hline)
+        (org-index--do-sort-index org-index-sort-by)
+        (remove-hook 'before-save-hook 'org-index--sort-silent)))))
 
 
 (defun org-index--idle-prepare ()
   "For parsing table when idle."
   (org-index--verify-id)
   (org-index--parse-table most-positive-fixnum t))
-
-
-(defun org-index-prepare-when-idle ()
-  "Optionally fontify and sort index-table when idle, so that first interactive call is faster.
-You only need this if your index has grown so large, that first invocation of org-index needs
-a noticable amount of time."
-  (setq org-index--align-interactive 400)
-  (run-with-idle-timer org-index--idle-delay nil 'org-index--idle-prepare))
 
 
 (defun org-index--copy-visible (beg end)
