@@ -710,7 +710,7 @@ interactive calls."
 
        ((eq command 'ping)
 
-        (let ((moved-up 0) id info reached-top)
+        (let ((moved-up 0) id info reached-top done)
 
           (unless (string= major-mode "org-mode") (error "No node at point"))
           ;; take id from current node or reference
@@ -721,17 +721,16 @@ interactive calls."
           ;; move up until we find a node in index
           (save-excursion
             (outline-back-to-heading)
-            (while (not (or info
-                            reached-top))
+            (while (not done)
               (if id
                   (setq info (org-index--on 'id id
                                (mapcar (lambda (x) (org-index--get-or-set-field x))
-                                       (list 'ref 'count 'created 'last-accessed 'category 'keywords 'ref)))))
+                                       (list 'keywords 'count 'created 'last-accessed 'category 'ref)))))
 
               (setq reached-top (= (org-outline-level) 1))
 
-              (unless (or info
-                          reached-top)
+              (if (or info reached-top)
+                  (setq done t)
                 (outline-up-heading 1 t)
                 (cl-incf moved-up))
 
@@ -741,9 +740,9 @@ interactive calls."
               (progn
                 (setq message-text
                       (apply 'format
-                             (append (list "'%s'%shas been accessed %s times between %s and %s; category is '%s', keywords are '%s'"
+                             (append (list "'%s'%s has been accessed %s times between %s and %s; category is '%s', reference is '%s'"
                                            (pop info)
-                                           (if (> moved-up 0) (format " (parent node, %d level up) " moved-up) " "))
+                                           (if (> moved-up 0) (format " (parent node, %d level up)" moved-up) ""))
                                      info)))
                 (setq kill-new-text (car (last info))))
             (setq message-text "Neither this node nor any of its parents is part of index"))))
