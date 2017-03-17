@@ -557,7 +557,7 @@ interactive calls."
         (unless search-ref
           (if (eq command 'index)
               (let ((r (org-index--read-search-for-index)))
-                (setq search-ref (first r))
+                (setq search-ref (cl-first r))
                 (setq search-id (second r))
                 (setq search-fingerprint (third r)))
             (unless (and (eq command 'head)
@@ -1032,7 +1032,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
       (with-temp-buffer
         (insert (documentation 'org-index))
         (goto-char (point-min))
-        (search-forward (concat "  " (symbol-name (first org-index--commands)) ": "))
+        (search-forward (concat "  " (symbol-name (cl-first org-index--commands)) ": "))
         (forward-line 0)
         (kill-region (point-min) (point))
         (search-forward (concat "  " (symbol-name (car (last org-index--commands))) ": "))
