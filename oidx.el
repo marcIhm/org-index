@@ -44,8 +44,8 @@
 ;;; Code:
 
 (require 'org-index)
+(require 'cl-lib)
 (require 'ert)
-(require 'cl)
 
 
 (defvar oidx-saved-state nil "Store state of customizable variables")
@@ -172,6 +172,18 @@
     (beginning-of-buffer)
     (oidx-do "f o c u s <return>")
     (should (looking-at ".* --8--"))))
+
+
+(ert-deftest oidx-test-double-focus ()
+  (oidx-with-test-setup
+    (oidx-do "o c c u r <return> z w e i <down> <return>")
+    (oidx-do "s e t - f o c u s <return>")
+    (oidx-do "o c c u r <return> e i n s <down> <return>")
+    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> s e t - f o c u s <return>"))
+    (oidx-do "f o c u s <return>")
+    (should (looking-at ".* --8--"))
+    (oidx-do "f o c u s <return>")
+    (should (looking-at ".* --13--"))))
 
 
 (ert-deftest oidx-test-migrate-index ()
@@ -527,7 +539,7 @@
     (previous-line 2)
     (oidx-do "p i n g <return>")
     (should (string= org-index--message-text
-                     "'--4--' has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', keywords are 'eins-drei' and ready to yank '--4--'."))))
+		     "'eins-drei' has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--4--' and ready to yank '--4--'."))))
 
 
 (ert-deftest oidx-test-ping-parent ()
@@ -539,7 +551,7 @@
     (forward-line -1)
     (oidx-do "p i n g <return>")
     (should (string= org-index--message-text
-                     "'--4--' (parent node, 1 level up) has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', keywords are 'eins-drei' and ready to yank '--4--'."))))
+		     "'eins-drei' (parent node, 1 level up) has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--4--' and ready to yank '--4--'."))))
 
 
 (ert-deftest oidx-test-line-with-prefix-arg ()
@@ -547,7 +559,7 @@
     (previous-line 2)
     (execute-kbd-macro (kbd "C-u 8 M-x o r g - i n d e x <return> p i n g <return>"))
     (should (string= org-index--message-text
-                     "'--8--' has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', keywords are 'zwei-zwei-eins' and ready to yank '--8--'."))))
+		     "'zwei-zwei-eins' has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--8--' and ready to yank '--8--'."))))
 
 (ert-deftest oidx-test-sort-by ()
   (oidx-with-test-setup
