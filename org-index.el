@@ -86,7 +86,7 @@
 ;;; Change Log:
 
 ;;   [2017-03-26 Su] Version 5.3.0
-;;   - Focused node can now be a list of nodes
+;;   - Focused can now be on a list of nodes (instead of a single one)
 ;;   - Cleaned up undeclared dependencies
 ;;
 ;;   [2017-02-18 Sa] Version 5.2.3
@@ -184,7 +184,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.2.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.3.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -390,7 +390,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.2.3 of org-index.el.
+This is version 5.3.0 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -1111,7 +1111,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
             (unless (member id org-index--ids-focused-nodes)
               (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
             (setq org-index--id-last-goto-focus id)
-            "Current node has been appended to list of focused nodes (%d nodes in focus)")
+            "Current node has been appended to list of focused nodes (%d node%s in focus)")
 
            ((equal arg '(16))
             (setq id (org-id-get))
@@ -1122,13 +1122,13 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
                                                                             org-index--ids-focused-nodes)))))
                             org-index--id-last-goto-focus))
                   (setq org-index--ids-focused-nodes (delete id org-index--ids-focused-nodes))
-                  "Current node has been removed from list of focused nodes (%d nodes in focus)")
-              "Current node has not been in list of focused nodes (%d nodes in focus)"))))
+                  "Current node has been removed from list of focused nodes (%d node%s in focus)")
+              "Current node has not been in list of focused nodes (%d node%s in focus)"))))
     
     (with-current-buffer org-index--buffer
       (org-entry-put org-index--point "ids-focused-nodes" (string-join org-index--ids-focused-nodes " ")))
     
-    (format text (length org-index--ids-focused-nodes))))
+    (format text (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
 
 
 (defun org-index--do-edit ()
