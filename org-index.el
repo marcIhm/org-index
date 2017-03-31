@@ -1070,7 +1070,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   "Goto focus node, one after the other; with ARG: reverse."
   (if org-index--ids-focused-nodes
       (let ((maybe-reverse (lambda (&rest x) (if (equal arg '(4)) (reverse x) x)))
-            last-id next-ids marker)
+            last-id next-id marker)
         (setq last-id (or org-index--id-last-goto-focus
                           (last org-index--ids-focused-nodes)))
         (setq next-id
@@ -1086,7 +1086,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (goto-char (marker-position marker))
         (org-index--unfold-buffer)
         (move-marker marker nil)
-        (if (cdr org-index--ids-focused-nodes) 
+        (if (cdr org-index--ids-focused-nodes)
             (format "Jumped to %s focus-node (out of %d)"
                     (if (equal arg '(4)) "previous" "next")
                     (length org-index--ids-focused-nodes))
