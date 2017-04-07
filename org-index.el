@@ -3033,7 +3033,7 @@ If OTHER in separate window."
                   (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
                   (kill-new yank)
                   (org-mark-ring-goto)
-                  (if (string= (substring yank 0 3) "http")
+                  (if (string= (substring yank 0 4) "http")
                       (progn
                         (browse-url yank)
                         (format "Opened '%s' in browser (and copied it too)" yank))
