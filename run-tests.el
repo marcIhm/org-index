@@ -6,7 +6,9 @@
 (require 'org)
 (require 'org-index)
 (require 'oidx)
+(setq oidx-keep-test-state t)
 
+(setq org-id-locations-file "~\\.emacs.d\\.org-id-locations-for-test")
 (setq custom-theme-directory "c:/org/themes")
 (load-theme 'madhat2r t)
 

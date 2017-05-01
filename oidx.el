@@ -56,6 +56,7 @@
 (defvar oidx-saved-id nil)
 (defvar oidx-saved-id-locations nil)
 (defvar oidx-saved-agenda-files nil)
+(defvar oidx-keep-test-state nil)
 
 ;;
 ;; All tests
@@ -702,9 +703,9 @@
 (defun oidx-teardown-test ()
   (interactive)
   (remove-hook 'before-save-hook 'org-index--sort-silent)
-  (progn (oidx-restore-saved-state)
-         (with-current-buffer oidx-work-buffer (set-buffer-modified-p nil))
-         (with-current-buffer oidx-index-buffer (set-buffer-modified-p nil)))
+  (if (not oidx-keep-test-state) (oidx-restore-saved-state))
+  (with-current-buffer oidx-work-buffer (set-buffer-modified-p nil))
+  (with-current-buffer oidx-index-buffer (set-buffer-modified-p nil))
   (org-remove-file oidx-ert-work-file)
   (setq org-index--head nil))
 
@@ -758,8 +759,7 @@
 (defun oidx-restore-saved-state ()
   (if oidx-saved-state
       (mapc (lambda (x) (set (car x) (cdr x))) oidx-saved-state)
-      (setq org-index-id oidx-saved-id)
-      (error "No saved state to restore"))
+    (error "No saved state to restore"))
 
   (when oidx-saved-id
     (setq org-index-id oidx-saved-id)
@@ -822,7 +822,8 @@
 ")
       (forward-line -1)
 ;;      (basic-save-buffer)
-      ;;      (org-id-update-id-locations (list oidx-ert-work-file) t)
+;;      (org-id-update-id-locations (list oidx-ert-work-file) t)
+      (puthash test-id oidx-ert-index-file org-id-locations)
       (setq org-index--head nil)
       (org-table-align))))
 
