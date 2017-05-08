@@ -294,6 +294,12 @@ those pieces."
                   (const category)
                   (const keywords))))
 
+(defcustom org-index-clock-into-focus nil
+  "Clock into focused node."
+  :group 'org-index
+  :type 'boolean)
+
+
 ;; Variables to hold the configuration of the index table
 (defvar org-index--maxrefnum nil "Maximum number from reference table, e.g. 153.")
 (defvar org-index--head nil "Header before number (e.g. 'R').")
@@ -336,6 +342,7 @@ those pieces."
 (defvar org-index--display-short-help nil "True, if short help should be displayed.")
 (defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
+(defvar org-index--clock-in-timer nil "Timer to clock into focused node after a delay.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus set-focus example sort find-ref highlight maintain) "List of commands available.")
@@ -1081,11 +1088,15 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
                        (apply maybe-reverse org-index--ids-focused-nodes))))
         (or (setq marker (org-id-find next-id 'marker))
             (error "Could not find focus-node with id %s" next-id))
-        (setq org-index--id-last-goto-focus next-id)
+
         (pop-to-buffer-same-window (marker-buffer marker))
         (goto-char (marker-position marker))
         (org-index--unfold-buffer)
         (move-marker marker nil)
+        (when org-index-clock-into-focus
+          (if org-index--clock-in-timer (cancel-timer org-index--clock-in-timer))
+          (setq org-index--clock-in-timer (run-at-time 10 nil (lambda () (org-clock-in)))))
+        (setq org-index--id-last-goto-focus next-id)
         (if (cdr org-index--ids-focused-nodes)
             (format "Jumped to %s focus-node (out of %d)"
                     (if (equal arg '(4)) "previous" "next")
