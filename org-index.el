@@ -315,7 +315,7 @@ those pieces."
 (defvar org-index--headings nil "Headlines of index-table as a string.")
 (defvar org-index--headings-visible nil "Visible part of headlines of index-table as a string.")
 (defvar org-index--ids-focused-nodes nil "Ids of focused node (if any).")
-(defvar org-index--id-last-goto-focus nil "Id of last node, that has been jumped to.")
+(defvar org-index--id-last-goto-focus nil "Id of last node, that has been focused to.")
 
 ;; Variables to hold context and state
 (defvar org-index--last-fingerprint nil "Fingerprint of last line created.")
@@ -487,7 +487,7 @@ the most important subcommands with one additional key.
 
 A numeric prefix argument is used as a reference number for
 commands, that need one (e.g. 'head') or to modify their
-behaviour (e.g. 'focus').
+behaviour (e.g. 'occur').
 
 Use from elisp: Optional argument COMMAND is a symbol naming the
 command to execute.  SEARCH-REF specifies a reference to search
@@ -768,7 +768,7 @@ interactive calls."
        ((eq command 'occur)
 
         (set-buffer org-index--buffer)
-        (org-index--do-occur))
+        (org-index--do-occur (if (numberp arg) arg nil)))
 
 
        ((eq command 'ref)
@@ -2680,8 +2680,8 @@ If OTHER in separate window."
     message))
 
 
-(defun org-index--do-occur ()
-  "Perform command occur."
+(defun org-index--do-occur (&optional days)
+  "Perform command occur; optional narrow to DAYS back."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
         (these-commands " NOTE: If you invoke the org-index subcommands edit or kill from within the occur buffer, the index is updated accordingly.")
@@ -2699,7 +2699,8 @@ If OTHER in separate window."
         initial-frame                  ; Frame when starting occur
         key                            ; input from user in various forms
         key-sequence
-        key-sequence-raw)
+        key-sequence-raw
+        days-clause)                   ; clause to display for days back search
 
     
     ;; make and show buffer
@@ -2728,9 +2729,10 @@ If OTHER in separate window."
     (forward-line)
 
     ;; initialize help text
+    (setq days-clause (if days (format " (%d days back)") ""))
     (setq help-text (cons
                      (concat
-                      (propertize "Incremental occur" 'face 'org-todo)
+                      (propertize (format "Incremental occur%s" days-clause) 'face 'org-todo)
                       (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
                      (concat
                       (propertize
@@ -2746,6 +2748,7 @@ If OTHER in separate window."
     (setq org-index--occur-tail-overlay (make-overlay (point-max) (point-max)))
     (overlay-put org-index--occur-tail-overlay 'invisible t)
 
+    ;; main loop
     (while (not done)
 
       (if in-c-backspace
@@ -2837,7 +2840,7 @@ If OTHER in separate window."
                 
         ;; make overlays to hide lines, that do not match longer word any more
         (goto-char begin)
-        (setq lines-found (org-index--hide-with-overlays (cons word words) lines-wanted))
+        (setq lines-found (org-index--hide-with-overlays (cons word words) lines-wanted days))
         (move-overlay org-index--occur-tail-overlay
                       (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
                         (point-max))
@@ -2926,7 +2929,7 @@ If OTHER in separate window."
       (setq org-index--occur-help-text
             (cons
              (org-index--wrap
-              (propertize "Search is done;    ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
+              (propertize (format "Search is done%s;    ? toggles help and headlines.\n" days-clause) 'face 'org-agenda-dimmed-todo-face))
              (concat
               (org-index--wrap
                (propertize
@@ -3053,7 +3056,7 @@ If OTHER in separate window."
     (message "Not at table")))
 
 
-(defun org-index--hide-with-overlays (words lines-wanted)
+(defun org-index--hide-with-overlays (words lines-wanted days)
   "Hide text that is currently visible and does not match WORDS by creating overlays; leave LINES-WANTED lines visible."
   (let ((lines-found 0)
         (end-of-visible (point))
