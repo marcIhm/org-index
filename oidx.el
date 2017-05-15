@@ -140,6 +140,16 @@
       (should (= (line-number-at-pos) 21)))))
 
 
+(ert-deftest oidx-test-occur-days ()
+  (let (days digits)
+    (setq days (- (time-to-days (current-time))
+                  (time-to-days (org-read-date nil t "[2013-12-17 Do]" nil))))
+    (setq digits (apply 'concat (mapcar (lambda (x) (format "%c " x)) (number-to-string days))))
+    (oidx-with-test-setup
+      (execute-kbd-macro (kbd (concat "C-u " digits "M-x o r g - i n d e x <return> o c c u r <return>")))
+      (should (looking-at "* --13--")))))
+
+
 (ert-deftest oidx-test-occur-result ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> e i n <backspace> n s <return>")

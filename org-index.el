@@ -402,7 +402,9 @@ of subcommands to choose from:
   occur: [o] Incrementally show matching lines from index.
     Result is updated after every keystroke.  You may enter a
     list of words seperated by space or comma (`,'), to select
-    lines that contain all of the given words.
+    lines that contain all of the given words. With a numeric
+    prefix argument, show lines, which have been accessed at
+    most this many days ago.
 
   add: [a] Add the current node to index.
     So that (e.g.) it can be found through the subcommand
@@ -2002,31 +2004,23 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
     (org-cycle)))
 
 
-(defun org-index--update-line (&optional ref-or-id-or-pos no-error)
-  "Update columns count and last-accessed in line REF-OR-ID-OR-POS."
+(defun org-index--update-line (&optional id-or-pos no-error)
+  "Update columns count and last-accessed in line ID-OR-POS."
 
   (let (initial)
 
     (with-current-buffer org-index--buffer
       (unless buffer-read-only
 
-        ;; search reference or id, if given (or assume, that we are already positioned right)
-        (when ref-or-id-or-pos
-          (setq initial (point))
-          (goto-char org-index--below-hline)
-          (while (and (org-at-table-p)
-                      (not (if (integerp ref-or-id-or-pos)
-                               (and (>= ref-or-id-or-pos (line-beginning-position))
-                                    (< ref-or-id-or-pos (line-end-position)))
-                             (or (string= ref-or-id-or-pos (org-index--get-or-set-field 'ref))
-                                 (string= ref-or-id-or-pos (org-index--get-or-set-field 'id))))))
-            (forward-line)))
+        (setq initial (point))
 
-        (if (not (org-at-table-p))
-            (apply (if no-error 'message 'error) "Did not find reference or id '%s'" (list ref-or-id-or-pos))
-          (org-index--update-current-line))
-
-        (if initial (goto-char initial))))))
+        (if (if (integerp id-or-pos)
+                (goto-char id-or-pos)
+              (org-index--go 'id id-or-pos))
+            (org-index--update-current-line)
+          (apply (if no-error 'message 'error) "Did not find reference or id '%s'" (list ref-or-id-or-pos)))
+        
+        (goto-char initial)))))
 
 
 (defun org-index--update-current-line ()
@@ -2645,7 +2639,7 @@ Return t or nil, leave point on line or at top of table, needs to be in buffer i
 
 
 (defun org-index--find-id (id &optional other)
-  "Perform command head: Find node with REF or ID and present it.
+  "Perform command head: Find node with ID and present it.
 If OTHER in separate window."
   
   (let (message marker)
