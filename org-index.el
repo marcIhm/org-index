@@ -294,12 +294,6 @@ those pieces."
                   (const category)
                   (const keywords))))
 
-(defcustom org-index-clock-into-focus nil
-  "Clock into focused node."
-  :group 'org-index
-  :type 'boolean)
-
-
 ;; Variables to hold the configuration of the index table
 (defvar org-index--maxrefnum nil "Maximum number from reference table, e.g. 153.")
 (defvar org-index--head nil "Header before number (e.g. 'R').")
@@ -342,7 +336,6 @@ those pieces."
 (defvar org-index--display-short-help nil "True, if short help should be displayed.")
 (defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
-(defvar org-index--clock-in-timer nil "Timer to clock into focused node after a delay.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus set-focus example sort find-ref highlight maintain) "List of commands available.")
@@ -1093,10 +1086,8 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (goto-char (marker-position marker))
         (org-index--unfold-buffer)
         (move-marker marker nil)
-        (when org-index-clock-into-focus
-          (if org-index--clock-in-timer (cancel-timer org-index--clock-in-timer))
-          (setq org-index--clock-in-timer (run-at-time 10 nil (lambda () (org-clock-in)))))
         (setq org-index--id-last-goto-focus next-id)
+        (org-index--update-line next-id t)
         (if (cdr org-index--ids-focused-nodes)
             (format "Jumped to %s focus-node (out of %d)"
                     (if (equal arg '(4)) "previous" "next")
@@ -2011,7 +2002,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
     (org-cycle)))
 
 
-(defun org-index--update-line (&optional ref-or-id-or-pos)
+(defun org-index--update-line (&optional ref-or-id-or-pos no-error)
   "Update columns count and last-accessed in line REF-OR-ID-OR-POS."
 
   (let (initial)
@@ -2032,7 +2023,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
             (forward-line)))
 
         (if (not (org-at-table-p))
-            (error "Did not find reference or id '%s'" ref-or-id-or-pos)
+            (apply (if no-error 'message 'error) "Did not find reference or id '%s'" (list ref-or-id-or-pos))
           (org-index--update-current-line))
 
         (if initial (goto-char initial))))))
@@ -2689,7 +2680,7 @@ If OTHER in separate window."
         (lines-found 0)                      ; number of lines found
         words                                ; list words that should match
         occur-buffer
-        begin ; position of first line
+        begin                          ; position of first line
         help-text                      ; cons with help text short and long
         search-text                    ; description of text to search for
         done                           ; true, if loop is done
@@ -2729,7 +2720,7 @@ If OTHER in separate window."
     (forward-line)
 
     ;; initialize help text
-    (setq days-clause (if days (format " (%d days back)") ""))
+    (setq days-clause (if days (format " (%d days back)" days) ""))
     (setq help-text (cons
                      (concat
                       (propertize (format "Incremental occur%s" days-clause) 'face 'org-todo)
@@ -2748,6 +2739,18 @@ If OTHER in separate window."
     (setq org-index--occur-tail-overlay (make-overlay (point-max) (point-max)))
     (overlay-put org-index--occur-tail-overlay 'invisible t)
 
+    ;; do not enter loop if number of days is requested
+    (when days
+      (goto-char begin)
+      (setq lines-found (org-index--hide-with-overlays (cons word words) lines-wanted days))
+      (move-overlay org-index--occur-tail-overlay
+                    (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
+                      (point-max))
+                    (point-max))
+      
+      (goto-char begin)
+      (setq done t))
+    
     ;; main loop
     (while (not done)
 
@@ -2806,8 +2809,7 @@ If OTHER in separate window."
                         (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
                           (point-max))
                         (point-max))
-        
-                
+                        
           ;; highlight shorter word
           (unless (= (length word) 0)
             (highlight-regexp (regexp-quote word) 'isearch))
@@ -2934,7 +2936,7 @@ If OTHER in separate window."
               (org-index--wrap
                (propertize
                 (format
-                 (concat "Search is done."
+                 (concat (format "Search is done%s." days-clause)
                          (if (< lines-collected lines-wanted)
                              " Showing all %d matches for "
                            " Showing one window of matches for ")
@@ -3077,12 +3079,21 @@ If OTHER in separate window."
       (setq matched nil)
       (setq start (point))
       (while (and (not (eobp))
-                  (not
-                   (and
-                    (invisible-p (point))
-                    (< (point) (overlay-start org-index--occur-tail-overlay))))
-                  (not (and (org-index--test-words words)
-                            (setq matched t)))) ; for its side effect
+                  (not (and
+                        (invisible-p (point))
+                        (< (point) (overlay-start org-index--occur-tail-overlay))))
+                  ;; either regard words or days, but not both
+                  (if days
+                      (let ((last-accessed (org-index--get-or-set-field 'last-accessed)))
+                        (if last-accessed
+                            (not (and
+                                  (<= (- (time-to-days (current-time)) 
+                                         (time-to-days (org-read-date nil t last-accessed nil)))
+                                      days)
+                                  (setq matched t))) ; for its side effect
+                          t)) 
+                    (not (and (org-index--test-words words)
+                              (setq matched t))))) ; for its side effect
         (forward-line 1))
 
       ;; create overlay to hide this stretch
