@@ -294,6 +294,11 @@ those pieces."
                   (const category)
                   (const keywords))))
 
+(defcustom org-index-clock-into-focus nil 
+  "Clock into focused node." 
+  :group 'org-index 
+  :type 'boolean)
+
 ;; Variables to hold the configuration of the index table
 (defvar org-index--maxrefnum nil "Maximum number from reference table, e.g. 153.")
 (defvar org-index--head nil "Header before number (e.g. 'R').")
@@ -336,6 +341,7 @@ those pieces."
 (defvar org-index--display-short-help nil "True, if short help should be displayed.")
 (defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
+(defvar org-index--clock-in-timer nil "Timer to clock into focused node after a delay.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus set-focus example sort find-ref highlight maintain) "List of commands available.")
@@ -344,6 +350,7 @@ those pieces."
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
 (defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
+(defvar org-index--clock-in-delay 10 "Number of seconds to wait before clocking in.")
 
 
 (defmacro org-index--on (column value &rest body)
@@ -1088,6 +1095,9 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (goto-char (marker-position marker))
         (org-index--unfold-buffer)
         (move-marker marker nil)
+        (when org-index-clock-into-focus 
+          (if org-index--clock-in-timer (cancel-timer org-index--clock-in-timer)) 
+          (setq org-index--clock-in-timer (run-at-time org-index--clock-in-delay nil (lambda () (org-clock-in))))) 
         (setq org-index--id-last-goto-focus next-id)
         (org-index--update-line next-id t)
         (if (cdr org-index--ids-focused-nodes)
