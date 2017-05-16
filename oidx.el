@@ -143,11 +143,11 @@
 (ert-deftest oidx-test-occur-days ()
   (let (days digits)
     (setq days (- (time-to-days (current-time))
-                  (time-to-days (org-read-date nil t "[2013-12-17 Do]" nil))))
+                  (time-to-days (org-read-date nil t "[2013-12-17 Di]" nil))))
     (setq digits (apply 'concat (mapcar (lambda (x) (format "%c " x)) (number-to-string days))))
     (oidx-with-test-setup
       (execute-kbd-macro (kbd (concat "C-u " digits "M-x o r g - i n d e x <return> o c c u r <return>")))
-      (should (looking-at "* --13--")))))
+      (should (string= "[2013-12-19 Do 10:00]" (org-index--get-or-set-field 'last-accessed))))))
 
 
 (ert-deftest oidx-test-occur-result ()
@@ -156,7 +156,7 @@
     (should (string= (buffer-name) "oidx-ert-work.org"))
     (should (looking-at "* --13--"))
     (should (oidx-check-buffer "*org-index-occur*" 
-                               "f4e2382ec0f7bd47e54547ac33df5975"
+                               "e13d924c0b5b443eab1642fbafa0bd0d"
                                "oidx-test-occur-result"))))
 
 
@@ -542,7 +542,7 @@
     (insert "foo ")
     (oidx-do "m a i n t a i n <return> u p d a t e <return> y") ; "foo " should be transported to index
     (should (oidx-check-buffer oidx-index-buffer 
-                               "b592b3e5d124c106fd3ae0aa573f6e88"
+                               "f7313acc202a0500b82684dcf22182ef"
                                "oidx-test-update-all-lines"))))
 
 (ert-deftest oidx-test-ping ()
@@ -580,7 +580,7 @@
     (setq org-index-sort-by 'last-accessed)
     (org-index--sort-silent)
     (org-index--parse-table) ; to find hline
-    (should (equal (oidx-get-refs) '(1 2 3 4 5 6 7 8 9 10 11 12 14 13)))
+    (should (equal (oidx-get-refs) '(2 4 5 6 7 8 9 10 11 12 14 1 3 13)))
 
     (setq org-index-sort-by 'count)
     (org-index--sort-silent)
@@ -825,9 +825,9 @@
   |  --6-- |                                      | [2013-12-19 Do] |          |       |     1 |               | zwei-eins      |      |      |
   |  --5-- |                                      | [2013-12-19 Do] |          |       |     1 |               | zwei           |      |      |
   |  --4-- | 12ae411f-bdd4-4c92-9e24-75cf7858f586 | [2013-12-19 Do] |          |       |     1 |               | eins-drei      |      |      |
-  |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 |               | eins-zwei      |      |      |
+  |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Do 10:00]              | eins-zwei      |      |      |
   |  --2-- | caac71f6-74fa-4b6a-b732-66c9ceb0c483 | [2013-12-19 Do] |          |       |     1 |               | eins-eins      |      |      |
-  |  --1-- | " test-id "                          | [2013-12-15 So] |          |       |     1 |               | This node      |      |      |
+  |  --1-- | " test-id "                          | [2013-12-15 So] |          |       |     1 | [2013-12-15 So 10:00] | This node      |      |      |
 
 ")
       (forward-line -1)
