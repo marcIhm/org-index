@@ -2018,7 +2018,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                 (goto-char id-or-pos)
               (org-index--go 'id id-or-pos))
             (org-index--update-current-line)
-          (apply (if no-error 'message 'error) "Did not find reference or id '%s'" (list ref-or-id-or-pos)))
+          (apply (if no-error 'message 'error) "Did not find reference or id '%s'" (list id-or-pos)))
         
         (goto-char initial)))))
 
