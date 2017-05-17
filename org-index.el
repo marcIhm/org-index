@@ -341,16 +341,17 @@ those pieces."
 (defvar org-index--display-short-help nil "True, if short help should be displayed.")
 (defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
-(defvar org-index--clock-in-timer nil "Timer to clock into focused node after a delay.")
+(defvar org-index--after-focus-timer nil "Timer to clock in or update focused node after a delay.")
+(defvar org-index--after-focus-context nil "Context for after focus action.")
 
 ;; static information for this program package
-(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus set-focus example sort find-ref highlight maintain) "List of commands available.")
+(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus example sort find-ref highlight maintain) "List of commands available.")
 (defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
 (defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
-(defvar org-index--clock-in-delay 10 "Number of seconds to wait before clocking in.")
+(defvar org-index--after-focus-delay 4 "Number of seconds to wait before doing after focus action.")
 
 
 (defmacro org-index--on (column value &rest body)
@@ -445,18 +446,13 @@ of subcommands to choose from:
 
   help: Show complete help text of `org-index'.
 
-  focus: [f] Return to first focused node; repeat to see them all.
-    With prefix: reverse order.  You Need to set-focus before.
+  focus: [f] Return to first focused node; repeat to see them all. 
     The focused nodes are kept in a short list and can be found
     by hitting a single key; they need not be part of the index
     though.  This can be useful, if you work in one or few nodes,
     but make frequent excursions to others, which are part of the
-    index.
-
-  set-focus: [F] Set focus to current node, with prefix: append.
-    To truncate the list of focused nodes, just focus on a single
-    node; to remove current node from focus list supply a double
-    prefix.
+    index. With a prefix argument offer more options, e.g. to set
+    focus.
 
   short-help: [?] Show one-line description of each subcommand.
     I.e. show this list but only first sentence each.
@@ -489,7 +485,9 @@ the most important subcommands with one additional key.
 
 A numeric prefix argument is used as a reference number for
 commands, that need one (e.g. 'head') or to modify their
-behaviour (e.g. 'occur').
+behaviour (e.g. 'occur'). Please note, that a single prefix arg
+may also be specified just before the final character (e.g. like
+`C-c i C-u f')
 
 Use from elisp: Optional argument COMMAND is a symbol naming the
 command to execute.  SEARCH-REF specifies a reference to search
@@ -881,13 +879,11 @@ interactive calls."
 
 
        ((eq command 'focus)
-        (setq message-text (org-index--goto-focus arg)))
+        (setq message-text (if arg
+                               (org-index--more-focus-commands)
+                             (org-index--goto-focus))))
 
-       
-       ((eq command 'set-focus)
-        (setq message-text (org-index--set-focus arg)))
 
-       
        ((eq command 'maintain)
         (setq message-text (org-index--do-maintain)))
 
@@ -925,12 +921,17 @@ interactive calls."
 Can be bound in global keyboard map as central entry point.
 Optional argument ARG is passed on."
   (interactive "P")
-  (let (char command)
-    (if (sit-for 1)
-        (message "org-index (? for detailed prompt) -"))
-    (setq char (key-description (read-key-sequence nil)))
-    (if (string= char "C-g") (keyboard-quit))
-    (if (string= char "SPC") (setq char "?"))
+  (let (char command (c-u-text ""))
+    (while (not char)
+      (if (sit-for 1)
+          (message (concat "org-index (? for detailed prompt) -" c-u-text)))
+      (setq char (key-description (read-key-sequence nil)))
+      (if (string= char "C-g") (keyboard-quit))
+      (if (string= char "SPC") (setq char "?"))
+      (when (string= char "C-u")
+        (setq arg (or arg '(4)))
+        (setq c-u-text " C-u ")
+        (setq char nil)))
     (setq command (cdr (assoc char (org-index--get-shortcut-chars))))
     (unless command
       (message "No subcommand for '%s'; switching to detailed prompt" char)
@@ -1075,8 +1076,8 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         org-index--shortcut-chars)))
 
 
-(defun org-index--goto-focus (arg)
-  "Goto focus node, one after the other; with ARG: reverse."
+(defun org-index--goto-focus ()
+  "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
       (let ((maybe-reverse (lambda (&rest x) (if (equal arg '(4)) (reverse x) x)))
             last-id next-id marker)
@@ -1096,38 +1097,51 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (org-index--unfold-buffer)
         (move-marker marker nil)
         (when org-index-clock-into-focus 
-          (if org-index--clock-in-timer (cancel-timer org-index--clock-in-timer)) 
-          (setq org-index--clock-in-timer (run-at-time org-index--clock-in-delay nil (lambda () (org-clock-in))))) 
+          (if org-index--after-focus-timer (cancel-timer org-index--after-focus-timer))
+          (setq org-index--after-focus-context
+                (cons (point-marker)
+                      next-id))
+          (setq org-index--after-focus-timer
+                (run-at-time org-index--after-focus-delay nil
+                             (lambda ()
+                               (with-current-buffer (marker-buffer (car org-index--after-focus-context))
+                                 (org-with-point-at (marker-position  (car org-index--after-focus-context)))
+                                 (org-clock-in))
+                               (org-index--update-line (cdr org-index--after-focus-context) t)
+                               (move-marker (car org-index--after-focus-context) nil)
+                               (setq org-index--after-focus-context nil))))) 
         (setq org-index--id-last-goto-focus next-id)
-        (org-index--update-line next-id t)
         (if (cdr org-index--ids-focused-nodes)
-            (format "Jumped to %s focus-node (out of %d)"
-                    (if (equal arg '(4)) "previous" "next")
+            (format "Jumped to next focus-node (out of %d)"
                     (length org-index--ids-focused-nodes))
           "Jumped to single focus-node"))
       "No nodes in focus, use set-focus"))
 
 
-(defun org-index--set-focus (arg)
-  "Set focus node, with prefix ARG, append to list, with double prefix: delete."
-  (let (id text)
+(defun org-index--more-focus-commands ()
+  "More commands for handling focused nodes."
+  (let (id text char prompt)
 
+    (setq prompt "Please specify action on list focused nodes; set, append, delete (s,a,d or ? for short help) - ")
+    (while (not (memq char (list ?s ?a ?d)))
+        (setq char (read-char prompt))
+        (setq prompt "Actions on list of focused nodes: s)et - Set single focus on this node,  a)ppend - append this node to list,  d)elete - remove this node from list. Please choose - "))
     (setq text
           (cond
 
-           ((not arg)
+           ((eq char ?s)
             (setq id (org-id-get-create))
             (setq org-index--ids-focused-nodes (list id))
             "Focus has been set on current node (1 node in focus)")
 
-           ((equal arg '(4))
+           ((eq char ?a)
             (setq id (org-id-get-create))
             (unless (member id org-index--ids-focused-nodes)
               (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
             (setq org-index--id-last-goto-focus id)
             "Current node has been appended to list of focused nodes (%d node%s in focus)")
 
-           ((equal arg '(16))
+           ((eq char ?d) 
             (setq id (org-id-get))
             (if (and id  (member id org-index--ids-focused-nodes))
                 (progn
@@ -2028,7 +2042,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                 (goto-char id-or-pos)
               (org-index--go 'id id-or-pos))
             (org-index--update-current-line)
-          (apply (if no-error 'message 'error) "Did not find reference or id '%s'" (list id-or-pos)))
+          (unless no-error (error "Did not find reference or id '%s'" (list id-or-pos))))
         
         (goto-char initial)))))
 
