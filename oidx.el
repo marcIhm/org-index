@@ -150,6 +150,24 @@
       (should (string= "[2013-12-19 Do 10:00]" (org-index--get-or-set-field 'last-accessed))))))
 
 
+(ert-deftest oidx-test-clock-into-focus ()
+  (oidx-with-test-setup
+   (setq org-index--after-focus-delay 1)
+   (setq org-index-clock-into-focus nil)
+   (should (not (org-clock-is-active)))
+   (oidx-do "o c c u r <return> z w e i <down> <return>")
+   (oidx-do "s e t - f o c u s <return>")
+   (sleep-for 2)
+   (should (not (org-clock-is-active)))
+
+   (setq org-index-clock-into-focus t)
+   (should (not (org-clock-is-active)))
+   (oidx-do "o c c u r <return> z w e i <down> <return>")
+   (oidx-do "s e t - f o c u s <return>")
+   (sleep-for 2)
+   (should (org-clock-is-active))))
+
+
 (ert-deftest oidx-test-occur-result ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> e i n <backspace> n s <return>")
