@@ -340,6 +340,7 @@ those pieces."
 (defvar org-index--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defvar org-index--display-short-help nil "True, if short help should be displayed.")
 (defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
+(defvar org-index--prefix-arg nil "True, if prefix argument has been received during input.")
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 (defvar org-index--after-focus-timer nil "Timer to clock in or update focused node after a delay.")
 (defvar org-index--after-focus-context nil "Context for after focus action.")
@@ -543,6 +544,7 @@ interactive calls."
         ;; read command; if requested display help in read-loop
         (setq org-index--display-short-help (eq command 'short-help))
         (setq command (org-index--read-command))
+	(if org-index--prefix-arg (setq arg (or arg '(4))))
         (setq org-index--display-short-help nil))
 
       ;;
@@ -974,6 +976,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         minibuffer-setup-fun
         command)
     (setq org-index--short-help-displayed nil)
+    (setq org-index--prefix-arg nil)
     (add-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
     (add-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
     (unwind-protect
@@ -996,12 +999,16 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   "Prepare minibuffer for `org-index--read-command'."
   (setq org-index--minibuffer-saved-key (local-key-binding (kbd "?")))
   (local-set-key (kbd "?") 'org-index--display-short-help)
+  (local-set-key (kbd "C-u") (lambda () (interactive)
+			       (setq org-index--prefix-arg t)
+			       (message "C-u")))
   (if org-index--display-short-help (org-index--display-short-help)))
 
 
 (defun org-index--minibuffer-exit-function ()
   "Restore minibuffer after `org-index--read-command'."
   (local-set-key (kbd "?") org-index--minibuffer-saved-key)
+  (local-set-key (kbd "C-u") 'universal-argument)
   (setq org-index--minibuffer-saved-key nil))
 
 
@@ -1012,7 +1019,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   (with-temp-buffer-window
    org-index--short-help-buffer-name nil nil
    (setq org-index--short-help-displayed t)
-   (princ "Short help; all subcommands of `org-index', shortcuts in []\n")
+   (princ (substitute-command-keys "Short help; shortcuts in [], \\[universal-argument] accepted\n"))
    (princ (org-index--get-short-help-text)))
   (with-current-buffer org-index--short-help-buffer-name
     (let ((inhibit-read-only t)
@@ -1104,9 +1111,10 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
           (setq org-index--after-focus-timer
                 (run-at-time org-index--after-focus-delay nil
                              (lambda ()
-                               (with-current-buffer (marker-buffer (car org-index--after-focus-context))
-                                 (org-with-point-at (marker-position  (car org-index--after-focus-context)))
-                                 (org-clock-in))
+                               (if org-index-clock-into-focus
+                                   (with-current-buffer (marker-buffer (car org-index--after-focus-context))
+                                     (org-with-point-at (marker-position  (car org-index--after-focus-context)))
+                                     (org-clock-in)))
                                (org-index--update-line (cdr org-index--after-focus-context) t)
                                (move-marker (car org-index--after-focus-context) nil)
                                (setq org-index--after-focus-context nil))))) 
@@ -1132,6 +1140,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
            ((eq char ?s)
             (setq id (org-id-get-create))
             (setq org-index--ids-focused-nodes (list id))
+            (if org-index-clock-into-focus (org-clock-in))
             "Focus has been set on current node (1 node in focus)")
 
            ((eq char ?a)
@@ -1139,6 +1148,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
             (unless (member id org-index--ids-focused-nodes)
               (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
             (setq org-index--id-last-goto-focus id)
+            (if org-index-clock-into-focus (org-clock-in))
             "Current node has been appended to list of focused nodes (%d node%s in focus)")
 
            ((eq char ?d) 
