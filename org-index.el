@@ -346,7 +346,7 @@ those pieces."
 (defvar org-index--after-focus-context nil "Context for after focus action.")
 
 ;; static information for this program package
-(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus example sort find-ref highlight maintain) "List of commands available.")
+(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus focus example sort find-ref highlight maintain) "List of commands available.")
 (defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
@@ -486,9 +486,13 @@ the most important subcommands with one additional key.
 
 A numeric prefix argument is used as a reference number for
 commands, that need one (e.g. 'head') or to modify their
-behaviour (e.g. 'occur'). Please note, that a single prefix arg
-may also be specified just before the final character (e.g. like
-`C-c i C-u f')
+behaviour (e.g. 'occur').
+
+Please note, that a single prefix arg may also be specified just
+before the final character (e.g. like `C-c i C-u f'). When
+`org-index-dispatch-key' is expecting an single letter as input,
+an upper case letter has the same effect as supplying a prefix
+arg.
 
 Use from elisp: Optional argument COMMAND is a symbol naming the
 command to execute.  SEARCH-REF specifies a reference to search
@@ -930,6 +934,9 @@ Optional argument ARG is passed on."
       (setq char (key-description (read-key-sequence nil)))
       (if (string= char "C-g") (keyboard-quit))
       (if (string= char "SPC") (setq char "?"))
+      (when (string= char (upcase char))
+        (setq char (downcase char))
+        (setq arg (or arg '(4))))
       (when (string= char "C-u")
         (setq arg (or arg '(4)))
         (setq c-u-text " C-u ")
@@ -1019,7 +1026,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   (with-temp-buffer-window
    org-index--short-help-buffer-name nil nil
    (setq org-index--short-help-displayed t)
-   (princ (substitute-command-keys "Short help; shortcuts in [], \\[universal-argument] accepted\n"))
+   (princ (substitute-command-keys "Short help; shortcuts in [], C-u accepted\n"))
    (princ (org-index--get-short-help-text)))
   (with-current-buffer org-index--short-help-buffer-name
     (let ((inhibit-read-only t)
@@ -1130,7 +1137,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   "More commands for handling focused nodes."
   (let (id text char prompt)
 
-    (setq prompt "Please specify action on list focused nodes; set, append, delete (s,a,d or ? for short help) - ")
+    (setq prompt "Please specify action on the list focused nodes: set, append, delete (s,a,d or ? for short help) - ")
     (while (not (memq char (list ?s ?a ?d)))
         (setq char (read-char prompt))
         (setq prompt "Actions on list of focused nodes: s)et - Set single focus on this node,  a)ppend - append this node to list,  d)elete - remove this node from list. Please choose - "))
