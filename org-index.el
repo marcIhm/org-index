@@ -490,7 +490,7 @@ behaviour (e.g. 'occur').
 
 Please note, that a single prefix arg may also be specified just
 before the final character (e.g. like `C-c i C-u f'). When
-`org-index-dispatch-key' is expecting an single letter as input,
+`org-index-dispatch-key' is expecting an single letter as input;
 an upper case letter has the same effect as supplying a prefix
 arg.
 
@@ -988,15 +988,20 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
     (add-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
     (unwind-protect
         (setq command
-              (intern
-               (completing-read
-                (concat
-                 "Please choose"
-                 (if org-index--display-short-help "" " (? for short help)")
-                 ": ")
-                (mapcar 'symbol-name org-index--commands) nil t)))
+              (completing-read
+               (concat
+                "Please choose"
+                (if org-index--display-short-help "" " (? for short help)")
+                ": ")
+               (append (mapcar 'symbol-name org-index--commands)
+                       (mapcar 'upcase-initials (mapcar 'symbol-name org-index--commands)))
+               nil t))
       (remove-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
       (remove-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
+      (unless (string= command (downcase command))
+        (setq command (downcase command))
+        (setq org-index--prefix-arg '(4)))
+      (setq command (intern command))
       (when org-index--short-help-displayed
         (quit-windows-on org-index--short-help-buffer-name)))
     command))
@@ -1026,7 +1031,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   (with-temp-buffer-window
    org-index--short-help-buffer-name nil nil
    (setq org-index--short-help-displayed t)
-   (princ (substitute-command-keys "Short help; shortcuts in [], C-u accepted\n"))
+   (princ (substitute-command-keys "Short help; shortcuts for org-index-dispatch in []; capital letter acts like C-u\n"))
    (princ (org-index--get-short-help-text)))
   (with-current-buffer org-index--short-help-buffer-name
     (let ((inhibit-read-only t)
