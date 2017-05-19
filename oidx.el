@@ -89,12 +89,12 @@
     (oidx-do "i n d e x <return> .")
     (should-not (org-index--get-or-set-field 'ref))
     (org-mark-ring-goto)
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>"))
-    (forward-char 2)
-    (yank)
-    (insert " ")
-    (beginning-of-line)
-    (should (looking-at "* --15-- drei"))))
+    (oidx-do "a d d <return>" "C-u")
+  (forward-char 2)
+  (yank)
+  (insert " ")
+  (beginning-of-line)
+  (should (looking-at "* --15-- drei"))))
 
 
 (ert-deftest oidx-test-add-and-kill-node ()
@@ -146,26 +146,28 @@
                   (time-to-days (org-read-date nil t "[2013-12-17 Di]" nil))))
     (setq digits (apply 'concat (mapcar (lambda (x) (format "%c " x)) (number-to-string days))))
     (oidx-with-test-setup
-      (execute-kbd-macro (kbd (concat "C-u " digits "M-x o r g - i n d e x <return> o c c u r <return>")))
+      (oidx-do  "M-x o r g - i n d e x <return> o c c u r <return>" (concat "C-u " digits))
       (should (string= "[2013-12-19 Do 10:00]" (org-index--get-or-set-field 'last-accessed))))))
 
 
 (ert-deftest oidx-test-clock-into-focus ()
   (oidx-with-test-setup
-   (setq org-index--after-focus-delay 1)
-   (setq org-index-clock-into-focus nil)
-   (should (not (org-clock-is-active)))
-   (oidx-do "o c c u r <return> z w e i <down> <return>")
-   (oidx-do "s e t - f o c u s <return>")
-   (sleep-for 2)
-   (should (not (org-clock-is-active)))
-
-   (setq org-index-clock-into-focus t)
-   (should (not (org-clock-is-active)))
-   (oidx-do "o c c u r <return> z w e i <down> <return>")
-   (oidx-do "s e t - f o c u s <return>")
-   (sleep-for 2)
-   (should (org-clock-is-active))))
+    (unwind-protect
+	(progn
+	  (let ((org-index--after-focus-delay 1) (org-index-clock-into-focus nil))
+	    (should (not (org-clock-is-active)))
+	    (oidx-do "o c c u r <return> z w e i <down> <return>")
+	    (oidx-do "f o c u s <return> s" "C-u")
+	    (sleep-for 2)
+	    (should (not (org-clock-is-active)))
+	    
+	    (setq org-index-clock-into-focus t)
+	    (should (not (org-clock-is-active)))
+	    (oidx-do "o c c u r <return> z w e i <down> <return>")
+	    (oidx-do "f o c u s <return> s" "C-u")
+	    (sleep-for 2)
+	    (should (org-clock-is-active))))
+      (org-clock-out))))
 
 
 (ert-deftest oidx-test-occur-result ()
@@ -197,7 +199,7 @@
 (ert-deftest oidx-test-focus ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> z w e i <down> <return>")
-    (oidx-do "s e t - f o c u s <return>")
+    (oidx-do "f o c u s <return> s" "C-u")
     (beginning-of-buffer)
     (oidx-do "f o c u s <return>")
     (should (looking-at ".* --8--"))))
@@ -206,13 +208,13 @@
 (ert-deftest oidx-test-double-focus ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> z w e i <down> <return>")
-    (oidx-do "s e t - f o c u s <return>")
+    (oidx-do "f o c u s <return> s" "C-u")
     (oidx-do "o c c u r <return> e i n s <down> <return>")
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> s e t - f o c u s <return>"))
-    (oidx-do "f o c u s <return>")
-    (should (looking-at ".* --8--"))
-    (oidx-do "f o c u s <return>")
-    (should (looking-at ".* --13--"))))
+    (oidx-do "f o c u s <return> a" "C-u")
+  (oidx-do "f o c u s <return>")
+  (should (looking-at ".* --8--"))
+  (oidx-do "f o c u s <return>")
+  (should (looking-at ".* --13--"))))
 
 
 (ert-deftest oidx-test-migrate-index ()
@@ -235,7 +237,7 @@
     ;; remove variable parts from content
     (forward-line 4)
     (forward-char 20) (let ((inhibit-read-only t))
-      (kill-line))
+			(kill-line))
     (should (string= (buffer-name) "*Occur*"))
     (should (oidx-check-buffer "*Occur*"
                                "e5210bd309fc4abf0df550cfd5be7a63"
@@ -249,7 +251,7 @@
         (oidx-do "c r e a t e <return> y o i d x - e r t - w o r k . o r g <return> f o o <return> # 1 # <return> n")
       (error (should (string-match "^Did not make the id of this new index permanent" (second result))))) 
     (forward-line -1)
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>")) 
+    (oidx-do "M-x o r g - i n d e x <return> a d d <return>" "C-u") 
     (forward-char 2)
     (yank)
     (forward-line 0)
@@ -297,13 +299,13 @@
     (oidx-do "i n d e x <return> SPC")
     (execute-kbd-macro (kbd "M-x o r g - m a r k - r i n g - g o t o <return>"))
     (should (= initial-point (point)))
-    (should (= initial-mark (mark))))) 
+    (should (= initial-mark (mark)))))
 
 
 (ert-deftest oidx-test-goto-index-from-occur ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> e i n s <S-return>")
-    (should (string= "2" (org-index--get-or-set-field 'count))))) 
+    (should (string= "2" (org-index--get-or-set-field 'count)))))
 
 
 (ert-deftest oidx-test-find-head-from-index ()
@@ -339,8 +341,8 @@
     (oidx-do "o c c u r <return> b a r <right>")
     (should (string= (org-index--get-or-set-field 'keywords)
                      "bar"))
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> r e f <return> <return> <return>"))
-    (should (string= "--16--" (current-kill 0)))))
+    (oidx-do "r e f <return> <return> <return>" "C-u")
+  (should (string= "--16--" (current-kill 0)))))
 
 
 (ert-deftest oidx-test-create-new-ref-lisp ()
@@ -466,8 +468,8 @@
   (oidx-with-test-setup
     (global-set-key (kbd "C-c i") 'org-index-dispatch)
     (mark-whole-buffer)
-    (execute-kbd-macro (kbd "C-u C-c i SPC h i g h l i g h t <return> "))
-    (should (string= org-index--message-text "Removed highlights for references in region."))))
+    (oidx-do "i n d e x <return> SPC h i g h l i g h t <return>" "C-u")
+  (should (string= org-index--message-text "Removed highlights for references in region."))))
 
 
 (ert-deftest oidx-test-add-update ()
@@ -493,7 +495,7 @@
 
 (ert-deftest oidx-test-add-delete-new-reference ()
   (oidx-with-test-setup
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>"))
+    (oidx-do "a d d <return>" "C-u")
     (forward-char 2)
     (yank)
     (beginning-of-line)
@@ -505,7 +507,7 @@
 
 (ert-deftest oidx-test-kill-from-node ()
   (oidx-with-test-setup
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>"))
+    (oidx-do "a d d <return>" "C-u")
     (oidx-do "o c c u r <return> - - 1 5 - -")
     (should (= org-index--occur-lines-collected 1))
     (org-mark-ring-goto)
@@ -517,7 +519,7 @@
 
 (ert-deftest oidx-test-kill-from-index ()
   (oidx-with-test-setup
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>"))
+    (oidx-do "a d d <return>" "C-u")
     (oidx-do "i n d e x <return> 1 5")
     (oidx-do "k i l l <return>")
     (oidx-do "o c c u r <return> - - 1 5 - -")
@@ -527,7 +529,7 @@
 
 (ert-deftest oidx-test-kill-from-occur ()
   (oidx-with-test-setup
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>"))
+    (oidx-do "a d d <return>" "C-u")
     (oidx-do "o c c u r <return> - - 1 5 - -")
     (oidx-do "k i l l <return>")
     (oidx-do "o c c u r <return> - - 1 5 - -")
@@ -586,7 +588,7 @@
 (ert-deftest oidx-test-line-with-prefix-arg ()
   (oidx-with-test-setup
     (previous-line 2)
-    (execute-kbd-macro (kbd "C-u 8 M-x o r g - i n d e x <return> p i n g <return>"))
+    (oidx-do "p i n g <return>" "C-u 8")
     (should (string= org-index--message-text
 		     "'zwei-zwei-eins' has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--8--' and ready to yank '--8--'."))))
 
@@ -611,7 +613,7 @@
 (ert-deftest oidx-test-edit-on-add ()
   (oidx-with-test-setup
     (setq org-index-edit-on-add nil)
-    (execute-kbd-macro (kbd "C-u M-x o r g - i n d e x <return> a d d <return>"))
+    (oidx-do "a d d <return>" "C-u")
     (forward-char 2)
     (yank)
     (beginning-of-line)
@@ -631,14 +633,13 @@
   (declare (indent 0) (debug t))
   `(progn
      (oidx-setup-test)
-     (switch-to-buffer oidx-work-buffer)
      (unwind-protect
          (progn ,@body)
        (oidx-teardown-test))))
 
 
-(defun oidx-do (keys)
-  (execute-kbd-macro (kbd (concat "M-x o r g - i n d e x <return> " keys))))
+(defun oidx-do (keys &optional prefix)
+  (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o r g - i n d e x <return> " keys))))
 
 
 (defun oidx-get-refs ()
@@ -716,18 +717,20 @@
   ;; remove any left over buffers
   (oidx-remove-work-buffers)
   ;; create them new
-  (with-current-buffer (oidx-create-work-buffer)
-    (oidx-prepare-test-index)
-    (setq org-index--last-sort org-index-sort-by)
-    (org-agenda-file-to-front oidx-ert-work-file)
-    (switch-to-buffer oidx-work-buffer)
-;;    (basic-save-buffer)
-;;    (org-id-update-id-locations (list oidx-ert-work-file) t)
-    (delete-other-windows)
-    (org-back-to-heading)
-    (beginning-of-line)))
+  (switch-to-buffer oidx-work-buffer)
+  (oidx-create-work-buffer)
+  (oidx-prepare-test-index)
+  (setq org-index--last-sort org-index-sort-by)
+  (org-agenda-file-to-front oidx-ert-work-file)
+  (switch-to-buffer oidx-work-buffer)
+  (org-cycle 64)
+  (basic-save-buffer)
+  ;;    (org-id-update-id-locations (list oidx-ert-work-file) t)
+  (delete-other-windows)
+  (org-back-to-heading)
+  (beginning-of-line))
 
-  
+
 (defun oidx-teardown-test ()
   (interactive)
   (remove-hook 'before-save-hook 'org-index--sort-silent)
@@ -757,9 +760,9 @@
 
     ;; get customizable variables (they have property standard-value)
     (mapatoms (lambda (x) (if (and (string-match "^org-index-.*"
-                                            (symbol-name x))
-                              (custom-variable-p x))
-                         (setq customizable (cons x customizable)))))
+						 (symbol-name x))
+				   (custom-variable-p x))
+			      (setq customizable (cons x customizable)))))
 
     ;; save all customizable variables
     (unless oidx-saved-state
@@ -849,8 +852,8 @@
 
 ")
       (forward-line -1)
-;;      (basic-save-buffer)
-;;      (org-id-update-id-locations (list oidx-ert-work-file) t)
+      ;;      (basic-save-buffer)
+      ;;      (org-id-update-id-locations (list oidx-ert-work-file) t)
       (puthash test-id oidx-ert-index-file org-id-locations)
       (setq org-index--head nil)
       (org-table-align))))
