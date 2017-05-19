@@ -346,7 +346,7 @@ those pieces."
 (defvar org-index--after-focus-context nil "Context for after focus action.")
 
 ;; static information for this program package
-(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus focus example sort find-ref highlight maintain) "List of commands available.")
+(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus example sort find-ref highlight maintain) "List of commands available.")
 (defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
