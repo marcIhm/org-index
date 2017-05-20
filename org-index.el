@@ -1031,7 +1031,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   (with-temp-buffer-window
    org-index--short-help-buffer-name nil nil
    (setq org-index--short-help-displayed t)
-   (princ (substitute-command-keys "Short help; shortcuts for org-index-dispatch in []; capital letter acts like C-u\n"))
+   (princ "Short help; shortcuts in []; capital letter acts like C-u.\n")
    (princ (org-index--get-short-help-text)))
   (with-current-buffer org-index--short-help-buffer-name
     (let ((inhibit-read-only t)
@@ -1042,12 +1042,6 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
       (setq height-after (window-height win))
       (goto-char (point-min))
       (end-of-line)
-      (insert
-       (if (> height-before height-after)
-           "."
-         (concat ", "
-                 (substitute-command-keys "\\[scroll-other-window]")
-                 " to scroll:")))
       (goto-char (point-min)))))
 
 
@@ -1145,7 +1139,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
     (setq prompt "Please specify action on the list focused nodes: set, append, delete (s,a,d or ? for short help) - ")
     (while (not (memq char (list ?s ?a ?d)))
         (setq char (read-char prompt))
-        (setq prompt "Actions on list of focused nodes: s)et - Set single focus on this node,  a)ppend - append this node to list,  d)elete - remove this node from list. Please choose - "))
+        (setq prompt "Actions on list of focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list.  Please choose - "))
     (setq text
           (cond
 
@@ -1443,7 +1437,7 @@ Argument COLUMN and VALUE specify line to get."
       ;; read one character
       (while (not (memq char (append (number-sequence ?0 ?9) (list ?\d ?\b ?\r ?\j ?\s ?.))))
         (setq char (read-char prompt))
-        (setq prompt "Go to specific position in index table. Digits specify a reference number, <space> goes to top of index, <backspace> or <delete> to last line created and <return> or `.' to index line of current node. Please choose - "))
+        (setq prompt "Go to specific position in index table. Digits specify a reference number, <space> goes to top of index, <backspace> or <delete> to last line created and <return> or `.' to index line of current node.  Please choose - "))
     
       (if (memq char (number-sequence ?0 ?9))
           ;; read rest of digits
