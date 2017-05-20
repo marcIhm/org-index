@@ -464,7 +464,7 @@
   (oidx-with-test-setup
     (mark-whole-buffer)
     (oidx-do "h i g h l i g h t <return>")
-    (should (string= org-index--message-text "Highlighted references in region.")))
+    (should (string= org-index--message-text "Highlighted references in region."))))
 
 
 (ert-deftest oidx-test-unhighlight ()

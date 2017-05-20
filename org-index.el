@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.3.0
+;; Version: 5.4.0
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -85,6 +85,12 @@
 
 ;;; Change Log:
 
+;;   [2017-05-20 Sa] Version 5.4.0
+;;   - Dedicated submenu for focus operations
+;;   - Occur accepts a numeric argument as a day span
+;;   - New customization `org-index-clock-into-focus'
+;;   - Fixed delay after choosing an index line
+;;
 ;;   [2017-03-26 Su] Version 5.3.0
 ;;   - Focused can now be on a list of nodes (instead of a single one)
 ;;   - Cleaned up undeclared dependencies
@@ -184,7 +190,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.3.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.4.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -294,9 +300,9 @@ those pieces."
                   (const category)
                   (const keywords))))
 
-(defcustom org-index-clock-into-focus nil 
-  "Clock into focused node." 
-  :group 'org-index 
+(defcustom org-index-clock-into-focus nil
+  "Clock into focused node."
+  :group 'org-index
   :type 'boolean)
 
 ;; Variables to hold the configuration of the index table
@@ -399,7 +405,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.3.0 of org-index.el.
+This is version 5.4.0 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -447,7 +453,7 @@ of subcommands to choose from:
 
   help: Show complete help text of `org-index'.
 
-  focus: [f] Return to first focused node; repeat to see them all. 
+  focus: [f] Return to first focused node; repeat to see them all.
     The focused nodes are kept in a short list and can be found
     by hitting a single key; they need not be part of the index
     though.  This can be useful, if you work in one or few nodes,
@@ -488,11 +494,9 @@ A numeric prefix argument is used as a reference number for
 commands, that need one (e.g. 'head') or to modify their
 behaviour (e.g. 'occur').
 
-Please note, that a single prefix arg may also be specified just
-before the final character (e.g. like `C-c i C-u f'). When
-`org-index-dispatch-key' is expecting an single letter as input;
-an upper case letter has the same effect as supplying a prefix
-arg.
+Also, a single prefix argument may also be specified just before
+the final character (e.g. like `C-c i C-u f') or by just typing
+an upper case letter (e.g. `C-c i F').
 
 Use from elisp: Optional argument COMMAND is a symbol naming the
 command to execute.  SEARCH-REF specifies a reference to search
@@ -1092,16 +1096,14 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let ((maybe-reverse (lambda (&rest x) (if (equal arg '(4)) (reverse x) x)))
-            last-id next-id marker)
+      (let (last-id next-id marker)
         (setq last-id (or org-index--id-last-goto-focus
                           (last org-index--ids-focused-nodes)))
         (setq next-id
               (car (or (cdr-safe (member last-id
-                                         (apply maybe-reverse
-                                                (append org-index--ids-focused-nodes
-                                                        org-index--ids-focused-nodes))))
-                       (apply maybe-reverse org-index--ids-focused-nodes))))
+                                         (append org-index--ids-focused-nodes
+                                                 org-index--ids-focused-nodes)))
+                       org-index--ids-focused-nodes)))
         (or (setq marker (org-id-find next-id 'marker))
             (error "Could not find focus-node with id %s" next-id))
 
@@ -1109,7 +1111,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
         (goto-char (marker-position marker))
         (org-index--unfold-buffer)
         (move-marker marker nil)
-        (when org-index-clock-into-focus 
+        (when org-index-clock-into-focus
           (if org-index--after-focus-timer (cancel-timer org-index--after-focus-timer))
           (setq org-index--after-focus-context
                 (cons (point-marker)
@@ -1123,7 +1125,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
                                      (org-clock-in)))
                                (org-index--update-line (cdr org-index--after-focus-context) t)
                                (move-marker (car org-index--after-focus-context) nil)
-                               (setq org-index--after-focus-context nil))))) 
+                               (setq org-index--after-focus-context nil)))))
         (setq org-index--id-last-goto-focus next-id)
         (if (cdr org-index--ids-focused-nodes)
             (format "Jumped to next focus-node (out of %d)"
@@ -1157,7 +1159,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
             (if org-index-clock-into-focus (org-clock-in))
             "Current node has been appended to list of focused nodes (%d node%s in focus)")
 
-           ((eq char ?d) 
+           ((eq char ?d)
             (setq id (org-id-get))
             (if (and id  (member id org-index--ids-focused-nodes))
                 (progn
@@ -2045,7 +2047,8 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 
 (defun org-index--update-line (&optional id-or-pos no-error)
-  "Update columns count and last-accessed in line ID-OR-POS."
+  "Update columns count and last-accessed in line ID-OR-POS.
+Optional argument NO-ERROR suppresses error."
 
   (let (initial)
 
@@ -2709,7 +2712,7 @@ If OTHER in separate window."
   "Perform command occur; optional narrow to DAYS back."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
-        (these-commands " NOTE: If you invoke the org-index subcommands edit or kill from within the occur buffer, the index is updated accordingly.")
+        (these-commands " NOTE: If you invoke the org-index subcommands edit or kill from within this buffer, the index is updated accordingly.")
         (lines-wanted (window-body-height))
         (lines-found 0)                      ; number of lines found
         words                                ; list words that should match
@@ -3049,7 +3052,7 @@ If OTHER in separate window."
       (goto-char pos)
       (setq there (org-index--line-in-canonical-form)))
     (unless (string= here there)
-      (error "Occur buffer has become stale"))))
+      (error "Occur buffer has become stale; please repeat search"))))
 
 
 (defun org-index--line-in-canonical-form ()
@@ -3093,7 +3096,9 @@ If OTHER in separate window."
 
 
 (defun org-index--hide-with-overlays (words lines-wanted days)
-  "Hide text that is currently visible and does not match WORDS by creating overlays; leave LINES-WANTED lines visible."
+  "Hide text that is currently visible and does not match WORDS by creating overlays; 
+leave LINES-WANTED lines visible.
+Argument DAYS hides older lines."
   (let ((lines-found 0)
         (end-of-visible (point))
         overlay overlays start matched)
@@ -3121,11 +3126,11 @@ If OTHER in separate window."
                       (let ((last-accessed (org-index--get-or-set-field 'last-accessed)))
                         (if last-accessed
                             (not (and
-                                  (<= (- (time-to-days (current-time)) 
+                                  (<= (- (time-to-days (current-time))
                                          (time-to-days (org-read-date nil t last-accessed nil)))
                                       days)
                                   (setq matched t))) ; for its side effect
-                          t)) 
+                          t))
                     (not (and (org-index--test-words words)
                               (setq matched t))))) ; for its side effect
         (forward-line 1))
