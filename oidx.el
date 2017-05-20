@@ -137,7 +137,7 @@
     (execute-kbd-macro (kbd "C-c i ? h e l p <return>"))
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
-      (should (= (line-number-at-pos) 21)))))
+      (should (= (line-number-at-pos) 20)))))
 
 
 (ert-deftest oidx-test-occur-days ()
@@ -146,7 +146,7 @@
                   (time-to-days (org-read-date nil t "[2013-12-17 Di]" nil))))
     (setq digits (apply 'concat (mapcar (lambda (x) (format "%c " x)) (number-to-string days))))
     (oidx-with-test-setup
-      (oidx-do  "M-x o r g - i n d e x <return> o c c u r <return>" (concat "C-u " digits))
+      (oidx-do  "o c c u r <return>" (concat "C-u " digits))
       (should (string= "[2013-12-19 Do 10:00]" (org-index--get-or-set-field 'last-accessed))))))
 
 
@@ -168,6 +168,9 @@
 	    (sleep-for 2)
 	    (should (org-clock-is-active))))
       (org-clock-out))))
+
+(unless (functionp 'org-duration-from-minutes)
+  (defun org-duration-from-minutes (x)))
 
 
 (ert-deftest oidx-test-occur-result ()
@@ -251,7 +254,7 @@
         (oidx-do "c r e a t e <return> y o i d x - e r t - w o r k . o r g <return> f o o <return> # 1 # <return> n")
       (error (should (string-match "^Did not make the id of this new index permanent" (second result))))) 
     (forward-line -1)
-    (oidx-do "M-x o r g - i n d e x <return> a d d <return>" "C-u") 
+    (oidx-do "a d d <return>" "C-u") 
     (forward-char 2)
     (yank)
     (forward-line 0)
@@ -457,18 +460,17 @@
                                "oidx-test-sort-buffer"))))
 
 
-(ert-deftest oidx-test-highlight ()
+(ert-deftest oidx-test-highlight-unhighlight ()
   (oidx-with-test-setup
     (mark-whole-buffer)
     (oidx-do "h i g h l i g h t <return>")
-    (should (string= org-index--message-text "Highlighted references in region."))))
+    (should (string= org-index--message-text "Highlighted references in region.")))
 
 
 (ert-deftest oidx-test-unhighlight ()
   (oidx-with-test-setup
-    (global-set-key (kbd "C-c i") 'org-index-dispatch)
     (mark-whole-buffer)
-    (oidx-do "i n d e x <return> SPC h i g h l i g h t <return>" "C-u")
+    (oidx-do "SPC h i g h l i g h t <return>" "C-u")
   (should (string= org-index--message-text "Removed highlights for references in region."))))
 
 
@@ -721,14 +723,13 @@
   (oidx-create-work-buffer)
   (oidx-prepare-test-index)
   (setq org-index--last-sort org-index-sort-by)
-  (org-agenda-file-to-front oidx-ert-work-file)
   (switch-to-buffer oidx-work-buffer)
-  (org-cycle 64)
   (basic-save-buffer)
-  ;;    (org-id-update-id-locations (list oidx-ert-work-file) t)
+  (org-agenda-file-to-front oidx-ert-work-file)
+  (org-cycle '(16))
   (delete-other-windows)
-  (org-back-to-heading)
-  (beginning-of-line))
+  (end-of-buffer)
+  (forward-line -1))
 
 
 (defun oidx-teardown-test ()
