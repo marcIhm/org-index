@@ -2712,7 +2712,7 @@ If OTHER in separate window."
   "Perform command occur; optional narrow to DAYS back."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
-        (these-commands " NOTE: If you invoke the org-index subcommands edit or kill from within this buffer, the index is updated accordingly.")
+        (these-commands " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly")
         (lines-wanted (window-body-height))
         (lines-found 0)                      ; number of lines found
         words                                ; list words that should match
@@ -3005,6 +3005,10 @@ If OTHER in separate window."
       (define-key keymap (kbd "<tab>")
         (lambda () (interactive)
           (message (org-index--occur-action t))))
+      
+      (define-key keymap (kbd "e")
+        (lambda () (interactive)
+          (message (org-index 'edit))))
       
       (define-key keymap (kbd "SPC")
         (lambda () (interactive)
