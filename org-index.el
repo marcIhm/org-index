@@ -358,7 +358,7 @@ those pieces."
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
 (defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
-(defvar org-index--after-focus-delay 4 "Number of seconds to wait before doing after focus action.")
+(defvar org-index--after-focus-delay 6 "Number of seconds to wait before invoking after-focus action.")
 
 
 (defmacro org-index--on (column value &rest body)
@@ -386,7 +386,7 @@ if VALUE cannot be found."
 
 
 (defun org-index (&optional command search-ref arg)
-  "Fast search-index for selected org nodes and things outside of org.
+  "Fast search-index for selected org nodes and things outside.
 
 This function creates and updates an index table with keywords;
 each line either points to a heading in org, references something
@@ -451,8 +451,6 @@ of subcommands to choose from:
   edit: [e] Present current line in edit buffer.
     Can be invoked from index, from occur or from a headline.
 
-  help: Show complete help text of `org-index'.
-
   focus: [f] Return to first focused node; repeat to see them all.
     The focused nodes are kept in a short list and can be found
     by hitting a single key; they need not be part of the index
@@ -461,8 +459,12 @@ of subcommands to choose from:
     index. With a prefix argument offer more options, e.g. to set
     focus.
 
-  short-help: [?] Show one-line description of each subcommand.
-    I.e. show this list but only first sentence each.
+  help: Show complete help text of `org-index'.
+    I.e. this text.
+
+  short-help: [?] Show this one-line description of each subcommand.
+    I.e. from the complete help, show only the first line for each
+    subcommand.
 
   example: Create an example index, that will not be saved.
     May serve as an example.
@@ -494,9 +496,9 @@ A numeric prefix argument is used as a reference number for
 commands, that need one (e.g. 'head') or to modify their
 behaviour (e.g. 'occur').
 
-Also, a single prefix argument may also be specified just before
-the final character (e.g. like `C-c i C-u f') or by just typing
-an upper case letter (e.g. `C-c i F').
+Also, a single prefix argument may be specified just before the
+final character (e.g. like `C-c i C-u f') or by just typing an
+upper case letter (e.g. `C-c i F').
 
 Use from elisp: Optional argument COMMAND is a symbol naming the
 command to execute.  SEARCH-REF specifies a reference to search
@@ -1096,14 +1098,19 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let (last-id next-id marker)
+      (let (last-id next-id this-id marker)
         (setq last-id (or org-index--id-last-goto-focus
                           (last org-index--ids-focused-nodes)))
+        (setq this-id (org-id-get))
         (setq next-id
-              (car (or (cdr-safe (member last-id
-                                         (append org-index--ids-focused-nodes
-                                                 org-index--ids-focused-nodes)))
-                       org-index--ids-focused-nodes)))
+              (if (and this-id
+                       (string= this-id last-id))
+                  (car (or (cdr-safe (member last-id
+                                             (append org-index--ids-focused-nodes
+                                                     org-index--ids-focused-nodes)))
+                           org-index--ids-focused-nodes))
+                (or last-id
+                    (car org-index--ids-focused-nodes))))
         (or (setq marker (org-id-find next-id 'marker))
             (error "Could not find focus-node with id %s" next-id))
 
