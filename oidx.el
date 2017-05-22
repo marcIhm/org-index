@@ -214,10 +214,10 @@
     (oidx-do "f o c u s <return> s" "C-u")
     (oidx-do "o c c u r <return> e i n s <down> <return>")
     (oidx-do "f o c u s <return> a" "C-u")
-  (oidx-do "f o c u s <return>")
-  (should (looking-at ".* --8--"))
-  (oidx-do "f o c u s <return>")
-  (should (looking-at ".* --13--"))))
+    (oidx-do "f o c u s <return>")
+    (should (looking-at ".* --8--"))
+    (oidx-do "f o c u s <return>")
+    (should (looking-at ".* --13--"))))
 
 
 (ert-deftest oidx-test-migrate-index ()
@@ -853,8 +853,8 @@
 
 ")
       (forward-line -1)
-      ;;      (basic-save-buffer)
-      ;;      (org-id-update-id-locations (list oidx-ert-work-file) t)
+      (basic-save-buffer)
+      (org-id-update-id-locations (list oidx-ert-work-file) t)
       (puthash test-id oidx-ert-index-file org-id-locations)
       (setq org-index--head nil)
       (org-table-align))))

@@ -933,7 +933,7 @@ interactive calls."
 Can be bound in global keyboard map as central entry point.
 Optional argument ARG is passed on."
   (interactive "P")
-  (let (char command (c-u-text ""))
+  (let (char command (c-u-text (if arg " C-u " "")))
     (while (not char)
       (if (sit-for 1)
           (message (concat "org-index (? for detailed prompt) -" c-u-text)))
@@ -1155,6 +1155,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
            ((eq char ?s)
             (setq id (org-id-get-create))
             (setq org-index--ids-focused-nodes (list id))
+	    (setq org-index--id-last-goto-focus id)
             (if org-index-clock-into-focus (org-clock-in))
             "Focus has been set on current node (1 node in focus)")
 
@@ -1163,6 +1164,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
             (unless (member id org-index--ids-focused-nodes)
               (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
             (setq org-index--id-last-goto-focus id)
+	    (setq org-index--id-last-goto-focus id)
             (if org-index-clock-into-focus (org-clock-in))
             "Current node has been appended to list of focused nodes (%d node%s in focus)")
 
@@ -1175,6 +1177,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
                                                                             org-index--ids-focused-nodes)))))
                             org-index--id-last-goto-focus))
                   (setq org-index--ids-focused-nodes (delete id org-index--ids-focused-nodes))
+		  (setq org-index--id-last-goto-focus nil)
                   "Current node has been removed from list of focused nodes (%d node%s in focus)")
               "Current node has not been in list of focused nodes (%d node%s in focus)"))))
     
