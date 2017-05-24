@@ -358,7 +358,7 @@ those pieces."
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
 (defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
-(defvar org-index--after-focus-delay 6 "Number of seconds to wait before invoking after-focus action.")
+(defvar org-index--after-focus-delay 10 "Number of seconds to wait before invoking after-focus action.")
 
 
 (defmacro org-index--on (column value &rest body)
@@ -1100,7 +1100,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
   (if org-index--ids-focused-nodes
       (let (last-id next-id this-id marker)
         (setq last-id (or org-index--id-last-goto-focus
-                          (last org-index--ids-focused-nodes)))
+                          (car (last org-index--ids-focused-nodes))))
         (setq this-id (org-id-get))
         (setq next-id
               (if (and this-id
@@ -1111,8 +1111,9 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
                            org-index--ids-focused-nodes))
                 (or last-id
                     (car org-index--ids-focused-nodes))))
-        (or (setq marker (org-id-find next-id 'marker))
-            (error "Could not find focus-node with id %s" next-id))
+        (or (setq marker (or (org-id-find next-id 'marker)
+                             (org-id-find (car org-index--ids-focused-nodes) 'marker)))
+            (error "Could not find focus-node with id %s nor %s" next-id (car org-index--ids-focused-nodes)))
 
         (pop-to-buffer-same-window (marker-buffer marker))
         (goto-char (marker-position marker))
@@ -1155,7 +1156,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
            ((eq char ?s)
             (setq id (org-id-get-create))
             (setq org-index--ids-focused-nodes (list id))
-	    (setq org-index--id-last-goto-focus id)
+            (setq org-index--id-last-goto-focus id)
             (if org-index-clock-into-focus (org-clock-in))
             "Focus has been set on current node (1 node in focus)")
 
