@@ -350,6 +350,7 @@ those pieces."
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 (defvar org-index--after-focus-timer nil "Timer to clock in or update focused node after a delay.")
 (defvar org-index--after-focus-context nil "Context for after focus action.")
+(defvar org-index--set-focus-time nil "Last time-value, when focus has been set.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus example sort find-ref highlight maintain) "List of commands available.")
@@ -1098,27 +1099,32 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let (last-id next-id this-id marker)
+      (let (last-id next-id here-id recent marker)
+        (setq recent (or (not org-index--set-focus-time)
+                         (< (- (float-time (current-time))
+                               (float-time org-index--set-focus-time))
+                            org-index--after-focus-delay)))
         (setq last-id (or org-index--id-last-goto-focus
                           (car (last org-index--ids-focused-nodes))))
-        (setq this-id (org-id-get))
+        (setq here-id (org-id-get))
         (setq next-id
-              (if (and this-id
-                       (string= this-id last-id))
+              (if (and recent
+                       here-id
+                       (string= here-id last-id))
                   (car (or (cdr-safe (member last-id
                                              (append org-index--ids-focused-nodes
                                                      org-index--ids-focused-nodes)))
                            org-index--ids-focused-nodes))
-                (or last-id
-                    (car org-index--ids-focused-nodes))))
-        (or (setq marker (or (org-id-find next-id 'marker)
-                             (org-id-find (car org-index--ids-focused-nodes) 'marker)))
-            (error "Could not find focus-node with id %s nor %s" next-id (car org-index--ids-focused-nodes)))
+                last-id))
+        (unless (setq marker (org-id-find next-id 'marker))
+          (setq org-index--id-last-goto-focus nil)
+          (error "Could not find focus-node with id %s (retry may succeed)" next-id))
 
         (pop-to-buffer-same-window (marker-buffer marker))
         (goto-char (marker-position marker))
         (org-index--unfold-buffer)
         (move-marker marker nil)
+        (setq org-index--set-focus-time (current-time))
         (when org-index-clock-into-focus
           (if org-index--after-focus-timer (cancel-timer org-index--after-focus-timer))
           (setq org-index--after-focus-context
@@ -1136,7 +1142,8 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
                                (setq org-index--after-focus-context nil)))))
         (setq org-index--id-last-goto-focus next-id)
         (if (cdr org-index--ids-focused-nodes)
-            (format "Jumped to next focus-node (out of %d)"
+            (format "Jumped %s focus-node (out of %d)"
+                    (if recent "to next" "back to current")
                     (length org-index--ids-focused-nodes))
           "Jumped to single focus-node"))
       "No nodes in focus, use set-focus"))
