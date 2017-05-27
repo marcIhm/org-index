@@ -373,7 +373,9 @@
     (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
     (should (string= (buffer-name) org-index--occur-buffer-name))
     (should (string= (org-index--get-or-set-field 'keywords)
-                     "einsfoo"))))
+                     "einsfoo"))
+    (should (= (progn (end-of-line) (current-column))
+                     (progn (end-of-line 2) (current-column))))))
 
 
 (ert-deftest oidx-test-edit-from-node ()

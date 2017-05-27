@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.4.0
+;; Version: 5.4.1
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -85,11 +85,12 @@
 
 ;;; Change Log:
 
-;;   [2017-05-20 Sa] Version 5.4.0
+;;   [2017-05-27 Sa] Version 5.4.1
 ;;   - Dedicated submenu for focus operations
 ;;   - Occur accepts a numeric argument as a day span
 ;;   - New customization `org-index-clock-into-focus'
 ;;   - Fixed delay after choosing an index line
+;;   - Bugfixes
 ;;
 ;;   [2017-03-26 Su] Version 5.3.0
 ;;   - Focused can now be on a list of nodes (instead of a single one)
@@ -190,7 +191,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.4.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.4.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -406,7 +407,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.4.0 of org-index.el.
+This is version 5.4.1 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -1118,7 +1119,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
                 last-id))
         (unless (setq marker (org-id-find next-id 'marker))
           (setq org-index--id-last-goto-focus nil)
-          (error "Could not find focus-node with id %s (retry may succeed)" next-id))
+          (error "Could not find focus-node with id %s" next-id))
 
         (pop-to-buffer-same-window (marker-buffer marker))
         (goto-char (marker-position marker))
@@ -2107,41 +2108,44 @@ Optional argument NO-ERROR suppresses error."
 
 (defun org-index--align-and-fontify-current-line (&optional num)
   "Make current line (or NUM lines) blend well among others."
-  (let (lines)
+  (let (lines lines-fontified)
     ;; get current content
     (unless num (setq num 1))
     (setq lines (delete-and-extract-region (line-beginning-position) (line-end-position num)))
     ;; create minimum table with fixed-width columns to align and fontify new line
-    (insert (with-temp-buffer
-              (org-set-font-lock-defaults)
-              (insert org-index--headings-visible)
-              ;; fill columns, so that aligning cannot shrink them
-              (goto-char (point-min))
-              (search-forward "|")
-              (while (search-forward " " (line-end-position) t)
-                (replace-match "." nil t))
-              (goto-char (point-min))
-              (while (search-forward ".|." (line-end-position) t)
-                (replace-match " | " nil t))
-              (goto-char (point-min))
-              (while (search-forward "|." (line-end-position) t)
-                (replace-match "| " nil t))
-              (goto-char (point-max))
-              (insert lines)
-              (forward-line 0)
-              (let ((start (point)))
-                (while (re-search-forward "^\s +|-" nil t)
-                  (replace-match "| -"))
-                (goto-char start))
-              (org-mode)
-              (org-table-align)
-              (font-lock-fontify-region (point-min) (point-max))
-              (goto-char (point-max))
-              (if (eq -1 (skip-chars-backward "\n"))
-                  (delete-char 1))
-              (forward-line (- 1 num))
-              (buffer-substring (line-beginning-position) (line-end-position num))))
-    lines))
+    (insert
+     (setq
+      lines-fontified
+      (with-temp-buffer
+        (org-set-font-lock-defaults)
+        (insert org-index--headings-visible)
+        ;; fill columns, so that aligning cannot shrink them
+        (goto-char (point-min))
+        (search-forward "|")
+        (while (search-forward " " (line-end-position) t)
+          (replace-match "." nil t))
+        (goto-char (point-min))
+        (while (search-forward ".|." (line-end-position) t)
+          (replace-match " | " nil t))
+        (goto-char (point-min))
+        (while (search-forward "|." (line-end-position) t)
+          (replace-match "| " nil t))
+        (goto-char (point-max))
+        (insert lines)
+        (forward-line 0)
+        (let ((start (point)))
+          (while (re-search-forward "^\s +|-" nil t)
+            (replace-match "| -"))
+          (goto-char start))
+        (org-mode)
+        (org-table-align)
+        (font-lock-fontify-region (point-min) (point-max))
+        (goto-char (point-max))
+        (if (eq -1 (skip-chars-backward "\n"))
+            (delete-char 1))
+        (forward-line (- 1 num))
+        (buffer-substring (line-beginning-position) (line-end-position num)))))
+    lines-fontified))
 
 
 (defun org-index--promote-current-line ()
