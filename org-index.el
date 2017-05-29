@@ -454,12 +454,13 @@ of subcommands to choose from:
     Can be invoked from index, from occur or from a headline.
 
   focus: [f] Return to first focused node; repeat to see them all.
-    The focused nodes are kept in a short list and can be found
-    by hitting a single key; they need not be part of the index
-    though.  This can be useful, if you work in one or few nodes,
-    but make frequent excursions to others, which are part of the
-    index. With a prefix argument offer more options, e.g. to set
-    focus.
+    The focused nodes are kept in a short list; they need not be
+    part of the index though.  This command visits one focus node
+    after the other, as long as you invoke it in quick succession
+    and without moving to other nodes; otherwise it returns to
+    the focus node, where you left off. Finally, with a prefix
+    argument, this command offers more options, e.g. to set focus
+    in the first place.
 
   help: Show complete help text of `org-index'.
     I.e. this text.
