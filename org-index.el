@@ -1008,7 +1008,7 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
       (remove-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
       (remove-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
       (unless (string= command (downcase command))
-        (setq command (downcase command))
+        (if command (setq command (downcase command)))
         (setq org-index--prefix-arg '(4)))
       (setq command (intern command))
       (when org-index--short-help-displayed
