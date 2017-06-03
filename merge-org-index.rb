@@ -5,9 +5,11 @@ desc = 'A custom merge-driver for org-index.
 It comes with these restrictions:
 - Your index must be placed as a single in its own file
 - It expects exactly the three argument which specify the filenames of
-  ancestor, current and other branches version of the file to be merged.
-- There is no automatic merge; an editor (emacs) will be invoked 
-  in most cases
+  ancestor (%O), current (%B) and other (%A) branches version of the
+  file to be merged.
+- There is no automatic merge; an editor (emacs) will be invoked in
+  most cases; you will find instructions on how to complete the merge
+  within the edited file.
 
 To employ this driver, you need to put this in your .git/config:
 (assuming, that you have saved this script into /usr/bin)
@@ -57,7 +59,7 @@ OptionParser.new do |opts|
   end
 
   if ARGV.length != 3
-    puts "Error: Need exactly three filenames"
+    puts "Error: Need exactly three filenames; use '-d' for details"
     puts opts
     exit 1
   end
@@ -203,7 +205,6 @@ File.open(ARGV[1],'w') do |file|
     file.write current[part]
   end
 
-  file.write edit_hint
   puts edit_hint
 
   [:table_caption, :table_hline].each do |part|
