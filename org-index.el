@@ -1,4 +1,4 @@
-;;; org-index.el --- A personal adaptive index for org
+;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
@@ -307,7 +307,6 @@ those pieces."
   :type 'boolean)
 
 ;; Variables to hold the configuration of the index table
-(defvar org-index--maxrefnum nil "Maximum number from reference table, e.g. 153.")
 (defvar org-index--head nil "Header before number (e.g. 'R').")
 (defvar org-index--tail nil "Tail after number (e.g. '}' or ')'.")
 (defvar org-index--numcols nil "Number of columns in index table.")
@@ -985,11 +984,9 @@ Optional argument KEYS-VALUES specifies content of new line."
     ref))
 
 
-(defun org-index--read-command (&optional with-short-help)
-  "Read subcommand for ‘org-index’ from minibuffer.
-Optional argument WITH-SHORT-HELP displays help screen upfront."
+(defun org-index--read-command ()
+  "Read subcommand for ‘org-index’ from minibuffer."
   (let (minibuffer-scroll-window
-        minibuffer-setup-fun
         command)
     (setq org-index--short-help-displayed nil)
     (setq org-index--prefix-arg nil)
@@ -1044,11 +1041,9 @@ Optional argument WITH-SHORT-HELP displays help screen upfront."
    (princ (org-index--get-short-help-text)))
   (with-current-buffer org-index--short-help-buffer-name
     (let ((inhibit-read-only t)
-          height-before height-after win)
+          win)
       (setq win (get-buffer-window))
-      (setq height-before (window-height win))
       (shrink-window-if-larger-than-buffer win)
-      (setq height-after (window-height win))
       (goto-char (point-min))
       (end-of-line)
       (goto-char (point-min)))))
@@ -1520,9 +1515,7 @@ Argument COLUMN and VALUE specify line to get."
 Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration.
 Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
-  (let (ref-field
-        ref-num
-        initial-point
+  (let (initial-point
         end-of-headings
         start-of-headings)
 
@@ -1592,11 +1585,10 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
       ;; read property or go through table to find maximum number
       (goto-char org-index--below-hline)
-      (setq ref-field (or (org-entry-get org-index--point "max-ref")
-                          (org-index--migrate-maxref-to-property)))
+      (setq max-ref-field (or (org-entry-get org-index--point "max-ref")
+                              (org-index--migrate-maxref-to-property)))
       
-      (unless org-index--head (org-index--get-decoration-from-ref-field ref-field))
-      (setq org-index--maxrefnum (org-index--extract-refnum ref-field))
+      (unless org-index--head (org-index--get-decoration-from-ref-field max-ref-field))
     
       ;; Get ids of focused node (if any)
       (setq org-index--ids-focused-nodes (split-string (or (org-entry-get nil "ids-focused-nodes") "")))
@@ -1634,33 +1626,37 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 (defun org-index--migrate-maxref-to-property ()
   "One-time migration: No property; need to go through whole table once to find max."
   (org-index--go-below-hline)
-  (let (ref-field ref-num ref)
+  (let ((max-ref-num 0)
+        ref-field ref-num ref)
     (message "One-time migration to set index-property maxref...")
-    (unless org-index--maxrefnum (setq org-index--maxrefnum 0))
     (while (org-at-table-p)
       (setq ref-field (org-index--get-or-set-field 'ref))
       (when ref-field
         (unless org-index--head (org-index--get-decoration-from-ref-field ref-field))
         (setq ref-num (org-index--extract-refnum ref-field))
-        (if (> ref-num org-index--maxrefnum) (setq org-index--maxrefnum ref-num)))
+        (if (> ref-num max-ref-num) (setq max-ref-num ref-num)))
       (forward-line))
-    (unless org-index--maxrefnum
+    (unless (> max-ref-num 0)
       (org-index--report-index-error "No reference found in property max-ref and none in index"))
-    (setq ref (org-index--get-save-maxref t))
+    (setq ref-field (format org-index--ref-format max-ref-num))
     (org-index--go-below-hline)
+    (org-entry-put org-index--point "max-ref" ref-field)
     (message "Done.")
-    ref))
+    ref-field))
 
 
 (defun org-index--get-save-maxref (&optional no-inc)
   "Get next reference, increment number and store it in index.
 Optional argument NO-INC skips automatic increment on maxref."
-  (let (ref)
-    (unless no-inc (setq org-index--maxrefnum (1+ org-index--maxrefnum)))
-    (setq ref (format org-index--ref-format org-index--maxrefnum))
+  (let (ref-field max-ref-num max-ref-field)
     (with-current-buffer org-index--buffer
-      (org-entry-put org-index--point "max-ref" ref))
-    ref))
+      (setq max-ref-field (org-entry-get org-index--point "max-ref"))
+      (when max-ref-field
+        (setq max-ref-num (org-index--extract-refnum max-ref-field))
+        (unless no-inc (cl-incf max-ref-num))
+        (setq ref-field (format org-index--ref-format max-ref-num))
+        (org-entry-put org-index--point "max-ref" ref-field)))
+    ref-field))
 
 
 (defun org-index--refresh-parse-table ()
@@ -2444,7 +2440,7 @@ CREATE-REF and TAG-WITH-REF if given."
   "Update all lines of index at once."
 
   (let ((lines 0)
-        id ref kvs)
+        id kvs)
     
     ;; check for double ids
     (or
@@ -2456,7 +2452,6 @@ CREATE-REF and TAG-WITH-REF if given."
          
          ;; update single line
          (when (setq id (org-index--get-or-set-field 'id))
-           (setq ref (org-index--get-or-set-field 'ref))
            (setq kvs (org-index--collect-values-for-add-update-remote id))
            (org-index--write-fields kvs)
            (cl-incf lines))
@@ -2484,7 +2479,7 @@ CREATE-REF and TAG-WITH-REF if given."
         
         ;; Shift ref and timestamp ?
         (if org-index-strip-ref-and-date-from-heading
-            (dotimes (i 2)
+            (dotimes (_i 2)
               (if (or (string-match (concat "^\\s-*" org-index--ref-regex) content)
                       (string-match (concat "^\\s-*" org-ts-regexp-both) content))
                   (setq content (substring content (match-end 0)))))))
@@ -2737,7 +2732,6 @@ If OTHER in separate window."
         (prompt "Search for: ")
         (these-commands " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly")
         (lines-wanted (window-body-height))
-        (lines-found 0)                      ; number of lines found
         words                                ; list words that should match
         occur-buffer
         begin                          ; position of first line
@@ -2746,7 +2740,6 @@ If OTHER in separate window."
         done                           ; true, if loop is done
         in-c-backspace                 ; true, while processing C-backspace
         help-overlay                   ; Overlay with help text
-        last-point                     ; Last position before end of search
         initial-frame                  ; Frame when starting occur
         key                            ; input from user in various forms
         key-sequence
@@ -2802,7 +2795,7 @@ If OTHER in separate window."
     ;; do not enter loop if number of days is requested
     (when days
       (goto-char begin)
-      (setq lines-found (org-index--hide-with-overlays (cons word words) lines-wanted days))
+      (org-index--hide-with-overlays (cons word words) lines-wanted days)
       (move-overlay org-index--occur-tail-overlay
                     (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
                       (point-max))
@@ -2864,7 +2857,7 @@ If OTHER in separate window."
             (setq in-c-backspace nil))
 
           ;; free top list of overlays and remove list
-          (setq lines-found (or (org-index--unhide) lines-wanted))
+          (org-index--unhide)
           (move-overlay org-index--occur-tail-overlay
                         (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
                           (point-max))
@@ -2902,7 +2895,7 @@ If OTHER in separate window."
                 
         ;; make overlays to hide lines, that do not match longer word any more
         (goto-char begin)
-        (setq lines-found (org-index--hide-with-overlays (cons word words) lines-wanted days))
+        (org-index--hide-with-overlays (cons word words) lines-wanted days)
         (move-overlay org-index--occur-tail-overlay
                       (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
                         (point-max))
@@ -2924,9 +2917,6 @@ If OTHER in separate window."
     (unless (string= key "C-g")
       (setq unread-command-events (listify-key-sequence key-sequence-raw))
       (message key))
-    
-    ;; postprocessing
-    (setq last-point (point))
     
     ;; For performance reasons do not show matching lines for rest of table. So no code here.
     
@@ -3123,7 +3113,7 @@ If OTHER in separate window."
 
 
 (defun org-index--hide-with-overlays (words lines-wanted days)
-  "Hide text that is currently visible and does not match WORDS by creating overlays; 
+  "Hide lines that are currently visible and do not match WORDS; 
 leave LINES-WANTED lines visible.
 Argument DAYS hides older lines."
   (let ((lines-found 0)

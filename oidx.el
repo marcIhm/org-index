@@ -99,12 +99,12 @@
 
 (ert-deftest oidx-test-add-and-kill-node ()
   (oidx-with-test-setup
-    (execute-kbd-macro (kbd "C-e <return> C-u M-x o r g - i n d e x <return> a d d <return>")) 
+    (oidx-do "a d d <return>" "C-e <return> C-u")
     (oidx-do "o c c u r <return> d r e i")
     (execute-kbd-macro (kbd "<right> <right> <right> <right>"))
     (should (looking-at "--15--"))
     (org-mark-ring-goto)
-    (execute-kbd-macro (kbd "C-e <return>")) 
+    (execute-kbd-macro (kbd "C-e <return>"))
     (oidx-do "k i l l <return>")
     (oidx-do "o c c u r <return> d r e i")
     (execute-kbd-macro (kbd "<right> <right> <right> <right> <right>"))
