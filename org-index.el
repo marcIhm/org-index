@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.4.1
+;; Version: 5.4.2
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -85,11 +85,12 @@
 
 ;;; Change Log:
 
-;;   [2017-05-27 Sa] Version 5.4.1
+;;   [2017-06-06 Tu] Version 5.4.2
 ;;   - Dedicated submenu for focus operations
 ;;   - Occur accepts a numeric argument as a day span
 ;;   - New customization `org-index-clock-into-focus'
 ;;   - Fixed delay after choosing an index line
+;;   - (Re)introduced lexical binding
 ;;   - Bugfixes
 ;;
 ;;   [2017-03-26 Su] Version 5.3.0
@@ -191,7 +192,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.4.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.4.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -406,7 +407,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.4.1 of org-index.el.
+This is version 5.4.2 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
