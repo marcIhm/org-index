@@ -1648,13 +1648,11 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 (defun org-index--get-save-maxref (&optional no-inc)
   "Get next reference, increment number and store it in index.
 Optional argument NO-INC skips automatic increment on maxref."
-  (let (ref-field max-ref-num max-ref-field)
+  (let (ref-field)
     (with-current-buffer org-index--buffer
-      (setq max-ref-field (org-entry-get org-index--point "max-ref"))
-      (when max-ref-field
-        (setq max-ref-num (org-index--extract-refnum max-ref-field))
-        (unless no-inc (cl-incf max-ref-num))
-        (setq ref-field (format org-index--ref-format max-ref-num))
+      (setq ref-field (org-entry-get org-index--point "max-ref"))
+      (unless no-inc
+        (setq ref-field (format org-index--ref-format (1+ (org-index--extract-refnum ref-field))))
         (org-entry-put org-index--point "max-ref" ref-field)))
     ref-field))
 
