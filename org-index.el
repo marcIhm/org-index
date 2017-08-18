@@ -1097,18 +1097,17 @@ Optional argument KEYS-VALUES specifies content of new line."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let (last-id next-id here-id recent marker)
+      (let (last-id next-id recent marker)
         (setq recent (or (not org-index--set-focus-time)
                          (< (- (float-time (current-time))
                                (float-time org-index--set-focus-time))
                             org-index--after-focus-delay)))
         (setq last-id (or org-index--id-last-goto-focus
                           (car (last org-index--ids-focused-nodes))))
-        (setq here-id (org-id-get))
+        (setq recent t)
         (setq next-id
               (if (and recent
-                       here-id
-                       (string= here-id last-id))
+                       (member last-id (org-index--get-ancestors)))
                   (car (or (cdr-safe (member last-id
                                              (append org-index--ids-focused-nodes
                                                      org-index--ids-focused-nodes)))
@@ -1191,6 +1190,28 @@ Optional argument KEYS-VALUES specifies content of new line."
       (org-entry-put org-index--point "ids-focused-nodes" (string-join org-index--ids-focused-nodes " ")))
     
     (format text (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
+
+
+(defun org-index--get-ancestors ()
+  "Get list of ids of ancestors for current node"
+  (when (string= major-mode "org-mode")
+    (let (ancestors id level start-level)
+      (save-excursion
+        (outline-back-to-heading)
+        (setq id (org-id-get))
+        (if id (setq ancestors (cons id ancestors)))
+        (setq start-level (org-outline-level))
+        (if (<= start-level 1)
+            nil
+          (while (> start-level 1)
+            (setq level start-level)
+            (while (>= level start-level)
+              (outline-previous-heading)
+              (setq level (org-outline-level)))
+            (setq start-level level)
+            (setq id (org-id-get))
+            (if id (setq ancestors (cons id ancestors))))
+          ancestors)))))
 
 
 (defun org-index--do-edit ()
