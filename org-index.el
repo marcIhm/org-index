@@ -351,7 +351,8 @@ those pieces."
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 (defvar org-index--after-focus-timer nil "Timer to clock in or update focused node after a delay.")
 (defvar org-index--after-focus-context nil "Context for after focus action.")
-(defvar org-index--set-focus-time nil "Last time-value, when focus has been set.")
+(defvar org-index--this-command nil "Subcommand, that is currently excecuted.")
+(defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus example sort find-ref highlight maintain) "List of commands available.")
@@ -557,6 +558,8 @@ interactive calls."
         ;; read command; if requested display help in read-loop
         (setq org-index--display-short-help (eq command 'short-help))
         (setq command (org-index--read-command))
+        (setq org-index--last-command org-index--this-command)
+        (setq org-index--this-command command)
 	(if org-index--prefix-arg (setq arg (or arg '(4))))
         (setq org-index--display-short-help nil))
 
@@ -1097,50 +1100,51 @@ Optional argument KEYS-VALUES specifies content of new line."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let (last-id next-id recent marker)
-        (setq recent (or (not org-index--set-focus-time)
-                         (< (- (float-time (current-time))
-                               (float-time org-index--set-focus-time))
-                            org-index--after-focus-delay)))
+      (let (this-id target-id following-id last-id again explain marker)
+        (setq again (and (eq this-command last-command)
+                         (eq org-index--this-command org-index--last-command)))
         (setq last-id (or org-index--id-last-goto-focus
                           (car (last org-index--ids-focused-nodes))))
-        (setq recent t)
-        (setq next-id
-              (if (and recent
-                       (member last-id (org-index--get-ancestors)))
-                  (car (or (cdr-safe (member last-id
-                                             (append org-index--ids-focused-nodes
-                                                     org-index--ids-focused-nodes)))
-                           org-index--ids-focused-nodes))
-                last-id))
-        (unless (setq marker (org-id-find next-id 'marker))
-          (setq org-index--id-last-goto-focus nil)
-          (error "Could not find focus-node with id %s" next-id))
+        (setq this-id (org-id-get))
+        (setq following-id (car (or (cdr-safe (member last-id
+                                                      (append org-index--ids-focused-nodes
+                                                              org-index--ids-focused-nodes)))
+                                    org-index--ids-focused-nodes)))
+        (if again
+            (progn
+              (setq target-id following-id)
+              (setq explain "Jumped to next"))
+          (setq target-id last-id)
+          (setq explain "Jumped back to current"))
 
-        (pop-to-buffer-same-window (marker-buffer marker))
-        (goto-char (marker-position marker))
-        (org-index--unfold-buffer)
-        (move-marker marker nil)
-        (setq org-index--set-focus-time (current-time))
+        (if (member target-id (org-index--ids-up-to-top))
+            (setq explain "Staying below current")
+          (unless (setq marker (org-id-find target-id 'marker))
+            (setq org-index--id-last-goto-focus nil)
+            (error "Could not find focus-node with id %s" target-id))
+
+          (pop-to-buffer-same-window (marker-buffer marker))
+          (goto-char (marker-position marker))
+          (org-index--unfold-buffer)
+          (move-marker marker nil))
+        
         (when org-index-clock-into-focus
           (if org-index--after-focus-timer (cancel-timer org-index--after-focus-timer))
-          (setq org-index--after-focus-context
-                (cons (point-marker)
-                      next-id))
+          (setq org-index--after-focus-context target-id)
           (setq org-index--after-focus-timer
                 (run-at-time org-index--after-focus-delay nil
                              (lambda ()
-                               (if org-index-clock-into-focus
-                                   (with-current-buffer (marker-buffer (car org-index--after-focus-context))
-                                     (org-with-point-at (marker-position  (car org-index--after-focus-context)))
-                                     (org-clock-in)))
-                               (org-index--update-line (cdr org-index--after-focus-context) t)
-                               (move-marker (car org-index--after-focus-context) nil)
-                               (setq org-index--after-focus-context nil)))))
-        (setq org-index--id-last-goto-focus next-id)
+                               (if org-index--after-focus-context
+                                   (if org-index-clock-into-focus 
+                                       (save-excursion
+                                         (org-id-goto org-index--after-focus-context)
+                                         (org-clock-in)))
+                                 (org-index--update-line org-index--after-focus-context t)
+                                 (setq org-index--after-focus-context nil))))))
+        (setq org-index--id-last-goto-focus target-id)
         (if (cdr org-index--ids-focused-nodes)
-            (format "Jumped %s focus-node (out of %d)"
-                    (if recent "to next" "back to current")
+            (format "%s focus node (out of %d)"
+                    explain
                     (length org-index--ids-focused-nodes))
           "Jumped to single focus-node"))
       "No nodes in focus, use set-focus"))
@@ -1148,7 +1152,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 (defun org-index--more-focus-commands ()
   "More commands for handling focused nodes."
-  (let (id text char prompt)
+  (let (id text more-text char prompt ids-up-to-top)
 
     (setq prompt "Please specify action on the list focused nodes: set, append, delete (s,a,d or ? for short help) - ")
     (while (not (memq char (list ?s ?a ?d)))
@@ -1162,16 +1166,31 @@ Optional argument KEYS-VALUES specifies content of new line."
             (setq org-index--ids-focused-nodes (list id))
             (setq org-index--id-last-goto-focus id)
             (if org-index-clock-into-focus (org-clock-in))
-            "Focus has been set on current node (1 node in focus)")
+            "Focus has been set on current node%s (1 node in focus)")
 
            ((eq char ?a)
             (setq id (org-id-get-create))
             (unless (member id org-index--ids-focused-nodes)
+              ;; remove any children, that are already in list of focused nodes
+              (setq org-index--ids-focused-nodes
+                    (delete nil (mapcar (lambda (x)
+                                          (if (member id (org-with-point-at (org-id-find x t)
+                                                           (org-index--ids-up-to-top)))
+                                              (progn
+                                                (setq more-text ", removing its children")
+                                                nil)
+                                            x))
+                                        org-index--ids-focused-nodes)))
+              ;; remove parent, if already in list of focused nodes
+              (setq ids-up-to-top (org-index--ids-up-to-top))
+              (when (cl-intersection ids-up-to-top org-index--ids-focused-nodes)
+                (setq org-index--ids-focused-nodes (cl-set-difference org-index--ids-focused-nodes ids-up-to-top))
+                (setq more-text (concat more-text ", replacing its parent")))
               (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
             (setq org-index--id-last-goto-focus id)
 	    (setq org-index--id-last-goto-focus id)
             (if org-index-clock-into-focus (org-clock-in))
-            "Current node has been appended to list of focused nodes (%d node%s in focus)")
+            "Current node has been appended to list of focused nodes%s (%d node%s in focus)")
 
            ((eq char ?d)
             (setq id (org-id-get))
@@ -1183,17 +1202,17 @@ Optional argument KEYS-VALUES specifies content of new line."
                             org-index--id-last-goto-focus))
                   (setq org-index--ids-focused-nodes (delete id org-index--ids-focused-nodes))
 		  (setq org-index--id-last-goto-focus nil)
-                  "Current node has been removed from list of focused nodes (%d node%s in focus)")
-              "Current node has not been in list of focused nodes (%d node%s in focus)"))))
+                  "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
+              "Current node has not been in list of focused nodes%s (%d node%s in focus)"))))
     
     (with-current-buffer org-index--buffer
       (org-entry-put org-index--point "ids-focused-nodes" (string-join org-index--ids-focused-nodes " ")))
     
-    (format text (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
+    (format text more-text (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
 
 
-(defun org-index--get-ancestors ()
-  "Get list of ids of ancestors for current node"
+(defun org-index--ids-up-to-top ()
+  "Get list of all ids from current node up to top level"
   (when (string= major-mode "org-mode")
     (let (ancestors id level start-level)
       (save-excursion
