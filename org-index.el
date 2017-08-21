@@ -1183,8 +1183,8 @@ Optional argument KEYS-VALUES specifies content of new line."
                                         org-index--ids-focused-nodes)))
               ;; remove parent, if already in list of focused nodes
               (setq ids-up-to-top (org-index--ids-up-to-top))
-              (when (cl-intersection ids-up-to-top org-index--ids-focused-nodes)
-                (setq org-index--ids-focused-nodes (cl-set-difference org-index--ids-focused-nodes ids-up-to-top))
+              (when (seq-intersection ids-up-to-top org-index--ids-focused-nodes)
+                (setq org-index--ids-focused-nodes (seq-difference org-index--ids-focused-nodes ids-up-to-top))
                 (setq more-text (concat more-text ", replacing its parent")))
               (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
             (setq org-index--id-last-goto-focus id)
@@ -1208,7 +1208,7 @@ Optional argument KEYS-VALUES specifies content of new line."
     (with-current-buffer org-index--buffer
       (org-entry-put org-index--point "ids-focused-nodes" (string-join org-index--ids-focused-nodes " ")))
     
-    (format text more-text (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
+    (format text (or more-text "") (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
 
 
 (defun org-index--ids-up-to-top ()
@@ -3229,10 +3229,10 @@ Argument DAYS hides older lines."
 (defun org-index--test-words (words)
   "Test current line for match against WORDS."
   (let (line)
-    (setq line (downcase (buffer-substring (line-beginning-position) (line-beginning-position 2))))
+    (setq line (buffer-substring (line-beginning-position) (line-beginning-position 2)))
     (catch 'not-found
-      (dolist (w words)
-        (or (cl-search w line)
+      (dolist (word words)
+        (or (cl-search word (if (string= word (downcase word)) (downcase line) line))
             (throw 'not-found nil)))
       t)))
 
