@@ -2796,8 +2796,6 @@ If OTHER in separate window."
     ;; avoid modifying direct buffer
     (setq buffer-read-only t)
     (toggle-truncate-lines 1)
-    (setq font-lock-keywords-case-fold-search t)
-    (setq case-fold-search t)
 
     ;; reset stack and overlays
     (setq org-index--occur-stack nil)
@@ -2943,7 +2941,8 @@ If OTHER in separate window."
         (goto-char begin)
                 
         ;; highlight longer word
-        (highlight-regexp (regexp-quote word) 'isearch)
+        (let ((font-lock-keywords-case-fold-search (not (string= word (downcase word)))))
+          (highlight-regexp (regexp-quote word) 'isearch))
 
         ;; make sure, point is on a visible line
         (line-move -1 t)
@@ -3039,8 +3038,9 @@ If OTHER in separate window."
 
       ;; highlight words
       (setq case-fold-search t)
-      (setq font-lock-keywords-case-fold-search t)
-      (mapc (lambda (w) (unless (or (not w) (string= w "")) (highlight-regexp (regexp-quote w) 'isearch)))
+      (mapc (lambda (w) (unless (or (not w) (string= w ""))
+                     (let ((font-lock-keywords-case-fold-search (not (string= w (downcase w)))))
+                       (highlight-regexp (regexp-quote w) 'isearch))))
             (cons word words))
 
       (setq buffer-read-only t)
@@ -3228,11 +3228,12 @@ Argument DAYS hides older lines."
 
 (defun org-index--test-words (words)
   "Test current line for match against WORDS."
-  (let (line)
+  (let (line dc-line)
     (setq line (buffer-substring (line-beginning-position) (line-beginning-position 2)))
+    (setq dc-line (downcase line))
     (catch 'not-found
       (dolist (word words)
-        (or (cl-search word (if (string= word (downcase word)) (downcase line) line))
+        (or (cl-search word (if (string= word (downcase word)) dc-line line))
             (throw 'not-found nil)))
       t)))
 
