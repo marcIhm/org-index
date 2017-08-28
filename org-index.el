@@ -2941,7 +2941,7 @@ If OTHER in separate window."
         (goto-char begin)
                 
         ;; highlight longer word
-        (let ((font-lock-keywords-case-fold-search (not (string= word (downcase word)))))
+        (let ((case-fold-search (string= word (downcase word))))
           (highlight-regexp (regexp-quote word) 'isearch))
 
         ;; make sure, point is on a visible line
@@ -3037,9 +3037,8 @@ If OTHER in separate window."
       (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text))
 
       ;; highlight words
-      (setq case-fold-search t)
       (mapc (lambda (w) (unless (or (not w) (string= w ""))
-                     (let ((font-lock-keywords-case-fold-search (not (string= w (downcase w)))))
+                     (let ((case-fold-search (not (string= w (downcase w)))))
                        (highlight-regexp (regexp-quote w) 'isearch))))
             (cons word words))
 
