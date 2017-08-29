@@ -2883,9 +2883,6 @@ If OTHER in separate window."
               (setq words (cdr words))
               (setq in-c-backspace nil))
 
-          ;; unhighlight longer match
-          (unhighlight-regexp (regexp-quote word))
-
           ;; some chars are left; shorten word
           (setq word (substring word 0 -1))
           (when (= (length word) 0) ; when nothing left, use next word from list
@@ -2923,10 +2920,6 @@ If OTHER in separate window."
        ((and (= (length key) 1)
              (aref printable-chars (elt key 0))) ; any printable char: add to current search word
 
-        ;; unhighlight short word
-        (unless (= (length word) 0)
-          (unhighlight-regexp (regexp-quote word)))
-
         ;; add to word
         (setq word (concat word key))
                 
@@ -2940,10 +2933,6 @@ If OTHER in separate window."
         
         (goto-char begin)
                 
-        ;; highlight longer word
-        (let ((case-fold-search (string= word (downcase word))))
-          (highlight-regexp (regexp-quote word) 'isearch))
-
         ;; make sure, point is on a visible line
         (line-move -1 t)
         (line-move 1 t))
@@ -3156,7 +3145,7 @@ leave LINES-WANTED lines visible.
 Argument DAYS hides older lines."
   (let ((lines-found 0)
         (end-of-visible (point))
-        overlay overlays start matched)
+        overlay overlays start matched places)
 
     ;; main loop
     (while (and (not (eobp))
@@ -3186,7 +3175,7 @@ Argument DAYS hides older lines."
                                       days)
                                   (setq matched t))) ; for its side effect
                           t))
-                    (not (and (org-index--test-words words)
+                    (not (and (setq places (org-index--test-words words))
                               (setq matched t))))) ; for its side effect
         (forward-line 1))
 
@@ -3198,6 +3187,11 @@ Argument DAYS hides older lines."
 
       ;; skip and count line, that matched
       (when matched
+        (while places
+          (let ((inhibit-read-only t) (lbp (line-beginning-position)))
+            (put-text-property lbp (line-end-position) 'face nil)
+            (put-text-property (+ lbp (caar places)) (+ lbp (caar places) (cdar places)) 'face 'isearch)
+            (setq places (cdr places))))
         (forward-line 1)
         (setq end-of-visible (point))
         (cl-incf lines-found)))
@@ -3227,14 +3221,15 @@ Argument DAYS hides older lines."
 
 (defun org-index--test-words (words)
   "Test current line for match against WORDS."
-  (let (line dc-line)
+  (let (line dc-line places index)
     (setq line (buffer-substring (line-beginning-position) (line-beginning-position 2)))
     (setq dc-line (downcase line))
     (catch 'not-found
       (dolist (word words)
-        (or (cl-search word (if (string= word (downcase word)) dc-line line))
+        (if (setq index (cl-search word (if (string= word (downcase word)) dc-line line)))
+            (setq places (cons (cons index (length word)) places))
             (throw 'not-found nil)))
-      t)))
+      places)))
 
 
 (defun org-index--create-new-line ()
