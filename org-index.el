@@ -369,7 +369,7 @@ those pieces."
 The value returned is the value of the last form in BODY or nil,
 if VALUE cannot be found."
   (declare (indent 2) (debug t))
-  (let ((pointvar (make-symbol "point")) ; avoid clash with same-named variables in body
+  (let ((pointvar (make-symbol "point"))
         (foundvar (make-symbol "found"))
         (retvar (make-symbol "ret")))
     `(save-current-buffer
@@ -2833,14 +2833,11 @@ If OTHER in separate window."
     (when days
       (goto-char begin)
       (org-index--hide-with-overlays (cons word words) lines-wanted days)
-      (move-overlay org-index--occur-tail-overlay
-                    (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
-                      (point-max))
-                    (point-max))
+      (move-overlay org-index--occur-tail-overlay (org-index--occur-end-of-visible) (point-max))
       
       (goto-char begin)
       (setq done t))
-    
+
     ;; main loop
     (while (not done)
 
@@ -2893,14 +2890,13 @@ If OTHER in separate window."
           ;; free top list of overlays and remove list
           (org-index--unhide)
           (move-overlay org-index--occur-tail-overlay
-                        (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
-                          (point-max))
+                        (org-index--occur-end-of-visible)
                         (point-max))
-                        
-          ;; highlight shorter word
-          (unless (= (length word) 0)
-            (highlight-regexp (regexp-quote word) 'isearch))
 
+          ;; remove all highlights
+          (let ((inhibit-read-only t))
+            (put-text-property begin (org-index--occur-end-of-visible) 'face nil))
+          
           ;; make sure, point is still visible
           (goto-char begin)))
 
@@ -2927,8 +2923,7 @@ If OTHER in separate window."
         (goto-char begin)
         (org-index--hide-with-overlays (cons word words) lines-wanted days)
         (move-overlay org-index--occur-tail-overlay
-                      (if org-index--occur-stack (cdr (assoc :end-of-visible (car org-index--occur-stack)))
-                        (point-max))
+                      (org-index--occur-end-of-visible)
                       (point-max))
         
         (goto-char begin)
@@ -2954,6 +2949,8 @@ If OTHER in separate window."
 
       (setq cursor-type t)
       (goto-char begin)
+      (let ((inhibit-read-only t))
+        (put-text-property begin (org-table-end) 'face nil))
 
       ;; collect all visible lines
       (while (and (not (eobp))
@@ -3085,6 +3082,13 @@ If OTHER in separate window."
           (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text))))
     
       (use-local-map keymap))))
+
+
+(defun org-index--occur-end-of-visible ()
+  "End of visible stretch during occur"
+  (if org-index--occur-stack
+      (cdr (assoc :end-of-visible (car org-index--occur-stack)))
+    (point-max)))
 
 
 (defun org-index--occur-test-stale (pos)
