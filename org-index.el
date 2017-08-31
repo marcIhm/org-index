@@ -2887,10 +2887,6 @@ If OTHER in separate window."
             (setq words (cdr words))
             (setq in-c-backspace nil))
 
-          ;; remove all highlights; unhide will show some
-          (let ((inhibit-read-only t))
-            (put-text-property begin (org-index--occur-end-of-visible) 'face nil))
-
           ;; free top list of overlays and remove list
           (org-index--unhide)
           (move-overlay org-index--occur-tail-overlay
@@ -3164,6 +3160,7 @@ Argument DAYS hides older lines."
 
       ;; find stretch of lines, that are currently visible but should be invisible now
       (setq matched nil)
+      (setq places nil)
       (setq start (point))
       (while (and (not (eobp))
                   (not (and
@@ -3181,8 +3178,9 @@ Argument DAYS hides older lines."
                           t))
                     (not (and (setq places (org-index--test-words words))
                               (setq matched t))))) ; for its side effect
-	(setq all-places (append places all-places))
         (forward-line 1))
+
+      (setq all-places (append places all-places))
 
       ;; create overlay to hide this stretch
       (when (< start (point))           ; avoid creating an empty overlay
@@ -3192,9 +3190,9 @@ Argument DAYS hides older lines."
 
       ;; skip and count line, that matched
       (when matched
-        (while places
-          (let ((inhibit-read-only t) (lbp (line-beginning-position)))
-            (put-text-property lbp (line-end-position) 'face nil)
+        (let ((inhibit-read-only t) (lbp (line-beginning-position)))
+          (put-text-property lbp (line-end-position) 'face nil)
+          (while places
             (put-text-property (caar places) (+ (caar places) (cdar places)) 'face 'isearch)
             (setq places (cdr places))))
         (forward-line 1)
@@ -3214,18 +3212,26 @@ Argument DAYS hides older lines."
 
 (defun org-index--unhide ()
   "Unhide text that does has been hidden by `org-index--hide-with-overlays'."
-  (when org-index--occur-stack
-    ;; delete overlays and make visible again
-    (mapc (lambda (y)
-            (delete-overlay y))
-          (cdr (assoc :overlays (car org-index--occur-stack))))
-    ;; redo highlights
-    (let ((places (cdr (assoc :all-places (car org-index--occur-stack)))))
+  (let (places)
+    (when org-index--occur-stack
+      ;; delete overlays and make visible again
+      (mapc (lambda (y)
+              (delete-overlay y))
+            (cdr (assoc :overlays (car org-index--occur-stack))))
+      ;; remove latest highlights
+      (setq places (cdr (assoc :places (car org-index--occur-stack))))
       (while places
-	(put-text-property (caar places) (+ (caar places) (cdar places)) 'face 'isearch)
-	(setq places (cdr places))))
-    ;; remove from stack
-    (setq org-index--occur-stack (cdr org-index--occur-stack))))
+        (let ((inhibit-read-only t))
+          (put-text-property (caar places) (+ (caar places) (cdar places)) 'face nil))
+        (setq places (cdr places)))
+      ;; remove top of stack
+      (setq org-index--occur-stack (cdr org-index--occur-stack))
+      ;; redo older highlights
+      (setq places (cdr (assoc :places (car org-index--occur-stack))))
+      (while places
+        (let ((inhibit-read-only t))
+          (put-text-property (caar places) (+ (caar places) (cdar places)) 'face 'isearch))
+        (setq places (cdr places))))))
 
 
 (defun org-index--test-words (words)
@@ -3238,7 +3244,7 @@ Argument DAYS hides older lines."
       (dolist (word words)
         (if (setq index (cl-search word (if (string= word (downcase word)) dc-line line)))
             (setq places (cons (cons (+ lbp index) (length word)) places))
-            (throw 'not-found nil)))
+          (throw 'not-found nil)))
       places)))
 
 
