@@ -2,10 +2,15 @@
 (add-to-list 'load-path "c:/org-mode/lisp")
 (add-to-list 'load-path "c:/org-mode/contrib/lisp" t)
 (add-to-list 'load-path "c:/org-index")
+(add-to-list 'load-path "c:/org-index/support")
 
 (require 'org)
 (require 'org-index)
 (require 'oidx)
+(require 'paredit)
+(autoload 'paredit-mode "paredit" "Minor mode for pseudo-structurally editing Lisp code." t)
+(add-hook 'emacs-lisp-mode-hook       (lambda () (paredit-mode +1) (hs-minor-mode)))
+
 (setq oidx-keep-test-state t)
 
 (setq org-id-locations-file "~\\.emacs.d\\.org-id-locations-for-test")

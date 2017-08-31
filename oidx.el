@@ -220,6 +220,15 @@
     (should (looking-at ".* --13--"))))
 
 
+(ert-deftest oidx-test-nested-focus ()
+  (oidx-with-test-setup
+    (oidx-do "o c c u r <return> d r e i <down> <return>")
+    (oidx-do "f o c u s <return> s" "C-u")
+    (oidx-do "o c c u r <return> n e u n <down> <return>")
+    (oidx-do "f o c u s <return> a" "C-u")
+    (should (= (length org-index--ids-focused-nodes) 1))))
+
+
 (ert-deftest oidx-test-migrate-index ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> e i n s <return>")
@@ -890,6 +899,7 @@
   :org-index-ref: foo
   :END:
 * drei
+** neun
 ")
     (org-mode)
     oidx-work-buffer))
