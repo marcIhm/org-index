@@ -517,6 +517,7 @@ interactive calls."
         kill-new-text         ; text that will be appended to kill ring
         message-text)         ; text that will be issued as an explanation
 
+
     (catch 'new-index
 
       ;;
@@ -1216,21 +1217,22 @@ Optional argument KEYS-VALUES specifies content of new line."
   (when (string= major-mode "org-mode")
     (let (ancestors id level start-level)
       (save-excursion
-        (outline-back-to-heading)
-        (setq id (org-id-get))
-        (if id (setq ancestors (cons id ancestors)))
-        (setq start-level (org-outline-level))
-        (if (<= start-level 1)
-            nil
-          (while (> start-level 1)
-            (setq level start-level)
-            (while (>= level start-level)
-              (outline-previous-heading)
-              (setq level (org-outline-level)))
-            (setq start-level level)
-            (setq id (org-id-get))
-            (if id (setq ancestors (cons id ancestors))))
-          ancestors)))))
+        (ignore-errors
+          (outline-back-to-heading)
+          (setq id (org-id-get))
+          (if id (setq ancestors (cons id ancestors)))
+          (setq start-level (org-outline-level))
+          (if (<= start-level 1)
+              nil
+            (while (> start-level 1)
+              (setq level start-level)
+              (while (>= level start-level)
+                (outline-previous-heading)
+                (setq level (org-outline-level)))
+              (setq start-level level)
+              (setq id (org-id-get))
+              (if id (setq ancestors (cons id ancestors))))
+            ancestors))))))
 
 
 (defun org-index--do-edit ()
@@ -2700,8 +2702,9 @@ Optional argument DEFAULTS gives default values."
   "Delete any reference from list of tags."
   (let (new-tags)
     (mapc (lambda (tag)
-            (unless (string-match org-index--ref-regex tag)
-              (setq new-tags (cons tag new-tags) )))
+            (unless (or (string-match org-index--ref-regex tag)
+			(string= tag ""))
+              (setq new-tags (cons tag new-tags))))
           (org-get-tags))
     (org-set-tags-to new-tags)))
 

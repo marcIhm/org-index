@@ -215,16 +215,20 @@
     (oidx-do "o c c u r <return> e i n s <down> <return>")
     (oidx-do "f o c u s <return> a" "C-u")
     (oidx-do "f o c u s <return>")
-    (should (looking-at ".* --8--"))
-    (oidx-do "f o c u s <return>")
-    (should (looking-at ".* --13--"))))
+    (should (looking-at ".* --13--"))
+    (org-index 'focus)
+    (setq this-command 'org-index)
+    (setq last-command 'org-index)
+    (org-index 'focus)
+    (should (looking-at ".* --8--"))))
 
 
 (ert-deftest oidx-test-nested-focus ()
   (oidx-with-test-setup
-    (oidx-do "o c c u r <return> d r e i <down> <return>")
+    (oidx-do "o c c u r <return> v i e r <down> <return>")
     (oidx-do "f o c u s <return> s" "C-u")
-    (oidx-do "o c c u r <return> n e u n <down> <return>")
+    (search-forward "neun")
+    (org-reveal)
     (oidx-do "f o c u s <return> a" "C-u")
     (should (= (length org-index--ids-focused-nodes) 1))))
 
@@ -263,11 +267,14 @@
         (oidx-do "c r e a t e <return> y o i d x - e r t - w o r k . o r g <return> f o o <return> # 1 # <return> n")
       (error (should (string-match "^Did not make the id of this new index permanent" (second result))))) 
     (forward-line -1)
+    (org-reveal)
     (oidx-do "a d d <return>" "C-u") 
     (forward-char 2)
+    (org-reveal)
     (yank)
     (forward-line 0)
-    (should (looking-at ".*#2# drei"))))
+    (org-reveal)
+    (should (looking-at ".*#2#  neun"))))
 
 
 (ert-deftest oidx-test-example ()
@@ -461,12 +468,12 @@
 
 (ert-deftest oidx-test-sort-buffer ()
   (oidx-with-test-setup
-    (switch-to-buffer (get-buffer-create "*org-index-scratch*"))
+    (switch-to-buffer (get-buffer-create "*oidx-scratch*"))
     (erase-buffer)
     (insert "--4-- foo\nbar --2--\n--5-- baz\n")
     (mark-whole-buffer)
     (oidx-do "s o r t <return> b u f f e r <return> y")
-    (should (oidx-check-buffer "*org-index-scratch*"
+    (should (oidx-check-buffer "*oidx-scratch*"
                                "38b8370137849afadb54b553b2090d57"
                                "oidx-test-sort-buffer"))))
 
@@ -740,7 +747,7 @@
   (org-cycle '(16))
   (delete-other-windows)
   (end-of-buffer)
-  (forward-line -1))
+  (forward-line -2))
 
 
 (defun oidx-teardown-test ()
