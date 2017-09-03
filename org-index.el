@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.4.2
+;; Version: 5.5.0
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -85,6 +85,11 @@
 
 ;;; Change Log:
 
+;;   [2017-09-03 So] Version 5.5.0
+;;   - In occur: case-sensitive search for upcase letters
+;;   - Better handling of nested focus nodes
+;;   - Bugfixes
+;;
 ;;   [2017-06-06 Tu] Version 5.4.2
 ;;   - Dedicated submenu for focus operations
 ;;   - Occur accepts a numeric argument as a day span
@@ -192,7 +197,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.4.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.5.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -338,6 +343,7 @@ those pieces."
 (defvar org-index--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar org-index--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar org-index--sort-timer nil "Timer to sort index in correct order.")
+(defvar org-index--inhibit-sort-idle nil "If set, index will not be sorted in idle background.")
 (defvar org-index--aligned 0 "For this Emacs session: remember number of table lines aligned.")
 (defvar org-index--align-interactive most-positive-fixnum "Number of rows to align in ‘org-index--parse-table’.")
 (defvar org-index--edit-widgets nil "List of widgets used to edit.")
@@ -408,7 +414,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.4.2 of org-index.el.
+This is version 5.5.0 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -1302,6 +1308,7 @@ Optional argument KEYS-VALUES specifies content of new line."
     (beginning-of-line)
     (forward-char (+  maxlen 2))
     (use-local-map buffer-keymap)
+    (setq org-index--inhibit-sort-idle t)
     "Editing a single line from index"))
   
 
@@ -1362,6 +1369,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 
     ;; clean up
     (kill-buffer org-index--edit-buffer-name)
+    (setq org-index--inhibit-sort-idle nil)
     (setq org-index--context-index nil)
     (setq org-index--edit-widgets nil)
     (beginning-of-line)
@@ -3272,14 +3280,15 @@ Argument DAYS hides older lines."
 
 (defun org-index--sort-silent ()
   "Sort index for default column to remove any effects of temporary sorting."
-  (save-excursion
-    (org-index--verify-id)
-    (org-index--parse-table)
-    (with-current-buffer org-index--buffer
-      (save-excursion
-        (goto-char org-index--below-hline)
-        (org-index--do-sort-index org-index-sort-by)
-        (remove-hook 'before-save-hook 'org-index--sort-silent)))))
+  (unless org-index--inhibit-sort-idle
+    (save-excursion
+      (org-index--verify-id)
+      (org-index--parse-table)
+      (with-current-buffer org-index--buffer
+        (save-excursion
+          (goto-char org-index--below-hline)
+          (org-index--do-sort-index org-index-sort-by)
+          (remove-hook 'before-save-hook 'org-index--sort-silent))))))
 
 
 (defun org-index--idle-prepare ()
