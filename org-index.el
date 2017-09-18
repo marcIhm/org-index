@@ -1107,7 +1107,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let (this-id target-id following-id last-id again explain marker)
+      (let (this-id target-id following-id last-id again explain marker (repeat-clause ""))
         (setq again (and (eq this-command last-command)
                          (eq org-index--this-command org-index--last-command)))
         (setq last-id (or org-index--id-last-goto-focus
@@ -1123,6 +1123,14 @@ Optional argument KEYS-VALUES specifies content of new line."
               (setq explain "Jumped to next"))
           (setq target-id last-id)
           (setq explain "Jumped back to current"))
+
+        (set-transient-map (let ((map (make-sparse-keymap)))
+                             (define-key map (vector ?f)
+                               (lambda () (interactive)
+                                 (setq this-command last-command)
+                                 (message (org-index--goto-focus))))
+                             map) t)
+        (setq repeat-clause ", type 'f' to repeat")
 
         (if (member target-id (org-index--ids-up-to-top))
             (setq explain "Staying below current")
@@ -1141,19 +1149,22 @@ Optional argument KEYS-VALUES specifies content of new line."
           (setq org-index--after-focus-timer
                 (run-at-time org-index--after-focus-delay nil
                              (lambda ()
-                               (if org-index--after-focus-context
-                                   (if org-index-clock-into-focus 
-                                       (save-excursion
-                                         (org-id-goto org-index--after-focus-context)
-                                         (org-clock-in)))
-                                 (org-index--update-line org-index--after-focus-context t)
-                                 (setq org-index--after-focus-context nil))))))
+                               (when org-index--after-focus-context
+                                 (save-window-excursion 
+                                   (save-excursion                                                                      
+                                     (org-id-goto org-index--after-focus-context)
+                                     (org-clock-in)
+                                     (org-index--update-line org-index--after-focus-context t)
+                                     (setq org-index--after-focus-context nil)
+                                     (cancel-timer org-index--after-focus-timer))))))))
         (setq org-index--id-last-goto-focus target-id)
-        (if (cdr org-index--ids-focused-nodes)
-            (format "%s focus node (out of %d)"
-                    explain
-                    (length org-index--ids-focused-nodes))
-          "Jumped to single focus-node"))
+        (concat
+         (if (cdr org-index--ids-focused-nodes)
+             (format "%s focus node (out of %d)"
+                     explain
+                     (length org-index--ids-focused-nodes))
+           "Jumped to single focus-node")
+         repeat-clause))
       "No nodes in focus, use set-focus"))
 
 
@@ -1161,7 +1172,8 @@ Optional argument KEYS-VALUES specifies content of new line."
   "More commands for handling focused nodes."
   (let (id text more-text char prompt ids-up-to-top)
 
-    (setq prompt "Please specify action on the list focused nodes: set, append, delete (s,a,d or ? for short help) - ")
+    (setq prompt (format "Please specify action on the list of %s focused nodes: set, append, delete (s,a,d or ? for short help) - "
+                         (length org-index--ids-focused-nodes)))
     (while (not (memq char (list ?s ?a ?d)))
         (setq char (read-char prompt))
         (setq prompt "Actions on list of focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list.  Please choose - "))
