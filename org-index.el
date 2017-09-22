@@ -1128,7 +1128,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                              (define-key map (vector ?f)
                                (lambda () (interactive)
                                  (setq this-command last-command)
-                                 (message (org-index--goto-focus))))
+                                 (message (concat (org-index--goto-focus) "."))))
                              map) t)
         (setq repeat-clause ", type 'f' to repeat")
 
