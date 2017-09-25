@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.5.0
+;; Version: 5.6.0
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -85,43 +85,17 @@
 
 ;;; Change Log:
 
+;;   [2017-09-25 Mo] Version 5.6.0
+;;   - Quick repeat for goto-focus
+;;   - Bugfixes
+;;
 ;;   [2017-09-03 So] Version 5.5.0
 ;;   - In occur: case-sensitive search for upcase letters
 ;;   - Better handling of nested focus nodes
 ;;   - Bugfixes
 ;;
-;;   [2017-06-06 Tu] Version 5.4.2
-;;   - Dedicated submenu for focus operations
-;;   - Occur accepts a numeric argument as a day span
-;;   - New customization `org-index-clock-into-focus'
-;;   - Fixed delay after choosing an index line
-;;   - (Re)introduced lexical binding
-;;   - Bugfixes
-;;
-;;   [2017-03-26 Su] Version 5.3.0
-;;   - Focused can now be on a list of nodes (instead of a single one)
-;;   - Cleaned up undeclared dependencies
-;;
-;;   [2017-02-18 Sa] Version 5.2.3
+;;   [2015-12-29 Tu] to [2017-06-06 Tu] Version 5.0.2 to 5.4.2
 ;;   - New command 'focus'
-;;   - Speeded up org-index--parse-table with the stored property "max-ref"
-;;   - Speeded up org-index--on with search
-;;   - Added org-index-prepare-when-idle
-;;   - Fixed compatibility issue with emacs 24 (font-lock-ensure)
-;;   - Added more customizations
-;;   - Bugfixes
-;;
-;;   [2016-10-19 We] Version 5.1.4
-;;   - Bugfixes
-;;
-;;   [2016-08-26 Fr] Version 5.1.3
-;;   - Offering help during query for subcommands
-;;   - Removed org-index-default-keybindings
-;;   - Renamed subcommand multi-occur to find-ref
-;;   - Subcommands add needs no longer be invoked from heading
-;;   - Many Bugfixes
-;;
-;;   [2015-12-29 Tu] Version 5.0.2
 ;;   - New commands yank, column and edit
 ;;   - New column tags
 ;;   - All columns are now required
@@ -130,6 +104,8 @@
 ;;   - Subcommands kill and edit can be invoked from an occur buffer
 ;;   - Many Bugfixes
 ;;   - Added link to screencast
+;;   - Occur accepts a numeric argument as a day span
+;;   - Speed improvements
 ;;
 ;;   [2015-08-20 Th] Version 4.3.0
 ;;   - Configuration is done now via standard customize
@@ -197,7 +173,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.5.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.6.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -414,7 +390,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.5.0 of org-index.el.
+This is version 5.6.0 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -3043,7 +3019,7 @@ If OTHER in separate window."
 
       ;; highlight words
       (mapc (lambda (w) (unless (or (not w) (string= w ""))
-                     (let ((case-fold-search (not (string= w (downcase w)))))
+                     (let ((font-lock-keywords-case-fold-search (not (string= w (downcase w)))))
                        (highlight-regexp (regexp-quote w) 'isearch))))
             (cons word words))
 
