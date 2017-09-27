@@ -96,7 +96,7 @@
 ;;
 ;;   [2015-12-29 Tu] to [2017-06-06 Tu] Version 5.0.2 to 5.4.2
 ;;   - New commands yank, column and edit
-;;   - New command 'focus'
+;;   - New command focus
 ;;   - New column tags
 ;;   - All columns are now required
 ;;   - References are now optional
@@ -146,11 +146,11 @@
 ;;   - Renamed the package from "org-refer-by-number" to "org-reftable"
 ;;
 ;;   [2011-12-10 Sa] to [2012-09-22 Sa] Version Version 1.2.0 to 1.5.0:
-;;    - New command "sort" to sort a buffer or region by reference number
-;;    - New commands "highlight" and "unhighlight" to mark references
-;;    - New command "head" to find a headline with a reference number
-;;    - New commands occur and multi-occur
-;;    - Started this Change Log
+;;   - New command "sort" to sort a buffer or region by reference number
+;;   - New commands "highlight" and "unhighlight" to mark references
+;;   - New command "head" to find a headline with a reference number
+;;   - New commands occur and multi-occur
+;;   - Started this Change Log
 
 ;;; Code:
 
@@ -1113,8 +1113,8 @@ Optional argument KEYS-VALUES specifies content of new line."
                 (run-at-time org-index--after-focus-delay nil
                              (lambda ()
                                (when org-index--after-focus-context
-                                 (save-window-excursion 
-                                   (save-excursion                                                                      
+                                 (save-window-excursion
+                                   (save-excursion
                                      (org-id-goto org-index--after-focus-context)
                                      (org-clock-in)
                                      (org-index--update-line org-index--after-focus-context t)
@@ -1194,7 +1194,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 
 (defun org-index--ids-up-to-top ()
-  "Get list of all ids from current node up to top level"
+  "Get list of all ids from current node up to top level."
   (when (string= major-mode "org-mode")
     (let (ancestors id level start-level)
       (save-excursion
@@ -1543,7 +1543,8 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
   (let (initial-point
         end-of-headings
-        start-of-headings)
+        start-of-headings
+        max-ref-field)
 
     (unless num-lines-to-format (setq num-lines-to-format 0))
 
@@ -3072,7 +3073,7 @@ If OTHER in separate window."
 
 
 (defun org-index--occur-end-of-visible ()
-  "End of visible stretch during occur"
+  "End of visible stretch during occur."
   (if org-index--occur-stack
       (cdr (assoc :end-of-visible (car org-index--occur-stack)))
     (point-max)))
