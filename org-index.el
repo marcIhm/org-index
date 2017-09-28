@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.6.1
+;; Version: 5.6.2
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -85,8 +85,8 @@
 
 ;;; Change Log:
 
-;;   [2017-09-25 Mo] Version 5.6.1
-;;   - Quick repeat for goto-focus
+;;   [2017-09-28 Th] Version 5.6.2
+;;   - Quick repeat with delete-option for goto-focus
 ;;   - Bugfixes
 ;;
 ;;   [2017-09-03 So] Version 5.5.0
@@ -160,7 +160,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.6.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.6.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -377,7 +377,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.6.0 of org-index.el.
+This is version 5.6.2 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -1092,8 +1092,14 @@ Optional argument KEYS-VALUES specifies content of new line."
                                (lambda () (interactive)
                                  (setq this-command last-command)
                                  (message (concat (org-index--goto-focus) "."))))
+                             (define-key map (vector ?d)
+                               (lambda () (interactive)
+                                 (setq this-command last-command)
+                                 (org-index--delete-from-focus)
+                                 (org-index--persist-focused-nodes)
+                                 (message (concat  "Current node has been removed from list of focused nodes, " (org-index--goto-focus) "."))))
                              map) t)
-        (setq repeat-clause ", type 'f' to repeat")
+        (setq repeat-clause "; type 'f' to repeat or 'd' to delete this node from list")
 
         (if (member target-id (org-index--ids-up-to-top))
             (setq explain "Staying below current")
@@ -1175,22 +1181,33 @@ Optional argument KEYS-VALUES specifies content of new line."
             "Current node has been appended to list of focused nodes%s (%d node%s in focus)")
 
            ((eq char ?d)
-            (setq id (org-id-get))
-            (if (and id  (member id org-index--ids-focused-nodes))
-                (progn
-                  (setq org-index--id-last-goto-focus
-                        (or (car-safe (cdr-safe (member id (reverse (append org-index--ids-focused-nodes
-                                                                            org-index--ids-focused-nodes)))))
-                            org-index--id-last-goto-focus))
-                  (setq org-index--ids-focused-nodes (delete id org-index--ids-focused-nodes))
-		  (setq org-index--id-last-goto-focus nil)
-                  "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
-              "Current node has not been in list of focused nodes%s (%d node%s in focus)"))))
-    
-    (with-current-buffer org-index--buffer
-      (org-entry-put org-index--point "ids-focused-nodes" (string-join org-index--ids-focused-nodes " ")))
+            (org-index--delete-from-focus))))
+
+    (org-index--persist-focused-nodes)
     
     (format text (or more-text "") (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
+
+
+(defun org-index--persist-focused-nodes ()
+  "Write list of focused nodes to property."
+  (with-current-buffer org-index--buffer
+    (org-entry-put org-index--point "ids-focused-nodes" (string-join org-index--ids-focused-nodes " "))))
+
+
+(defun org-index--delete-from-focus ()
+  "Delete current node from list of focused nodes"
+  (let (id)
+    (setq id (org-id-get))
+    (if (and id  (member id org-index--ids-focused-nodes))
+        (progn
+          (setq org-index--id-last-goto-focus
+                (or (car-safe (cdr-safe (member id (reverse (append org-index--ids-focused-nodes
+                                                                    org-index--ids-focused-nodes)))))
+                    org-index--id-last-goto-focus))
+          (setq org-index--ids-focused-nodes (delete id org-index--ids-focused-nodes))
+          (setq org-index--id-last-goto-focus nil)
+          "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
+      "Current node has not been in list of focused nodes%s (%d node%s in focus)")))
 
 
 (defun org-index--ids-up-to-top ()
