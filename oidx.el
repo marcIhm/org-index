@@ -137,7 +137,7 @@
     (execute-kbd-macro (kbd "C-c i ? h e l p <return>"))
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
-      (should (= (line-number-at-pos) 20)))))
+      (should (= (line-number-at-pos) 21)))))
 
 
 (ert-deftest oidx-test-occur-days ()

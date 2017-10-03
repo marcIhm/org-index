@@ -51,13 +51,11 @@
 ;;
 ;;  - Place this file in a directory of your load-path,
 ;;    e.g. org-mode/contrib/lisp.
-;;
 ;;  - Add these lines to your .emacs:
 ;;
 ;;    (require 'org-index)
 ;;
 ;;  - Restart your Emacs to make this effective.
-;;
 ;;  - Invoke `org-index'; on first run it will assist in creating your
 ;;    index table.
 ;;
@@ -68,7 +66,6 @@
 ;; Further information:
 ;;
 ;;  - Watch the screencast at http://2484.de/org-index.html.
-;;
 ;;  - See the documentation of `org-index', which can also be read by
 ;;    invoking `org-index' and choosing the command help or '?'.
 ;;
@@ -76,81 +73,20 @@
 ;; Updates:
 ;;
 ;;  The latest published version of this file can always be found at:
-;;
 ;;    http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
-;;
 ;;  Development version under:
-;;
 ;;    https://github.com/marcIhm/org-index
+;;
+;;
 
 ;;; Change Log:
 
-;;   [2017-09-28 Th] Version 5.6.2
-;;   - Quick repeat with delete-option for goto-focus
-;;   - Bugfixes
+;; 
+;;  - See the command 'news' for recent changes, or
+;;  - https://github.com/marcIhm/org-index/ChangeLog.org    for older news
+;;  - https://github.com/marcIhm/org-index/commits/master   for a complete list of changes
 ;;
-;;   [2017-09-03 So] Version 5.5.0
-;;   - Standard case-folding in occur
-;;   - Better handling of nested focus nodes
-;;   - Bugfixes
 ;;
-;;   [2015-12-29 Tu] to [2017-06-06 Tu] Version 5.0.2 to 5.4.2
-;;   - New commands yank, column and edit
-;;   - New command focus
-;;   - New column tags
-;;   - All columns are now required
-;;   - References are now optional
-;;   - Subcommand enter has been renamed to index
-;;   - Subcommands kill and edit can be invoked from an occur buffer
-;;   - Added link to screencast
-;;   - Occur accepts a numeric argument as a day span
-;;   - Speed improvements
-;;   - Many Bugfixes
-;;
-;;   [2015-02-26 Th] to [2015-08-20 Th] Version 4.0.0 to 4.3.0
-;;   - Configuration is done now via standard customize
-;;   - New sorting strategy 'mixed'
-;;   - Removed command "leave"; rather go back with org-mark-ring-goto
-;;   - Renamed column "link" to "id"
-;;   - Added maintainance options to find duplicate rows, to check ids,
-;;     update index or remove property org-index-ref from nodes
-;;   - Shortened version history
-;;   - Reference numbers for subcommands can be passed as a prefix argument
-;;
-;;   [2014-12-08 Mo] to [2015-01-31 Sa] Version 3.0.0 to 3.2.0:
-;;   - Complete sorting of index only occurs in idle-timer
-;;   - New command "maintain"  with some subcommands
-;;   - Rewrote command "occur" with overlays in an indirect buffer
-;;   - Command "add" updates index, if node is already present
-;;   - New commands "add" and "delete" to easily add and remove
-;;     the current node to or from your index.
-;;   - New command "example" to create an example index.
-;;   - Several new flags that are explained within index node.
-;;   - Removed commands "reuse", "missing", "put", "goto",
-;;     "update", "link", "fill", "unhighlight"
-;;   - New function `org-index-default-keybindings'
-;;
-;;   [2012-12-07 Fr] to [2014-04-26 Sa] Version 2.0.0 to 2.4.3:
-;;   - New functions org-index-new-line and org-index-get-line
-;;     offer access to org-index from other lisp programs
-;;   - Regression tests with ert
-;;   - Renamed from "org-favtable" to "org-index"
-;;   - Added an assistant to set up the index table
-;;   - occur is now incremental, searching as you type
-;;   - Integrated with org-mark-ring-goto
-;;   - Added full support for ids
-;;   - Renamed the package from "org-reftable" to "org-favtable"
-;;   - Additional columns are required (e.g. "link"). Error messages will
-;;     guide you
-;;   - Ask user explicitly, which command to invoke
-;;   - Renamed the package from "org-refer-by-number" to "org-reftable"
-;;
-;;   [2011-12-10 Sa] to [2012-09-22 Sa] Version Version 1.2.0 to 1.5.0:
-;;   - New command "sort" to sort a buffer or region by reference number
-;;   - New commands "highlight" and "unhighlight" to mark references
-;;   - New command "head" to find a headline with a reference number
-;;   - New commands occur and multi-occur
-;;   - Started this Change Log
 
 ;;; Code:
 
@@ -314,6 +250,7 @@ those pieces."
 (defvar org-index--context-occur nil "Position and line used for occur in edit buffer.")
 (defvar org-index--context-node nil "Buffer and position for node in edit buffer.")
 (defvar org-index--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
+(defvar org-index--news-buffer-name "*org-index news*" "Name of buffer to display news.")
 (defvar org-index--display-short-help nil "True, if short help should be displayed.")
 (defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
 (defvar org-index--prefix-arg nil "True, if prefix argument has been received during input.")
@@ -324,7 +261,7 @@ those pieces."
 (defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
 
 ;; static information for this program package
-(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help focus example sort find-ref highlight maintain) "List of commands available.")
+(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
 (defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
@@ -438,6 +375,8 @@ of subcommands to choose from:
   short-help: [?] Show this one-line description of each subcommand.
     I.e. from the complete help, show only the first line for each
     subcommand.
+
+  news: [n] Show news for the current point release.
 
   example: Create an example index, that will not be saved.
     May serve as an example.
@@ -629,6 +568,23 @@ interactive calls."
         (org-index--display-short-help))
 
        
+       ((eq command 'news)
+        (with-current-buffer-window
+         org-index--news-buffer-name nil nil
+         (insert (format "News for Version %s of org-index:\n"
+                         (progn
+                           (string-match "\\([0-9]+\\.[0-9]+\\)\\." org-index-version)
+                           (match-string 1 org-index-version))))
+         (insert "
+  - Quick repeat with delete-option for goto-focus
+  - Moved Changelog to its own file
+  - New command 'news'
+  - Bugfixes
+")
+         (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.")
+         (org-mode)))
+       
+
        ((eq command 'find-ref)
 
         ;; Construct list of all org-buffers
