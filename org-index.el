@@ -469,6 +469,7 @@ interactive calls."
         (setq command (org-index--read-command))
 	(if org-index--prefix-arg (setq arg (or arg '(4))))
         (setq org-index--display-short-help nil))
+
       (setq org-index--last-command org-index--this-command)
       (setq org-index--this-command command)
 
@@ -582,8 +583,9 @@ interactive calls."
   - New command 'news'
   - Bugfixes
 ")
-         (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.")
-         (org-mode)))
+         (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.\n")
+         (org-mode))
+        (shrink-window-if-larger-than-buffer (get-buffer-window org-index--news-buffer-name)))
        
 
        ((eq command 'find-ref)
@@ -971,10 +973,8 @@ Optional argument KEYS-VALUES specifies content of new line."
    (princ "Short help; shortcuts in []; capital letter acts like C-u.\n")
    (princ (org-index--get-short-help-text)))
   (with-current-buffer org-index--short-help-buffer-name
-    (let ((inhibit-read-only t)
-          win)
-      (setq win (get-buffer-window))
-      (shrink-window-if-larger-than-buffer win)
+    (let ((inhibit-read-only t))
+      (shrink-window-if-larger-than-buffer (get-buffer-window))
       (goto-char (point-min))
       (end-of-line)
       (goto-char (point-min)))))
@@ -1048,6 +1048,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                              (define-key map (vector ?f)
                                (lambda () (interactive)
                                  (setq this-command last-command)
+                                 (setq org-index--this-command org-index--last-command)
                                  (message (concat (org-index--goto-focus) "."))))
                              (define-key map (vector ?d)
                                (lambda () (interactive)
