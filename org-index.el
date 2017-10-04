@@ -467,10 +467,11 @@ interactive calls."
         ;; read command; if requested display help in read-loop
         (setq org-index--display-short-help (eq command 'short-help))
         (setq command (org-index--read-command))
-        (setq org-index--last-command org-index--this-command)
-        (setq org-index--this-command command)
 	(if org-index--prefix-arg (setq arg (or arg '(4))))
         (setq org-index--display-short-help nil))
+      (setq org-index--last-command org-index--this-command)
+      (setq org-index--this-command command)
+
 
       ;;
       ;; Get search string, if required; process possible sources one after
