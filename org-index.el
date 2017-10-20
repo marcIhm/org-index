@@ -1076,13 +1076,21 @@ Optional argument KEYS-VALUES specifies content of new line."
           (move-marker marker nil))
 
         (when org-index-goto-latest-timestamp-after-focus
-          (let (last-ts end)
+          (let (latest-point end-point latest-time this-time date-time-string)
             (save-excursion
               (org-end-of-subtree t t)
-              (setq end (point)))
+              (setq end-point (point)))
             (save-excursion
-              (org-end-of-meta-data t))
-            (if last-ts (goto-char last-ts))))
+              (org-end-of-meta-data t)
+              (while (search-forward-regexp org-ts-regexp-both end-point t)
+                (setq date-time-string (substring (match-string 0) 1 -1))
+                (if (= (length date-time-string) 13) (setq date-time-string (concat date-time-string " 00:00"))) ; assume 0:00 if no time given
+                (setq this-time (org-read-date nil t date-time-string nil))
+                (when (or (not latest-time)
+                          (time-less-p latest-time this-time))
+                  (setq latest-time this-time)
+                  (setq latest-point (point)))))
+            (if latest-point (goto-char latest-point))))
         
         (when org-index-clock-into-focus
           (if org-index--after-focus-timer (cancel-timer org-index--after-focus-timer))
