@@ -207,7 +207,12 @@ those pieces."
                   (const keywords))))
 
 (defcustom org-index-clock-into-focus nil
-  "Clock into focused node."
+  "Clock into focused node ?"
+  :group 'org-index
+  :type 'boolean)
+
+(defcustom org-index-goto-latest-timestamp-after-focus nil
+  "After visiting one of the focused nodes, position the latest timestamp ?"
   :group 'org-index
   :type 'boolean)
 
@@ -1069,6 +1074,15 @@ Optional argument KEYS-VALUES specifies content of new line."
           (goto-char (marker-position marker))
           (org-index--unfold-buffer)
           (move-marker marker nil))
+
+        (when org-index-goto-latest-timestamp-after-focus
+          (let (last-ts end)
+            (save-excursion
+              (org-end-of-subtree t t)
+              (setq end (point)))
+            (save-excursion
+              (org-end-of-meta-data t))
+            (if last-ts (goto-char last-ts))))
         
         (when org-index-clock-into-focus
           (if org-index--after-focus-timer (cancel-timer org-index--after-focus-timer))
