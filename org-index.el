@@ -2084,11 +2084,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
   "Helper function to unfold buffer."
   (org-show-context)
   (org-show-subtree)
-  (recenter 1)
-  (save-excursion
-    (org-back-to-heading)
-    (forward-line) ;; on property drawer
-    (org-cycle)))
+  (recenter 1))
 
 
 (defun org-index--update-line (&optional id-or-pos no-error)
