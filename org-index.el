@@ -584,8 +584,8 @@ interactive calls."
                            (string-match "\\([0-9]+\\.[0-9]+\\)\\." org-index-version)
                            (match-string 1 org-index-version))))
          (insert "
-  - Option to move to bottom of node after focus
-  - Command to revert last change to list of focused nodes
+  - New option org-index-goto-bottom-after-focus for position after jumping to a focused node
+  - New focus-command 'r' to revert last change to list of focused nodes
 ")
          (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.\n")
          (org-mode))
@@ -1075,13 +1075,12 @@ Optional argument KEYS-VALUES specifies content of new line."
 
           (pop-to-buffer-same-window (marker-buffer marker))
           (goto-char (marker-position marker))
-          (org-index--unfold-buffer)
-          (move-marker marker nil))
-
-        (when org-index-goto-bottom-after-focus
-          (org-end-of-subtree)
-          (setq bottom-clause "bottom of ")
-          (setq heading-is-clause (format ", heading is '%s'" (propertize (org-get-heading t t t t) 'face 'org-todo))))
+          (move-marker marker nil)
+          (when org-index-goto-bottom-after-focus
+            (org-end-of-subtree)
+            (setq bottom-clause "bottom of ")
+            (setq heading-is-clause (format ", heading is '%s'" (propertize (org-get-heading t t t t) 'face 'org-todo))))
+          (org-index--unfold-buffer))
 
         (if again
             (setq explain (format "Jumped to %snext" bottom-clause))
