@@ -1031,13 +1031,12 @@ Optional argument KEYS-VALUES specifies content of new line."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let (this-id target-id following-id last-id again explain marker
+      (let (target-id following-id last-id again explain marker
                     (repeat-clause "") (bottom-clause "") (heading-is-clause ""))
         (setq again (and (eq this-command last-command)
                          (eq org-index--this-command org-index--last-command)))
         (setq last-id (or org-index--id-last-goto-focus
                           (car (last org-index--ids-focused-nodes))))
-        (setq this-id (org-id-get))
         (setq following-id (car (or (cdr-safe (member last-id
                                                       (append org-index--ids-focused-nodes
                                                               org-index--ids-focused-nodes)))
@@ -1659,7 +1658,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
   "One-time migration: No property; need to go through whole table once to find max."
   (org-index--go-below-hline)
   (let ((max-ref-num 0)
-        ref-field ref-num ref)
+        ref-field ref-num)
     (message "One-time migration to set index-property maxref...")
     (while (org-at-table-p)
       (setq ref-field (org-index--get-or-set-field 'ref))
