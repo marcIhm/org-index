@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2017 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.7.0
+;; Version: 5.7.1
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -96,7 +96,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.7.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.7.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -320,7 +320,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.7.0 of org-index.el.
+This is version 5.7.1 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -1056,7 +1056,9 @@ Optional argument KEYS-VALUES specifies content of new line."
                                  (message "On heading.")))
                              (define-key map (vector ?b)
                                (lambda () (interactive)
-                                 (org-end-of-subtree)
+                                 (or (and (org-goto-first-child)
+                                          (forward-line -1))
+                                     (org-end-of-subtree))
                                  (message "At bottom.")))
                              (define-key map (vector ?d)
                                (lambda () (interactive)
@@ -1077,9 +1079,11 @@ Optional argument KEYS-VALUES specifies content of new line."
           (goto-char (marker-position marker))
           (move-marker marker nil)
           (when org-index-goto-bottom-after-focus
-            (org-end-of-subtree)
             (setq bottom-clause "bottom of ")
             (setq heading-is-clause (format ", heading is '%s'" (propertize (org-get-heading t t t t) 'face 'org-todo))))
+            (or (and (org-goto-first-child)
+                     (forward-line -1))
+                (org-end-of-subtree))
           (org-index--unfold-buffer))
 
         (if again
