@@ -1082,12 +1082,12 @@ Optional argument KEYS-VALUES specifies content of new line."
           (move-marker marker nil)
           (when org-index-goto-bottom-after-focus
             (setq bottom-clause "bottom of ")
-            (setq heading-is-clause (format ", heading is '%s'" (propertize (org-get-heading t t t t) 'face 'org-todo))))
-            (or (and (org-goto-first-child)
+            (setq heading-is-clause (format ", heading is '%s'" (propertize (org-get-heading t t t t) 'face 'org-todo)))
+	    (or (and (org-goto-first-child)
                      (forward-line -1))
-                (org-end-of-subtree))
-            (org-index--unfold-buffer)
-            (if  org-index-goto-bottom-after-focus (recenter -1)))
+                (org-end-of-subtree)))
+	  (org-index--unfold-buffer)
+	  (if org-index-goto-bottom-after-focus (recenter -1)))
 
         (if again
             (setq explain (format "Jumped to %snext" bottom-clause))
@@ -2090,7 +2090,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 (defun org-index--unfold-buffer ()
   "Helper function to unfold buffer."
-  (org-show-context)
+  (org-show-context 'ancestors)
   (org-show-subtree)
   (recenter 1))
 
