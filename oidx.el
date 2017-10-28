@@ -208,6 +208,17 @@
     (should (looking-at ".* --8--"))))
 
 
+(ert-deftest oidx-test-focus-restore ()
+  (oidx-with-test-setup
+    (oidx-do "o c c u r <return> z w e i <down> <return>")
+    (oidx-do "f o c u s <return> s" "C-u")
+    (should (= (length org-index--ids-focused-nodes) 1))
+    (oidx-do "f o c u s <return> d" "C-u")
+    (should (= (length org-index--ids-focused-nodes) 0))
+    (oidx-do "f o c u s <return> r" "C-u")
+    (should (= (length org-index--ids-focused-nodes) 1))))
+
+
 (ert-deftest oidx-test-focus-bottom ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> z w e i <down> <return>")
