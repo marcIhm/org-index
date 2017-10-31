@@ -92,6 +92,7 @@
 
 (require 'org-table)
 (require 'org-id)
+(require 'org-inlinetask)
 (require 'cl-lib)
 (require 'widget)
 
