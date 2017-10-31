@@ -221,12 +221,12 @@
 
 (ert-deftest oidx-test-focus-bottom ()
   (oidx-with-test-setup
-    (oidx-do "o c c u r <return> z w e i <down> <return>")
+    (oidx-do "o c c u r <return> - - 4 - - <return>")
     (oidx-do "f o c u s <return> s" "C-u")
     (beginning-of-buffer)
     (oidx-do "f o c u s <return> b")
     (forward-line)
-    (should (looking-at ".* --13--"))))
+    (should (looking-at ".* --2--"))))
 
 
 (ert-deftest oidx-test-double-focus ()
@@ -921,6 +921,14 @@
   :PROPERTIES:
   :ID:       12ae411f-bdd4-4c92-9e24-75cf7858f586
   :END:
+
+  Zeile 1
+
+*************** Inline
+*************** END
+
+  Zeile 2
+
 * --2-- zwei --2--
   :PROPERTIES:
   :ID:       caac71f6-74fa-4b6a-b732-66c9ceb0c483
