@@ -689,7 +689,7 @@ interactive calls."
 
           ;; move up until we find a node in index
           (save-excursion
-            (outline-back-to-heading)
+            (org-with-limited-levels (org-back-to-heading))
             (while (not done)
               (if id
                   (setq info (org-index--on 'id id
@@ -1053,7 +1053,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                                  (message (concat (org-index--goto-focus) " (again)."))))
                              (define-key map (vector ?h)
                                (lambda () (interactive)
-                                 (org-back-to-heading)
+                                 (org-with-limited-levels (org-back-to-heading))
                                  (recenter 1)
                                  (message "On heading.")))
                              (define-key map (vector ?b)
@@ -1118,11 +1118,11 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 (defun org-index--end-of-focused-node ()
   "Goto end of focused nodes, ignoring inline-tasks but stopping at first child."
-  (let (level next (pos (point)) (re org-outline-regexp-bol))
-    (when (ignore-errors (org-back-to-heading t))
+  (let (level next (pos (point)))
+    (when (ignore-errors (org-with-limited-levels (org-back-to-heading)))
       (setq level (outline-level))
       (forward-char 1)
-      (if (and (progn (while (progn (setq next (re-search-forward re nil t))
+      (if (and (progn (while (progn (setq next (re-search-forward org-outline-regexp-bol nil t))
                                     (>= (outline-level) org-inlinetask-min-level))) ; search again on inline tasks
                       next)
                (> (outline-level) level))
@@ -1227,7 +1227,7 @@ Optional argument KEYS-VALUES specifies content of new line."
     (let (ancestors id level start-level)
       (save-excursion
         (ignore-errors
-          (outline-back-to-heading)
+          (org-with-limited-levels (org-back-to-heading))
           (setq id (org-id-get))
           (if id (setq ancestors (cons id ancestors)))
           (setq start-level (org-outline-level))
@@ -2386,7 +2386,7 @@ CREATE-REF and TAG-WITH-REF if given."
     (org-index--save-positions)
     (unless (or org-index--within-index-node
                 org-index--within-occur)
-      (org-back-to-heading))
+      (org-with-limited-levels (org-back-to-heading)))
     
     ;; try to do the same things from within index and from outside
     (if org-index--within-index-node
@@ -2603,7 +2603,7 @@ Optional argument DEFAULTS gives default values."
     (org-index--save-positions)
     (unless (or org-index--within-index-node
                 org-index--within-occur)
-      (org-back-to-heading))
+      (org-with-limited-levels (org-back-to-heading)))
     
     ;; Collect information: What should be deleted ?
     (if (or org-index--within-occur
