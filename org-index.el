@@ -1122,16 +1122,16 @@ Optional argument KEYS-VALUES specifies content of new line."
     (when (ignore-errors (org-with-limited-levels (org-back-to-heading)))
       (setq level (outline-level))
       (forward-char 1)
-      (if (and (progn (while (progn (setq next (re-search-forward org-outline-regexp-bol nil t))
-                                    (>= (outline-level) org-inlinetask-min-level))) ; search again on inline tasks
-                      next)
+      (if (and (org-with-limited-levels (re-search-forward org-outline-regexp-bol nil t))
                (> (outline-level) level))
           (progn        ; landed on child node
             (goto-char (match-beginning 0))
             (forward-line -1))
         (goto-char pos) ; landed on next sibling or end of buffer
-        (org-end-of-subtree)
-        (forward-line 1))
+        (org-with-limited-levels
+         (org-end-of-subtree nil t)
+         (when (org-at-heading-p)
+           (forward-line -1))))
       (beginning-of-line))))
 
 

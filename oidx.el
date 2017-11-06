@@ -219,14 +219,17 @@
     (should (= (length org-index--ids-focused-nodes) 1))))
 
 
-(ert-deftest oidx-test-focus-bottom ()
+(ert-deftest oidx-test-focus-bottom-head ()
   (oidx-with-test-setup
     (oidx-do "o c c u r <return> - - 4 - - <return>")
     (oidx-do "f o c u s <return> s" "C-u")
     (beginning-of-buffer)
     (oidx-do "f o c u s <return> b")
     (forward-line)
-    (should (looking-at ".* --2--"))))
+    (should (looking-at ".* --2--"))
+    (forward-line -1)
+    (oidx-do "f o c u s <return> h")
+    (should (looking-at ".* --4--"))))
 
 
 (ert-deftest oidx-test-double-focus ()
