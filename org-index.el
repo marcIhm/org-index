@@ -1184,7 +1184,8 @@ Optional argument KEYS-VALUES specifies content of new line."
             "Current node has been appended to list of focused nodes%s (%d node%s in focus)")
 
            ((eq char ?d)
-            (org-index--delete-from-focus))
+            (org-index--delete-from-focus)
+            (concat "Current node has been removed from list of focused nodes%s (%d node%s in focus), " (org-index--goto-focus) "."))
 
            ((eq char ?r)
             (if org-index--ids-focused-nodes-saved
