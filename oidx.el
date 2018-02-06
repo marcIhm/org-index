@@ -467,7 +467,7 @@
     (execute-kbd-macro (kbd "C-a C-k C-k C-y C-y"))
     (oidx-do "m a i n t a i n <return> d u p l i c a t e s <return>")
     (should (string= org-index--message-text
-                     "Some references or ids are duplicates."))))
+                     "Some references or ids are duplicate."))))
 
 
 (ert-deftest oidx-test-maintain-statistics ()
@@ -484,11 +484,11 @@
                      "Removed property 'org-index-ref' from 1 lines."))))
 
 
-(ert-deftest oidx-test-maintain-check ()
+(ert-deftest oidx-test-maintain-verify ()
   (oidx-with-test-setup
-    (oidx-do "m a i n t a i n <return> c h e c k <return>")
+    (oidx-do "m a i n t a i n <return> v e r i f y <return>")
     (should (string= org-index--message-text
-                     "No problems found."))))
+                     "All ids of index are valid."))))
 
 
 (ert-deftest oidx-test-sort-buffer ()

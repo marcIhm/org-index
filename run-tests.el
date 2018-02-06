@@ -15,7 +15,6 @@
 
 (setq org-id-locations-file "~\\.emacs.d\\.org-id-locations-for-test")
 (setq custom-theme-directory "c:/org/custom/themes")
-(load-theme 'madhat2r t)
 
 (menu-bar-mode -1)
 (tool-bar-mode -1)

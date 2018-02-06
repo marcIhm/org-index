@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2018 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.7.4
+;; Version: 5.7.5
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -97,7 +97,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.7.4" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.7.5" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -321,7 +321,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.7.4 of org-index.el.
+This is version 5.7.5 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -1745,8 +1745,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     
     (cond
      ((eq check-what 'verify)
-      (setq message-text (or (org-index--verify-ids)
-                             )))
+      (setq message-text (org-index--verify-ids)))
 
      ((eq check-what 'statistics)
       (setq message-text (org-index--do-statistics)))
@@ -2533,24 +2532,19 @@ CREATE-REF and TAG-WITH-REF if given."
   (let ((lines 0)
         id kvs)
     
-    ;; check for double ids
-    (or
-     (org-index--check-ids)
-
-     (progn
-       (goto-char org-index--below-hline)
-       (while (org-at-table-p)
+    (goto-char org-index--below-hline)
+    (while (org-at-table-p)
          
-         ;; update single line
-         (when (setq id (org-index--get-or-set-field 'id))
-           (setq kvs (org-index--collect-values-for-add-update-remote id))
-           (org-index--write-fields kvs)
-           (cl-incf lines))
-         (forward-line))
+      ;; update single line
+      (when (setq id (org-index--get-or-set-field 'id))
+	(setq kvs (org-index--collect-values-for-add-update-remote id))
+	(org-index--write-fields kvs)
+	(cl-incf lines))
+      (forward-line))
 
-       (goto-char org-index--below-hline)
-       (org-table-align)
-       (format "Updated %d lines" lines)))))
+    (goto-char org-index--below-hline)
+    (org-table-align)
+    (format "Updated %d lines" lines)))
 
 
 (defun org-index--collect-values-for-add-update (id &optional silent category)
