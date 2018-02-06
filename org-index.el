@@ -400,7 +400,7 @@ of subcommands to choose from:
      Operates on active region or whole buffer.  Call with prefix
      argument (`C-u') to remove highlights.
 
-  maintain: Index maintainance.
+  maintain: [m] Index maintainance.
      Offers some choices to check, update or fix your index.
 
 If you invoke `org-index' for the first time, an assistant will be
@@ -889,9 +889,8 @@ Optional argument ARG is passed on."
         (setq char nil)))
     (setq command (cdr (assoc char (org-index--get-shortcut-chars))))
     (unless command
-      (message "No subcommand for '%s'; switching to detailed prompt" char)
-      (sit-for 1)
-      (setq command 'short-help))
+      (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
+        (setq command 'short-help)))
     (org-index command nil arg)))
 
 
@@ -1726,13 +1725,15 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 (defun org-index--do-maintain ()
   "Choose among and perform some tasks to maintain index."
-  (let ((max-mini-window-height 1.0) message-text choices choices-short check-what)
+  (let ((max-mini-window-height 1.0)
+        message-text choices choices-short check-what)
+    
     (setq choices (list "statistics : compute statistics about index table\n"
-                        "check      : check ids by visiting their nodes\n"
+                        "verify     : verify ids by visiting their nodes\n"
                         "duplicates : check index for duplicate refs or ids\n"
+                        "max        : compute and check maximum ref\n"
                         "clean      : remove obsolete property org-index-id\n"
-                        "update     : update content of index lines having an id\n"
-                        "max        : compute and check maximum ref\n"))
+                        "update     : update content of index lines having an id\n"))
 
     (org-index--display-short-help "These checks and fixes are available:\n" (apply 'concat choices))
 
@@ -1743,9 +1744,9 @@ Optional argument NO-INC skips automatic increment on maxref."
     (message nil)
     
     (cond
-     ((eq check-what 'check)
-      (setq message-text (or (org-index--check-ids)
-                             "No problems found")))
+     ((eq check-what 'verify)
+      (setq message-text (or (org-index--verify-ids)
+                             )))
 
      ((eq check-what 'statistics)
       (setq message-text (org-index--do-statistics)))
@@ -1766,7 +1767,7 @@ Optional argument NO-INC skips automatic increment on maxref."
      ((eq check-what 'update)
       (if (y-or-n-p "Updating your index will overwrite certain columns with content from the associated heading and category.  If unsure, you may try this for a single, already existing line of your index by invoking `add'.  Are you SURE to proceed for ALL INDEX LINES ? ")
           (setq message-text (org-index--update-all-lines))
-        (setq message-text "Canceled.")))
+        (setq message-text "Canceled")))
 
      ((eq check-what 'max)
       (setq message-text (org-index--check-maximum))))
@@ -2314,26 +2315,27 @@ Optional argument NO-ERROR suppresses error."
     (setq ref-duplicates (org-index--find-duplicates-helper 'ref))
     (setq id-duplicates (org-index--find-duplicates-helper 'id))
     (goto-char org-index--below-hline)
-    (when (or ref-duplicates id-duplicates)
-        (pop-to-buffer-same-window
-         (get-buffer-create "*org-index-duplicates*"))
-        (erase-buffer)
-        (insert "\n")
-        (if ref-duplicates
-            (progn
-              (insert " These references appear more than once:\n")
-              (mapc (lambda (x) (insert "   " x "\n")) ref-duplicates)
-              (insert "\n\n"))
-          (insert " No references appear more than once.\n"))
-        (if id-duplicates
-            (progn
-              (insert " These ids appear more than once:\n")
-              (mapc (lambda (x) (insert "   " x "\n")) id-duplicates))
-          (insert " No ids appear more than once."))
-        (insert "\n")
+    (if (or ref-duplicates id-duplicates)
+        (progn
+          (pop-to-buffer-same-window
+           (get-buffer-create "*org-index-duplicates*"))
+          (erase-buffer)
+          (insert "\n")
+          (if ref-duplicates
+              (progn
+                (insert " These references appear more than once:\n")
+                (mapc (lambda (x) (insert "   " x "\n")) ref-duplicates)
+                (insert "\n\n"))
+            (insert " No references appear more than once.\n"))
+          (if id-duplicates
+              (progn
+                (insert " These ids appear more than once:\n")
+                (mapc (lambda (x) (insert "   " x "\n")) id-duplicates))
+            (insert " No ids appear more than once."))
+          (insert "\n")
 
-        "Some references or ids are duplicate"
-      "No duplicate references or ids found")))
+          "Some references or ids are duplicate")
+        "No duplicate references or ids found")))
 
 
 (defun org-index--find-duplicates-helper (column)
@@ -2501,36 +2503,28 @@ CREATE-REF and TAG-WITH-REF if given."
     ret))
 
 
-(defun org-index--check-ids ()
+(defun org-index--verify-ids ()
   "Check, that ids really point to a node."
   
-  (let ((lines 0)
-        id ids marker)
+  (let ((lines 0) (marker t) id)
     
     (goto-char org-index--below-hline)
     
-    (catch 'problem
-      (while (org-at-table-p)
-        
-        (when (setq id (org-index--get-or-set-field 'id))
-          
-          ;; check for double ids
-          (when (member id ids)
-            (org-table-goto-column (org-index--column-num 'id))
-            (throw 'problem "This id appears twice in index; please use command 'maintain' to check for duplicate ids"))
-          (cl-incf lines)
-          (setq ids (cons id ids))
-          
-          ;; check, if id is valid
-          (setq marker (org-id-find id t))
-          (unless marker
-            (org-table-goto-column (org-index--column-num 'id))
-            (throw 'problem "This id cannot be found")))
-        
-        (forward-line))
+    (while (and marker (org-at-table-p))
       
-      (goto-char org-index--below-hline)
-      nil)))
+      (when (setq id (org-index--get-or-set-field 'id))
+        
+        ;; check, if id is valid
+        (setq marker (org-id-find id t)))
+
+      (when marker (forward-line)))
+    
+    (if marker
+        (progn
+          (goto-char org-index--below-hline)
+          "All ids of index are valid")
+      (org-table-goto-column 1)
+      "The id of this row cannot be found; please fix and check again for rest of index")))
 
   
 (defun org-index--update-all-lines ()
