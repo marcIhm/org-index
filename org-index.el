@@ -262,8 +262,6 @@ those pieces."
 (defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
 (defvar org-index--prefix-arg nil "True, if prefix argument has been received during input.")
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
-(defvar org-index--after-focus-timer nil "Timer to clock in or update focused node after a delay.")
-(defvar org-index--after-focus-context nil "Context for after focus action.")
 (defvar org-index--this-command nil "Subcommand, that is currently excecuted.")
 (defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
 
@@ -274,7 +272,6 @@ those pieces."
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
 (defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
-(defvar org-index--after-focus-delay 10 "Number of seconds to wait before invoking after-focus action.")
 
 
 (defmacro org-index--on (column value &rest body)
@@ -369,12 +366,8 @@ of subcommands to choose from:
 
   focus: [f] Return to first focused node; repeat to see them all.
     The focused nodes are kept in a short list; they need not be
-    part of the index though.  This command visits one focus node
-    after the other, as long as you invoke it in quick succession
-    and without moving to other nodes; otherwise it returns to
-    the focus node, where you left off. Finally, with a prefix
-    argument, this command offers more options, e.g. to set focus
-    in the first place.
+    part of the index though.  With a prefix argument, this
+    command offers more options, e.g. to set focus initially.
 
   help: Show complete help text of `org-index'.
     I.e. this text.
@@ -1068,8 +1061,14 @@ Optional argument KEYS-VALUES specifies content of new line."
                                  (org-index--delete-from-focus)
                                  (org-index--persist-focused-nodes)
                                  (message (concat  "Current node has been removed from list of focused nodes, " (org-index--goto-focus) "."))))
-                             map) t)
-        (setq repeat-clause "; type 'f' to repeat or 'd' to delete this node from list, 'h' goes to heading, 'b' to bottom of node")
+                             map)
+                           t
+                           (lambda ()
+                             (when org-index-clock-into-focus
+                               (save-window-excursion
+                                 (org-clock-in)
+                                 (org-index--update-line (org-id-get) t)))))
+        (setq repeat-clause "; type 'f' to repeat, 'd' to delete this node from list; 'h' goes to heading, 'b' to bottom of node")
 
         (if (member target-id (org-index--ids-up-to-top))
             (setq explain "Staying below current")
@@ -1092,20 +1091,6 @@ Optional argument KEYS-VALUES specifies content of new line."
             (setq explain (format "Jumped to %snext" bottom-clause))
           (setq explain (format "Jumped back to %scurrent" bottom-clause)))
         
-        (when org-index-clock-into-focus
-          (if org-index--after-focus-timer (cancel-timer org-index--after-focus-timer))
-          (setq org-index--after-focus-context target-id)
-          (setq org-index--after-focus-timer
-                (run-at-time org-index--after-focus-delay nil
-                             (lambda ()
-                               (when (string= org-index--after-focus-context (ignore-errors (org-id-get)))
-                                 (save-window-excursion
-                                   (save-excursion
-                                     (org-id-goto org-index--after-focus-context)
-                                     (org-clock-in)
-                                     (org-index--update-line org-index--after-focus-context t)
-                                     (setq org-index--after-focus-context nil)
-                                     (cancel-timer org-index--after-focus-timer))))))))
         (setq org-index--id-last-goto-focus target-id)
         (concat
          (if (cdr org-index--ids-focused-nodes)
