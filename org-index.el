@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2018 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.7.5
+;; Version: 5.7.6
 ;; Keywords: outlines index
 
 ;; This file is not part of GNU Emacs.
@@ -97,7 +97,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.7.5" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.7.6" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -264,6 +264,7 @@ those pieces."
 (defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 (defvar org-index--this-command nil "Subcommand, that is currently excecuted.")
 (defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
+(defvar org-index--last-focus-message nil "Last message issued by focus-command.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
@@ -318,7 +319,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.7.5 of org-index.el.
+This is version 5.7.6 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
@@ -673,7 +674,7 @@ interactive calls."
        ((eq command 'ping)
 
         (let ((moved-up 0) id info reached-top done)
-
+          
           (unless (string= major-mode "org-mode") (error "Not in org-mode"))
           ;; take id from current node or reference
           (setq id (if search-ref
@@ -826,6 +827,7 @@ interactive calls."
        ((eq command 'focus)
         (setq message-text (if arg
                                (org-index--more-focus-commands)
+                             (setq org-index--last-focus-message nil)
                              (org-index--goto-focus))))
 
 
@@ -1025,8 +1027,9 @@ Optional argument KEYS-VALUES specifies content of new line."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let (again last-id following-id in-last-id target-id explain marker
-                    (repeat-clause "") (bottom-clause "") (heading-is-clause ""))
+      (let (again last-id following-id in-last-id target-id explain marker heading-is-clause
+                  (bottom-clause (if org-index-goto-bottom-after-focus "bottom of " ""))
+                  (repeat-clause ""))
         (setq again (and (eq this-command last-command)
                          (eq org-index--this-command org-index--last-command)))
         (setq last-id (or org-index--id-last-goto-focus
@@ -1044,34 +1047,38 @@ Optional argument KEYS-VALUES specifies content of new line."
                                (lambda () (interactive)
                                  (setq this-command last-command)
                                  (setq org-index--this-command org-index--last-command)
-                                 (message (concat (org-index--goto-focus) " (again)."))))
+                                 (org-index--focus-message (org-index--goto-focus))))
                              (define-key map (vector ?h)
                                (lambda () (interactive)
                                  (org-with-limited-levels (org-back-to-heading))
                                  (recenter 1)
-                                 (message "On heading.")))
+                                 (org-index--focus-message "On heading of focused node")))
                              (define-key map (vector ?b)
                                (lambda () (interactive)
                                  (org-index--end-of-focused-node)
                                  (recenter -1)
-                                 (message "At bottom.")))
+                                 (org-index--focus-message "At bottom of focused node")))
+                             (define-key map (vector ??)
+                               (lambda () (interactive)
+                                 (setq org-index--short-help-wanted t)
+                                 (message (org-index--goto-focus))
+                                 (setq org-index--short-help-wanted nil)))
                              (define-key map (vector ?d)
                                (lambda () (interactive)
                                  (setq this-command last-command)
                                  (org-index--delete-from-focus)
                                  (org-index--persist-focused-nodes)
-                                 (message (concat  "Current node has been removed from list of focused nodes, " (org-index--goto-focus) "."))))
+                                 (org-index--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (org-index--goto-focus)))))
                              map)
                            t
                            (lambda ()
                              (when org-index-clock-into-focus
-                               (save-window-excursion
-                                 (org-clock-in)
-                                 (org-index--update-line (org-id-get) t)))))
-        (setq repeat-clause "; type 'f' to repeat, 'd' to delete this node from list; 'h' goes to heading, 'b' to bottom of node")
+                               (org-clock-in)
+                               (org-index--update-line (org-id-get) t))))
+        (setq repeat-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
 
-        (if (member target-id (org-index--ids-up-to-top))
-            (setq explain "Staying below current")
+          (if (member target-id (org-index--ids-up-to-top))
+              (setq explain (format "staying below %scurrent" bottom-clause))
           (unless (setq marker (org-id-find target-id 'marker))
             (setq org-index--id-last-goto-focus nil)
             (error "Could not find focus-node with id %s" target-id))
@@ -1081,26 +1088,34 @@ Optional argument KEYS-VALUES specifies content of new line."
           (org-index--unfold-buffer)
           (move-marker marker nil)
           (when org-index-goto-bottom-after-focus
-            (setq bottom-clause "bottom of ")
-            (setq heading-is-clause (format ", heading is '%s'" (propertize (org-get-heading t t t t) 'face 'org-todo)))
             (org-index--end-of-focused-node)
             (org-reveal)
             (recenter -1)))
 
-        (if (or again in-last-id)
-            (setq explain (format "Jumped to %snext" bottom-clause))
-          (setq explain (format "Jumped back to %scurrent" bottom-clause)))
+        (setq heading-is-clause (format "Focus %s, " (propertize (org-get-heading t t t t) 'face 'org-todo)))
+
+        (setq explain (or explain
+                          (if (or again in-last-id)
+                              (format "at %snext" bottom-clause)
+                            (format "back to %scurrent" bottom-clause))))
         
         (setq org-index--id-last-goto-focus target-id)
         (concat
+         heading-is-clause
          (if (cdr org-index--ids-focused-nodes)
-             (format "%s focus node (out of %d)%s"
+             (format "%s node (out of %d)"
                      explain
-                     (length org-index--ids-focused-nodes)
-                     heading-is-clause)
-           (format "Jumped to %ssingle focus-node%s" bottom-clause heading-is-clause))
+                     (length org-index--ids-focused-nodes))
+           (format "%s node" explain))
          repeat-clause))
       "No nodes in focus, use set-focus"))
+
+
+(defun org-index--focus-message (message)
+  "Issue given message and append string '(again)' if appropriate"
+  (let ((again (if (string= message org-index--last-focus-message) " (again)" "")))
+    (setq org-index--last-focus-message message)
+    (message (concat message again "."))))
 
 
 (defun org-index--end-of-focused-node ()
@@ -1126,11 +1141,10 @@ Optional argument KEYS-VALUES specifies content of new line."
   "More commands for handling focused nodes."
   (let (id text more-text char prompt ids-up-to-top)
 
-    (setq prompt (format "Please specify action on the list of %s focused nodes: set, append, delete, restore (s,a,d,r or ? for short help) - "
-                         (length org-index--ids-focused-nodes)))
+    (setq prompt (format "Please specify action on list of %d focused nodes (s,a,d,r or ? for short help) - " (length org-index--ids-focused-nodes)))
     (while (not (memq char (list ?s ?a ?d ?r)))
         (setq char (read-char prompt))
-        (setq prompt "Actions on list of focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list,  r)estore previous list of focused nodes.  Please choose - "))
+        (setq prompt (format "Actions on list of %d focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list,  r)estore previous list of focused nodes.  Please choose - " (length org-index--ids-focused-nodes))))
     (setq text
           (cond
 
