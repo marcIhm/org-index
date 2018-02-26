@@ -265,6 +265,7 @@ those pieces."
 (defvar org-index--this-command nil "Subcommand, that is currently excecuted.")
 (defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
 (defvar org-index--last-focus-message nil "Last message issued by focus-command.")
+(defvar org-index--cancel-focus-wait nil "Function to call on timeout for focus commands.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
@@ -1028,7 +1029,7 @@ Optional argument KEYS-VALUES specifies content of new line."
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
       (let (again last-id following-id in-last-id target-id explain marker heading-is-clause
-                  (bottom-clause cancel-focus-wait (if org-index-goto-bottom-after-focus "bottom of " ""))
+                  (bottom-clause (if org-index-goto-bottom-after-focus "bottom of " ""))
                   (menu-clause ""))
         (setq again (and (eq this-command last-command)
                          (eq org-index--this-command org-index--last-command)))
@@ -1042,8 +1043,10 @@ Optional argument KEYS-VALUES specifies content of new line."
 
         (setq target-id (if (or again in-last-id) following-id last-id))
 
-        (run-at-time 5 nil (lambda () (if cancel-focus-wait (funcall cancel-focus-wait))))
-        (setq cancel-focus-wait
+        (run-at-time 10 nil (lambda () (when org-index--cancel-focus-wait
+                                    (funcall org-index--cancel-focus-wait)
+                                    (setq org-index--cancel-focus-wait nil))))
+        (setq org-index--cancel-focus-wait
               (set-transient-map (let ((map (make-sparse-keymap)))
                                    (define-key map (vector ?f)
                                      (lambda () (interactive)
@@ -1070,14 +1073,15 @@ Optional argument KEYS-VALUES specifies content of new line."
                                        (setq this-command last-command)
                                        (org-index--delete-from-focus)
                                        (org-index--persist-focused-nodes)
-                                       (org-index--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (org-index--goto-focus)))))
+                                       (org-index--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (org-index--goto-focus)))
+                                       (setq org-index--cancel-focus-wait nil)))
                                    map)
                                  t
                                  (lambda ()
                                    (when org-index-clock-into-focus
-                                     (org-clock-in)
-                                     (org-index--update-line (org-id-get) t)))))
-        (funcall cancel-focus-wait)
+                                     (unless org-index--cancel-focus-wait
+                                       (org-clock-in)
+                                       (org-index--update-line (org-id-get) t))))))
         (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
 
           (if (member target-id (org-index--ids-up-to-top))
