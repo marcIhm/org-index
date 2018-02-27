@@ -266,6 +266,7 @@ those pieces."
 (defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
 (defvar org-index--last-focus-message nil "Last message issued by focus-command.")
 (defvar org-index--cancel-focus-wait nil "Function to call on timeout for focus commands.")
+(defvar org-index--focus-timer nil "Timer to cancel waiting for key.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
@@ -1043,9 +1044,10 @@ Optional argument KEYS-VALUES specifies content of new line."
 
         (setq target-id (if (or again in-last-id) following-id last-id))
 
-        (run-at-time 10 nil (lambda () (when org-index--cancel-focus-wait
-                                    (funcall org-index--cancel-focus-wait)
-                                    (setq org-index--cancel-focus-wait nil))))
+        (setq org-index--focus-timer
+              (run-at-time 10 nil
+                           (lambda () (funcall org-index--cancel-focus-wait))))
+        
         (setq org-index--cancel-focus-wait
               (set-transient-map (let ((map (make-sparse-keymap)))
                                    (define-key map (vector ?f)
@@ -1078,10 +1080,10 @@ Optional argument KEYS-VALUES specifies content of new line."
                                    map)
                                  t
                                  (lambda ()
+                                   (cancel-timer org-index--focus-timer)
                                    (when org-index-clock-into-focus
-                                     (unless org-index--cancel-focus-wait
-                                       (org-clock-in)
-                                       (org-index--update-line (org-id-get) t))))))
+                                     (org-clock-in)
+                                     (org-index--update-line (org-id-get) t)))))
         (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
 
           (if (member target-id (org-index--ids-up-to-top))
@@ -1113,7 +1115,7 @@ Optional argument KEYS-VALUES specifies content of new line."
              (format "%s node (out of %d)"
                      explain
                      (length org-index--ids-focused-nodes))
-           (format "%s node" explain))
+           (format "%s single node" explain))
          menu-clause))
       "No nodes in focus, use set-focus"))
 
