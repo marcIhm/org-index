@@ -1046,7 +1046,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 
         (setq org-index--focus-timer
               (run-at-time 10 nil
-                           (lambda () (funcall org-index--cancel-focus-wait))))
+                           (lambda () (if org-index--cancel-focus-wait (funcall org-index--cancel-focus-wait)))))
         
         (setq org-index--cancel-focus-wait
               (set-transient-map (let ((map (make-sparse-keymap)))
@@ -1086,12 +1086,12 @@ Optional argument KEYS-VALUES specifies content of new line."
                                      (org-index--update-line (org-id-get) t)))))
         (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
 
-          (if (member target-id (org-index--ids-up-to-top))
-              (setq explain (format "staying below %scurrent" bottom-clause))
+        (if (member target-id (org-index--ids-up-to-top))
+            (setq explain (format "staying below %scurrent" bottom-clause))
           (unless (setq marker (org-id-find target-id 'marker))
             (setq org-index--id-last-goto-focus nil)
             (error "Could not find focus-node with id %s" target-id))
-
+          
           (pop-to-buffer-same-window (marker-buffer marker))
           (goto-char (marker-position marker))
           (org-index--unfold-buffer)
@@ -1102,7 +1102,7 @@ Optional argument KEYS-VALUES specifies content of new line."
             (recenter -1)))
 
         (setq heading-is-clause (format "Focus %s, " (propertize (org-get-heading t t t t) 'face 'org-todo)))
-
+        
         (setq explain (or explain
                           (if (or again in-last-id)
                               (format "at %snext" bottom-clause)
