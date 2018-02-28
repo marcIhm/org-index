@@ -212,6 +212,11 @@ those pieces."
   :group 'org-index
   :type 'boolean)
 
+(defcustom org-index-show-focus-overlay nil
+  "Show overlay text when changing focus"
+  :group 'org-index
+  :type 'boolean)
+
 (defcustom org-index-goto-bottom-after-focus nil
   "After visiting a focused nodes; position cursor at bottom of node (as opposed to heading) ?"
   :group 'org-index
@@ -266,7 +271,9 @@ those pieces."
 (defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
 (defvar org-index--last-focus-message nil "Last message issued by focus-command.")
 (defvar org-index--cancel-focus-wait nil "Function to call on timeout for focus commands.")
-(defvar org-index--focus-timer nil "Timer to cancel waiting for key.")
+(defvar org-index--focus-wait-timer nil "Timer to cancel waiting for key.")
+(defvar org-index--focus-overlay nil "Overlay to display name of focus node.")
+(defvar org-index--focus-overlay-timer nil "Timer to remove focus overlay.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
@@ -1029,7 +1036,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 (defun org-index--goto-focus ()
   "Goto focus node, one after the other."
   (if org-index--ids-focused-nodes
-      (let (again last-id following-id in-last-id target-id explain marker heading-is-clause
+      (let (again last-id following-id in-last-id target-id explain marker heading-is-clause head
                   (bottom-clause (if org-index-goto-bottom-after-focus "bottom of " ""))
                   (menu-clause ""))
         (setq again (and (eq this-command last-command)
@@ -1044,8 +1051,8 @@ Optional argument KEYS-VALUES specifies content of new line."
 
         (setq target-id (if (or again in-last-id) following-id last-id))
 
-        (setq org-index--focus-timer
-              (run-at-time 10 nil
+        (setq org-index--focus-wait-timer
+              (run-at-time 5 nil
                            (lambda () (if org-index--cancel-focus-wait (funcall org-index--cancel-focus-wait)))))
         
         (setq org-index--cancel-focus-wait
@@ -1079,10 +1086,13 @@ Optional argument KEYS-VALUES specifies content of new line."
                                        (setq org-index--cancel-focus-wait nil)))
                                    map)
                                  t
-                                 (lambda ()
-                                   (cancel-timer org-index--focus-timer)
+                                 (lambda () (cancel-timer org-index--focus-wait-timer)
                                    (when org-index-clock-into-focus
                                      (org-clock-in)
+                                     (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
+                                     (if org-index--focus-overlay-timer (cancel-timer org-index--focus-overlay-timer))
+                                     (setq org-index--focus-overlay-timer nil)
+                                     (setq org-index--focus-overlay nil)
                                      (org-index--update-line (org-id-get) t)))))
         (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
 
@@ -1099,9 +1109,20 @@ Optional argument KEYS-VALUES specifies content of new line."
           (when org-index-goto-bottom-after-focus
             (org-index--end-of-focused-node)
             (org-reveal)
-            (recenter -1)))
+            (recenter -2)))
 
-        (setq heading-is-clause (format "Focus %s, " (propertize (org-get-heading t t t t) 'face 'org-todo)))
+        (setq head (org-get-heading t t t t))
+        (when org-index-show-focus-overlay
+          (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
+          (setq org-index--focus-overlay (make-overlay (+ 1 (point-at-eol)) (+ 1 (point-at-eol))))
+          (overlay-put org-index--focus-overlay 'after-string (propertize (concat " " head "  ") 'face 'tooltip))
+          (if org-index--focus-overlay-timer (cancel-timer org-index--focus-overlay-timer))
+          (setq org-index--focus-overlay-timer
+                (run-at-time 5 nil
+                             (lambda () (if org-index--focus-overlay-timer (cancel-timer org-index--focus-overlay-timer))
+                               (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))))))
+
+        (setq heading-is-clause (format "Focus %s, " (propertize head 'face 'org-todo)))
         
         (setq explain (or explain
                           (if (or again in-last-id)
