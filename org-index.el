@@ -273,7 +273,6 @@ those pieces."
 (defvar org-index--cancel-focus-wait nil "Function to call on timeout for focus commands.")
 (defvar org-index--focus-cancel-timer nil "Timer to cancel waiting for key.")
 (defvar org-index--focus-overlay nil "Overlay to display name of focus node.")
-(defvar org-index--focus-overlay-timer nil "Timer to remove focus overlay.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
@@ -1093,8 +1092,6 @@ Optional argument KEYS-VALUES specifies content of new line."
                                    ;; Clean up overlay
                                    (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
                                    (setq org-index--focus-overlay nil)
-                                   (if org-index--focus-overlay-timer (cancel-timer org-index--focus-overlay-timer))
-                                   (setq org-index--focus-overlay-timer nil)
                                    (when org-index-clock-into-focus
                                      (org-clock-in)
                                      (org-index--update-line (org-id-get) t)))))
@@ -1120,13 +1117,7 @@ Optional argument KEYS-VALUES specifies content of new line."
           ;; tooltip-overlay to show current heading
           (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
           (setq org-index--focus-overlay (make-overlay (+ 1 (point-at-eol)) (+ 1 (point-at-eol))))
-          (overlay-put org-index--focus-overlay 'after-string (propertize (concat " " head "  ") 'face 'tooltip))
-          ;; timer to remove overlay
-          (if org-index--focus-overlay-timer (cancel-timer org-index--focus-overlay-timer))
-          (setq org-index--focus-overlay-timer
-                (run-at-time 5 nil
-                             (lambda () (if org-index--focus-overlay
-                                       (delete-overlay org-index--focus-overlay))))))
+          (overlay-put org-index--focus-overlay 'after-string (propertize (concat " " head "  ") 'face 'tooltip)))
 
         (setq heading-is-clause (format "Focus %s, " (propertize head 'face 'org-todo)))
         
