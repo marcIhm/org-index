@@ -1117,7 +1117,15 @@ Optional argument KEYS-VALUES specifies content of new line."
           ;; tooltip-overlay to show current heading
           (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
           (setq org-index--focus-overlay (make-overlay (point-at-bol) (point-at-bol)))
-          (overlay-put org-index--focus-overlay 'after-string (propertize (concat " " head "  ") 'face 'tooltip))
+          (overlay-put org-index--focus-overlay
+                       'after-string
+                       (propertize
+                        (format " %s (%d of %d) "
+                                head
+                                (1+ (- (length org-index--ids-focused-nodes)
+                                       (length (member target-id org-index--ids-focused-nodes))))
+                                (length org-index--ids-focused-nodes))
+                        'face 'tooltip))
           (overlay-put org-index--focus-overlay 'priority most-positive-fixnum))
 
         (setq heading-is-clause (format "Focus %s, " (propertize head 'face 'org-todo)))
