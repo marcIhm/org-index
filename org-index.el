@@ -3,8 +3,9 @@
 ;; Copyright (C) 2011-2018 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
-;; Version: 5.7.6
-;; Keywords: outlines index
+;; URL: https://github.com/marcIhm/org-index
+;; Version: 5.8.0
+;; Package-Requires: (org cl-lib widget)
 
 ;; This file is not part of GNU Emacs.
 
@@ -36,26 +37,23 @@
 ;;  by usage count and date, so that frequently used entries appear first
 ;;  in the list of results.
 ;;
-;;  References are decorated numbers (e.g. 'R237' or '--455--'); they are
-;;  well suited to be used outside of org, e.g. in folder names, ticket
-;;  systems or on printed documents.
+;;  The package introduces two additional concepts:
+;;  - References are decorated numbers (e.g. 'R237' or '--455--'); they are
+;;    well suited to be used outside of org, e.g. in folder names,
+;;    ticket systems or on printed documents.
+;;  - Focus is a small set of nodes for your daily work; it can be managed
+;;    and traversed easily.
 ;;
 ;;  On first invocation org-index will assist you in creating the index
 ;;  table.
 ;;
-;;  To start using your index, invoke subcommands 'add', 'ref' and 'yank'
-;;  to create entries and 'occur' to find them.
+;;  To start using your index, invoke the subcommand 'add' to create
+;;  entries and 'occur' to find them.
 ;;
 ;;
 ;; Setup:
 ;;
-;;  - Place this file in a directory of your load-path,
-;;    e.g. org-mode/contrib/lisp.
-;;  - Add these lines to your .emacs:
-;;
-;;    (require 'org-index)
-;;
-;;  - Restart your Emacs to make this effective.
+;;  - org-index can be installed with package.el
 ;;  - Invoke `org-index'; on first run it will assist in creating your
 ;;    index table.
 ;;
@@ -68,14 +66,6 @@
 ;;  - Watch the screencast at http://2484.de/org-index.html.
 ;;  - See the documentation of `org-index', which can also be read by
 ;;    invoking `org-index' and choosing the command help or '?'.
-;;
-;;
-;; Updates:
-;;
-;;  The latest published version of this file can always be found at:
-;;    http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
-;;  Development version under:
-;;    https://github.com/marcIhm/org-index
 ;;
 ;;
 
@@ -97,7 +87,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.7.6" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.8.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -327,7 +317,7 @@ for its index table.
 To start building up your index, use subcommands 'add', 'ref' and
 'yank' to create entries and use 'occur' to find them.
 
-This is version 5.7.6 of org-index.el.
+This is version 5.8.0 of org-index.el.
 
 
 The function `org-index' is the only interactive function of this
