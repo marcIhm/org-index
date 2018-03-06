@@ -260,7 +260,7 @@ those pieces."
 (defvar org-index--this-command nil "Subcommand, that is currently excecuted.")
 (defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
 (defvar org-index--last-focus-message nil "Last message issued by focus-command.")
-(defvar org-index--cancel-focus-wait nil "Function to call on timeout for focus commands.")
+(defvar org-index--cancel-focus-wait-function nil "Function to call on timeout for focus commands.")
 (defvar org-index--focus-cancel-timer nil "Timer to cancel waiting for key.")
 (defvar org-index--focus-overlay nil "Overlay to display name of focus node.")
 
@@ -1044,11 +1044,11 @@ Optional argument KEYS-VALUES specifies content of new line."
         ;; bail out on inactivity
         (if org-index--focus-cancel-timer (cancel-timer org-index--focus-cancel-timer))
         (setq org-index--focus-cancel-timer
-              (run-at-time 5 nil
-                           (lambda () (if org-index--cancel-focus-wait
-                                          (funcall org-index--cancel-focus-wait)))))
+              (run-at-time 8 nil
+                           (lambda () (if org-index--cancel-focus-wait-function
+                                          (funcall org-index--cancel-focus-wait-function)))))
         
-        (setq org-index--cancel-focus-wait
+        (setq org-index--cancel-focus-wait-function
               (set-transient-map (let ((map (make-sparse-keymap)))
                                    (define-key map (vector ?f)
                                      (lambda () (interactive)
@@ -1076,7 +1076,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                                        (org-index--delete-from-focus)
                                        (org-index--persist-focused-nodes)
                                        (org-index--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (org-index--goto-focus)))
-                                       (setq org-index--cancel-focus-wait nil)))
+                                       (setq org-index--cancel-focus-wait-function nil)))
                                    map)
                                  t ;; this is run (in any case) on finishing the map
                                  (lambda () (cancel-timer org-index--focus-cancel-timer)
@@ -1116,7 +1116,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                                 (1+ (- (length org-index--ids-focused-nodes)
                                        (length (member target-id org-index--ids-focused-nodes))))
                                 (length org-index--ids-focused-nodes))
-                        'face 'tooltip))
+                        'face 'highlight))
           (overlay-put org-index--focus-overlay 'priority most-positive-fixnum))
 
         (setq heading-is-clause (format "Focus %s, " (propertize head 'face 'org-todo)))
