@@ -122,13 +122,14 @@ mixed  First, show all index entries, which have been
 	  (const count)
 	  (const mixed)))
 
-(defcustom org-index-dispatch-key "i"
+(defcustom org-index-dispatch-key nil
   "Key to invoke ‘org-index-dispatch’, which is the central entry function for ‘org-index’."
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
-         (set-default var val)
-         (global-set-key org-index-dispatch-key 'org-index-dispatch))
+         (when val
+           (set-default var val)
+           (global-set-key org-index-dispatch-key 'org-index-dispatch)))
   :type 'key-sequence)
 
 (defcustom org-index-idle-delay 68
