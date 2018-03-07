@@ -37,7 +37,8 @@
 ;;  by usage count and date, so that frequently used entries appear first
 ;;  in the list of results.
 ;;
-;;  Additionally the package introduces these two concepts:
+;;  In addition, org-index introduces these supplemental concepts:
+;;
 ;;  - References are decorated numbers (e.g. 'R237' or '--455--'); they are
 ;;    well suited to be used outside of org, e.g. in folder names,
 ;;    ticket systems or on printed documents.
@@ -308,7 +309,7 @@ index, the set of matching lines is updated with every keystroke;
 results are sorted by usage count and date, so that frequently
 used entries appear first in the list of results.
 
-Additionally the package introduces these two concepts:
+In addition, org-index introduces these supplemental concepts:
 - References are decorated numbers (e.g. 'R237' or '--455--'); they are
   well suited to be used outside of org, e.g. in folder names,
   ticket systems or on printed documents.
@@ -871,7 +872,7 @@ Optional argument ARG is passed on."
   (let (char command (c-u-text (if arg " C-u " "")))
     (while (not char)
       (if (sit-for 1)
-          (message (concat "org-index (<space> or ? for detailed prompt) -" c-u-text)))
+          (message (concat "org-index (type a shortcut char or <space> or ? for a detailed prompt) -" c-u-text)))
       (setq char (key-description (read-key-sequence nil)))
       (if (string= char "C-g") (keyboard-quit))
       (if (string= char "SPC") (setq char "?"))
@@ -2063,15 +2064,11 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
   command 'occur' to search among them.
 
   To gain further insight you may invoke the subcommand 'help', or
-  (same content) read the help of `org-index'.
+  (with the same content) read the help of `org-index'.
 
-  Within the index table below, the sequence of columns does not
-  matter. You may reorder them in any way you like.  You may also
-  add your own columns, which should start with a dot
-  (e.g. '.my-column').
-
-  Invoke `org-customize' to tweak the behaviour of org-index
-  (see the group org-index).
+  Invoke `org-customize' to tweak the behaviour of org-index,
+  see the group org-index. It might be useful to set the global
+  key `org-index-dispatch-key' e.g. to  'C-c i'.
 
   This node needs not be a top level node; its name is completely
   at your choice; it is found through its ID only.
@@ -2131,7 +2128,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                   (throw 'new-index nil))
               (message "This is your new temporary index, use command add to populate, occur to search.")))
         (progn
-          ;; Only show the new index
+          ;; Show the new index
           (pop-to-buffer-same-window buffer)
           (delete-other-windows)
           (org-id-goto id)
@@ -2139,14 +2136,21 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
           (if (y-or-n-p "This is your new index table.  It is already set for this Emacs session, so you may try it out.  Do you want to save its id to make it available for future Emacs sessions too ? ")
               (progn
                 (customize-save-variable 'org-index-id id)
-                (message "Saved org-index-id '%s' to %s." id (or custom-file
-                                                                 user-init-file))
-                (throw 'new-index nil))
+                (message "Saved org-index-id '%s' to %s." id (or custom-file user-init-file)))
             (let (sq)
               (setq sq (format "(setq org-index-id \"%s\")" id))
               (kill-new sq)
-              (message "Did not make the id of this new index permanent; you may want to put\n\n   %s\n\ninto your own initialization; it is copied already, just yank it." sq)
-              (throw 'new-index nil))))))))
+              (message "Did not make the id of this new index permanent; you may want to put\n\n   %s\n\ninto your own initialization; it is copied already, just yank it." sq)))
+
+          (unless (or org-index-dispatch-key
+                      (key-binding (kbd "C-c i")))
+            (if (y-or-n-p "The central function `org-index-dispatch' can be bound to a global key. The suggested key is 'C-c i'; do you want to make this binding for now and save it for future Emacs sessions ? ")
+                (progn
+                  (customize-save-variable 'org-index-dispatch-key (kbd "C-c i"))
+                  (global-set-key org-index-dispatch-key 'org-index-dispatch)
+                  (message "Set and saved org-index-dispatch-key 'C-c i' to %s." (or custom-file user-init-file)))
+              (message "Did not set org-index-dispatch-key; however this can be done any time with `org-customize'.")))
+          (throw 'new-index nil))))))
 
 
 (defun org-index--unfold-buffer ()
