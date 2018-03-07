@@ -123,14 +123,14 @@ mixed  First, show all index entries, which have been
 	  (const count)
 	  (const mixed)))
 
-(defcustom org-index-dispatch-key nil
-  "Key to invoke ‘org-index-dispatch’, which is the central entry function for ‘org-index’."
+(defcustom org-index-key nil
+  "Key to invoke ‘org-index’, which is the central entry function for ‘org-index’."
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
          (when val
            (set-default var val)
-           (global-set-key org-index-dispatch-key 'org-index-dispatch)))
+           (global-set-key org-index-key 'org-index)))
   :type 'key-sequence)
 
 (defcustom org-index-idle-delay 68
@@ -299,126 +299,8 @@ if VALUE cannot be found."
          ,retvar))))
 
 
-(defun org-index (&optional command search-ref arg)
-  "Fast search-index for selected org nodes and things outside.
-
-This function creates and updates an index table with keywords;
-each line either points to a heading in org, references something
-outside or carries a snippet of text to yank.  When searching the
-index, the set of matching lines is updated with every keystroke;
-results are sorted by usage count and date, so that frequently
-used entries appear first in the list of results.
-
-In addition, org-index introduces these supplemental concepts:
-- References are decorated numbers (e.g. 'R237' or '--455--'); they are
-  well suited to be used outside of org, e.g. in folder names,
-  ticket systems or on printed documents.
-- Focus is a small set of nodes for your daily work; it can be managed
-  and traversed easily.
-
-On first invocation org-index will assist you in creating the index
-table.
-
-To start using your index, invoke the subcommand 'add' to create
-entries and 'occur' to find them.
-
-This is version 5.8.0 of org-index.el.
-
-The function `org-index' is the only interactive function of this
-package and its main entry point; it will present you with a list
-of subcommands to choose from:
-
-\(Note the one-letter shortcuts, e.g. [o]; used like `\\[org-index-dispatch] o'.)
-
-  occur: [o] Incrementally show matching lines from index.
-    Result is updated after every keystroke.  You may enter a
-    list of words seperated by space or comma (`,'), to select
-    lines that contain all of the given words. With a numeric
-    prefix argument, show lines, which have been accessed at
-    most this many days ago.
-
-  add: [a] Add the current node to index.
-    So that (e.g.) it can be found through the subcommand
-    'occur'.  Update index, if node is already present.
-
-  kill: [k] Kill (delete) the current node from index.
-    Can be invoked from index, from occur or from a headline.
-
-  head: [h] Search for heading, by ref or from index line.
-    If invoked from within index table, go to associated
-    node (if any), otherwise ask for ref to search.
-  
-  index: [i] Enter index table and maybe go to a specific reference.
-    Use `org-mark-ring-goto' (\\[org-mark-ring-goto]) to go back.
-
-  ping: [p] Echo line from index table for current node.
-    If current node is not in index, than search among its
-    parents.
-
-  ref: [r] Create a new index line with a reference.
-    This line will not be associated with a node.
-
-  yank: [y] Store a new string, that can be yanked from occur.
-    The index line will not be associated with a node.
-
-  column: [c] From within index table: read char and jump to column.
-    Shortcut for column movement; stays within one index line.
-
-  edit: [e] Present current line in edit buffer.
-    Can be invoked from index, from occur or from a headline.
-
-  focus: [f] Return to first focused node; repeat to see them all.
-    The focused nodes are kept in a short list; they need not be
-    part of the index though.  With a prefix argument, this
-    command offers more options, e.g. to set focus initially.
-
-  help: Show complete help text of `org-index'.
-    I.e. this text.
-
-  short-help: [?] Show this one-line description of each subcommand.
-    I.e. from the complete help, show only the first line for each
-    subcommand.
-
-  news: [n] Show news for the current point release.
-
-  example: Create an example index, that will not be saved.
-    May serve as an example.
-
-  sort: Sort lines in index, in region or buffer.
-    Region or buffer can be sorted by contained reference; Index
-    by count, reference or last access.
-
-  find-ref: Search for given reference in all org-buffers.
-    A wrapper to employ Emacs standard `multi-occur' function;
-    asks for reference.
-
-  highlight: Highlight or unhighlight all references.
-     Operates on active region or whole buffer.  Call with prefix
-     argument (`C-u') to remove highlights.
-
-  maintain: [m] Index maintainance.
-     Offers some choices to check, update or fix your index.
-
-If you invoke `org-index' for the first time, an assistant will be
-invoked, that helps you to create your own index.
-
-Invoke `org-customize' to tweak the behaviour of `org-index'.
-
-This includes the global key `org-index-dispatch-key' to invoke
-the most important subcommands with one additional key.
-
-A numeric prefix argument is used as a reference number for
-commands, that need one (e.g. 'head') or to modify their
-behaviour (e.g. 'occur').
-
-Also, a single prefix argument may be specified just before the
-final character or by just typing an upper case letter.
-
-Use from elisp: Optional argument COMMAND is a symbol naming the
-command to execute.  SEARCH-REF specifies a reference to search
-for, if needed.  ARG allows passing in a prefix argument as in
-interactive calls."
-
+(defun org-index-1 (&optional command search-ref arg)
+"Does the work for `org-index'."
   (interactive "i\ni\nP")
 
   (let (search-id             ; id to search for
@@ -580,8 +462,12 @@ interactive calls."
                            (string-match "\\([0-9]+\\.[0-9]+\\)\\." org-index-version)
                            (match-string 1 org-index-version))))
          (insert "
-  - New option org-index-goto-bottom-after-focus for position after jumping to a focused node
-  - New focus-command 'r' to revert last change to list of focused nodes
+  - Timeout in prompt for additional focus-command
+  - Popup to show current node during after focus change
+  - Various changes to become ready for melpa
+  - Renamed org-index-dispatch to org-index, org-index to org-index-1 and
+    org-index-dispatch-key to org-index-key
+  
 ")
          (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.\n")
          (org-mode))
@@ -826,10 +712,11 @@ interactive calls."
 
 
        ((eq command 'focus)
-        (setq message-text (if arg
-                               (org-index--more-focus-commands)
-                             (setq org-index--last-focus-message nil)
-                             (org-index--goto-focus))))
+        (let ((mt (if arg
+                      (org-index--more-focus-commands)
+                    (setq org-index--last-focus-message nil)
+                    (org-index--goto-focus))))
+          (setq message-text (concat (upcase (substring mt 0 1)) (substring mt 1)))))
 
 
        ((eq command 'maintain)
@@ -864,10 +751,125 @@ interactive calls."
       (if kill-new-text (kill-new kill-new-text)))))
 
 
-(defun org-index-dispatch (&optional arg)
-  "Read additional chars and call subcommands of `org-index'.
-Can be bound in global keyboard map as central entry point.
-Optional argument ARG is passed on."
+(defun org-index (&optional arg)
+    "Fast search-index for selected org nodes and things outside.
+
+This function creates and updates an index table with keywords;
+each line either points to a heading in org, references something
+outside or carries a snippet of text to yank.  When searching the
+index, the set of matching lines is updated with every keystroke;
+results are sorted by usage count and date, so that frequently
+used entries appear first in the list of results.
+
+In addition, org-index introduces these supplemental concepts:
+- References are decorated numbers (e.g. 'R237' or '--455--'); they are
+  well suited to be used outside of org, e.g. in folder names,
+  ticket systems or on printed documents.
+- Focus is a small set of nodes for your daily work; it can be managed
+  and traversed easily.
+
+On first invocation org-index will assist you in creating the index
+table.
+
+To start using your index, invoke the subcommand 'add' to create
+entries and 'occur' to find them.
+
+This is version 5.8.0 of org-index.el.
+
+The function `org-index' is the only interactive function of this
+package and its main entry point; it will present you with a list
+of subcommands to choose from:
+
+\(Note the one-letter shortcuts, e.g. [o]; used like `\\[org-index] o'.)
+
+  occur: [o] Incrementally show matching lines from index.
+    Result is updated after every keystroke.  You may enter a
+    list of words seperated by space or comma (`,'), to select
+    lines that contain all of the given words. With a numeric
+    prefix argument, show lines, which have been accessed at
+    most this many days ago.
+
+  add: [a] Add the current node to index.
+    So that (e.g.) it can be found through the subcommand
+    'occur'.  Update index, if node is already present.
+
+  kill: [k] Kill (delete) the current node from index.
+    Can be invoked from index, from occur or from a headline.
+
+  head: [h] Search for heading, by ref or from index line.
+    If invoked from within index table, go to associated
+    node (if any), otherwise ask for ref to search.
+  
+  index: [i] Enter index table and maybe go to a specific reference.
+    Use `org-mark-ring-goto' (\\[org-mark-ring-goto]) to go back.
+
+  ping: [p] Echo line from index table for current node.
+    If current node is not in index, than search among its
+    parents.
+
+  ref: [r] Create a new index line with a reference.
+    This line will not be associated with a node.
+
+  yank: [y] Store a new string, that can be yanked from occur.
+    The index line will not be associated with a node.
+
+  column: [c] From within index table: read char and jump to column.
+    Shortcut for column movement; stays within one index line.
+
+  edit: [e] Present current line in edit buffer.
+    Can be invoked from index, from occur or from a headline.
+
+  focus: [f] Return to first focused node; repeat to see them all.
+    The focused nodes are kept in a short list; they need not be
+    part of the index though.  With a prefix argument, this
+    command offers more options, e.g. to set focus initially.
+
+  help: Show complete help text of `org-index'.
+    I.e. this text.
+
+  short-help: [?] Show this one-line description of each subcommand.
+    I.e. from the complete help, show only the first line for each
+    subcommand.
+
+  news: [n] Show news for the current point release.
+
+  example: Create an example index, that will not be saved.
+    May serve as an example.
+
+  sort: Sort lines in index, in region or buffer.
+    Region or buffer can be sorted by contained reference; Index
+    by count, reference or last access.
+
+  find-ref: Search for given reference in all org-buffers.
+    A wrapper to employ Emacs standard `multi-occur' function;
+    asks for reference.
+
+  highlight: Highlight or unhighlight all references.
+     Operates on active region or whole buffer.  Call with prefix
+     argument (`C-u') to remove highlights.
+
+  maintain: [m] Index maintainance.
+     Offers some choices to check, update or fix your index.
+
+If you invoke `org-index' for the first time, an assistant will be
+invoked, that helps you to create your own index.
+
+Invoke `org-customize' to tweak the behaviour of `org-index'.
+
+This includes the global key `org-index-key' to invoke
+the most important subcommands with one additional key.
+
+A numeric prefix argument is used as a reference number for
+commands, that need one (e.g. 'head') or to modify their
+behaviour (e.g. 'occur').
+
+Also, a single prefix argument may be specified just before the
+final character or by just typing an upper case letter.
+
+Use from elisp: Optional argument COMMAND is a symbol naming the
+command to execute.  SEARCH-REF specifies a reference to search
+for, if needed.  ARG allows passing in a prefix argument as in
+interactive calls."
   (interactive "P")
   (let (char command (c-u-text (if arg " C-u " "")))
     (while (not char)
@@ -887,7 +889,10 @@ Optional argument ARG is passed on."
     (unless command
       (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
         (setq command 'short-help)))
-    (org-index command nil arg)))
+    (org-index-1 command nil arg)))
+
+
+(defalias 'org-index-dispatch 'org-index) ; for backward compatibility
 
 
 (defun org-index-new-line (&rest keys-values)
@@ -1184,7 +1189,7 @@ Optional argument KEYS-VALUES specifies content of new line."
             (setq org-index--id-last-goto-focus id)
             (org-index--update-line id t)
             (if org-index-clock-into-focus (org-clock-in))
-            "Focus has been set on current node (1 node in focus)")
+            "focus has been set on current node (1 node in focus)")
 
            ((eq char ?a)
             (setq id (org-id-get-create))
@@ -1209,19 +1214,19 @@ Optional argument KEYS-VALUES specifies content of new line."
             (setq org-index--id-last-goto-focus id)
             (org-index--update-line id t)
             (if org-index-clock-into-focus (org-clock-in))
-            "Current node has been appended to list of focused nodes%s (%d node%s in focus)")
+            "current node has been appended to list of focused nodes%s (%d node%s in focus)")
 
            ((eq char ?d)
             (org-index--delete-from-focus)
-            (concat "Current node has been removed from list of focused nodes%s (%d node%s in focus), " (org-index--goto-focus) "."))
+            (concat "current node has been removed from list of focused nodes%s (%d node%s in focus), " (org-index--goto-focus) "."))
 
            ((eq char ?r)
             (if org-index--ids-focused-nodes-saved
                 (let (txt)
-                  (setq txt (format "Discarded current list of focused %d focused node%s and restored previous list; now %%s%%d node%%s in focus" (length org-index--ids-focused-nodes-saved) (if (cdr org-index--ids-focused-nodes-saved) "s" "")))
+                  (setq txt (format "discarded current list of focused %d focused node%s and restored previous list; now %%s%%d node%%s in focus" (length org-index--ids-focused-nodes-saved) (if (cdr org-index--ids-focused-nodes-saved) "s" "")))
                   (setq org-index--ids-focused-nodes org-index--ids-focused-nodes-saved)
                   txt)
-              "No saved list of focused nodes to restore, nothing to do"))))
+              "no saved list of focused nodes to restore, nothing to do"))))
 
     (org-index--persist-focused-nodes)
     
@@ -2068,7 +2073,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
   Invoke `org-customize' to tweak the behaviour of org-index,
   see the group org-index. It might be useful to set the global
-  key `org-index-dispatch-key' e.g. to  'C-c i'.
+  key `org-index-key' e.g. to  'C-c i'.
 
   This node needs not be a top level node; its name is completely
   at your choice; it is found through its ID only.
@@ -2142,14 +2147,14 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
               (kill-new sq)
               (message "Did not make the id of this new index permanent; you may want to put\n\n   %s\n\ninto your own initialization; it is copied already, just yank it." sq)))
 
-          (unless (or org-index-dispatch-key
+          (unless (or org-index-key
                       (key-binding (kbd "C-c i")))
-            (if (y-or-n-p "The central function `org-index-dispatch' can be bound to a global key. The suggested key is 'C-c i'; do you want to make this binding for now and save it for future Emacs sessions ? ")
+            (if (y-or-n-p "The central function `org-index' can be bound to a global key. The suggested key is 'C-c i'; do you want to make this binding for now and save it for future Emacs sessions ? ")
                 (progn
-                  (customize-save-variable 'org-index-dispatch-key (kbd "C-c i"))
-                  (global-set-key org-index-dispatch-key 'org-index-dispatch)
-                  (message "Set and saved org-index-dispatch-key 'C-c i' to %s." (or custom-file user-init-file)))
-              (message "Did not set org-index-dispatch-key; however this can be done any time with `org-customize'.")))
+                  (customize-save-variable 'org-index-key (kbd "C-c i"))
+                  (global-set-key org-index-key 'org-index)
+                  (message "Set and saved org-index-key 'C-c i' to %s." (or custom-file user-init-file)))
+              (message "Did not set org-index-key; however this can be done any time with `org-customize'.")))
           (throw 'new-index nil))))))
 
 
@@ -3123,7 +3128,7 @@ If OTHER in separate window."
       
       (define-key keymap (kbd "e")
         (lambda () (interactive)
-          (message (org-index 'edit))))
+          (message (org-index-1 'edit))))
       
       (define-key keymap (kbd "SPC")
         (lambda () (interactive)

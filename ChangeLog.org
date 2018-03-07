@@ -1,3 +1,11 @@
+* 5.8 -- [2018-03-07 Mi] 
+
+  - Timeout in prompt for additional focus-command
+  - Popup to show current node during after focus change
+  - Various changes to become ready for melpa
+  - Renamed org-index-dispatch to org-index, org-index to org-index-1 and
+    org-index-dispatch-key to org-index-key
+  
 * 5.7 -- [2017-10-21 Sa]
 
   - Option to move to bottom of node after focus
