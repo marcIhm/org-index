@@ -871,29 +871,31 @@ Use from elisp: Optional argument COMMAND is a symbol naming the
 command to execute.  SEARCH-REF specifies a reference to search
 for, if needed.  ARG allows passing in a prefix argument as in
 interactive calls."
-  (interactive "P")
-  (org-index--verify-id)
-  (let (char command (c-u-text (if arg " C-u " "")))
-    (while (not char)
-      (if (sit-for 1)
-          (message (concat "org-index (type a shortcut char or <space> or ? for a detailed prompt) -" c-u-text)))
-      (setq char (key-description (read-key-sequence nil)))
-      (if (string= char "C-g") (keyboard-quit))
-      (if (string= char "SPC") (setq char "?"))
-      (when (string= char (upcase char))
-        (setq char (downcase char))
-        (setq arg (or arg '(4))))
-      (when (string= char "C-u")
-        (setq arg (or arg '(4)))
-        (setq c-u-text " C-u ")
-        (setq char nil)))
-    (setq command (cdr (assoc char (org-index--get-shortcut-chars))))
-    (unless command
-      (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
-        (setq command 'short-help)))
+    (interactive "P")
 
-    (let ((org-index--skip-verify-id t))
-      (org-index-1 command nil arg))))
+    (catch 'new-index
+      (org-index--verify-id)
+      (let (char command (c-u-text (if arg " C-u " "")))
+        (while (not char)
+          (if (sit-for 1)
+              (message (concat "org-index (type a shortcut char or <space> or ? for a detailed prompt) -" c-u-text)))
+          (setq char (key-description (read-key-sequence nil)))
+          (if (string= char "C-g") (keyboard-quit))
+          (if (string= char "SPC") (setq char "?"))
+          (when (string= char (upcase char))
+            (setq char (downcase char))
+            (setq arg (or arg '(4))))
+          (when (string= char "C-u")
+            (setq arg (or arg '(4)))
+            (setq c-u-text " C-u ")
+            (setq char nil)))
+        (setq command (cdr (assoc char (org-index--get-shortcut-chars))))
+        (unless command
+          (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
+            (setq command 'short-help)))
+
+        (let ((org-index--skip-verify-id t))
+          (org-index-1 command nil arg)))))
 
 
 (defalias 'org-index-dispatch 'org-index) ; for backward compatibility
@@ -1046,7 +1048,7 @@ Optional argument KEYS-VALUES specifies content of new line."
         (progn
           (when (not (string= explain ""))
             (with-temp-buffer-window
-             bname nil nil
+             bname '((display-buffer-at-bottom)) nil
              (princ explain))
             (with-current-buffer bname
               (let ((inhibit-read-only t))
@@ -1054,7 +1056,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                 (setq window-size-fixed 'height)
                 (goto-char (point-min)))))
           (setq result (org-completing-read short-prompt choices nil t nil nil default)))      
-      (if (not (string= explain))  (quit-windows-on bname)))
+      (ignore-errors (quit-windows-on bname)))
     result))
 
 
