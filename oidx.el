@@ -240,11 +240,11 @@
     (oidx-do "f o c u s <return> a" "C-u")
     (oidx-do "f o c u s <return>")
     (should (looking-at ".* --8--"))
-    (org-index 'focus)
+    (org-index-1 'focus)
     (should (looking-at ".* --13--"))
     (setq this-command 'org-index)
     (setq last-command 'org-index)
-    (org-index 'focus)
+    (org-index-1 'focus)
     (should (looking-at ".* --8--"))))
 
 
@@ -318,7 +318,7 @@
       (org-index--go-below-hline)
       (org-table-align))
     (should (oidx-check-buffer "*org-index-example-index*" 
-                               "0cd76a72e306ea880f19de339268ede4"
+                               "6853141b10ce82625896494b35a4eba1"
                                "oidx-test-example"))))
 
 
@@ -684,7 +684,7 @@
 
 
 (defun oidx-do (keys &optional prefix)
-  (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o r g - i n d e x <return> " keys))))
+  (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o r g - i n d e x - 1 <return> " keys))))
 
 
 (defun oidx-get-refs ()
@@ -812,7 +812,8 @@
     (unless oidx-saved-state
       (setq oidx-saved-state
             (mapcar (lambda (x)
-                      (cons x (symbol-value x)))
+                      (cons x (and (boundp x)
+				   (symbol-value x))))
                     customizable)))
 
     ;; set them all to their standard values
