@@ -265,6 +265,7 @@ those pieces."
 (defvar org-index--cancel-focus-wait-function nil "Function to call on timeout for focus commands.")
 (defvar org-index--focus-cancel-timer nil "Timer to cancel waiting for key.")
 (defvar org-index--focus-overlay nil "Overlay to display name of focus node.")
+(defvar org-index--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
@@ -415,7 +416,7 @@ if VALUE cannot be found."
       ;;
       
       (when (eq command 'sort)
-        (setq sort-what (intern (org-completing-read "You may sort:\n  - index  : your index table by various columns\n  - region : the active region by contained reference\n  - buffer : the whole current buffer\nPlease choose what to sort: " (list "index" "region" "buffer") nil t))))
+        (setq sort-what (intern (org-index--completing-read "You may sort:\n  - index  : your index table by various columns\n  - region : the active region by contained reference\n  - buffer : the whole current buffer\nPlease choose what to sort: " (list "index" "region" "buffer")))))
       
       
       ;;
@@ -664,10 +665,10 @@ if VALUE cannot be found."
            ((eq sort-what 'index)
             (setq sort
                   (intern
-                   (completing-read
+                   (org-index--completing-read
                     "Please choose column to sort index table: "
                     (cl-copy-list sorts)
-                    nil t nil nil (symbol-name org-index-sort-by))))
+                    (symbol-name org-index-sort-by))))
 
             (org-index--do-sort-index sort)
             (org-table-goto-column (org-index--column-num (if (eq sort 'mixed) 'last-access sort)))
@@ -871,6 +872,7 @@ command to execute.  SEARCH-REF specifies a reference to search
 for, if needed.  ARG allows passing in a prefix argument as in
 interactive calls."
   (interactive "P")
+  (org-index--verify-id)
   (let (char command (c-u-text (if arg " C-u " "")))
     (while (not char)
       (if (sit-for 1)
@@ -889,7 +891,9 @@ interactive calls."
     (unless command
       (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
         (setq command 'short-help)))
-    (org-index-1 command nil arg)))
+
+    (let ((org-index--skip-verify-id t))
+      (org-index-1 command nil arg))))
 
 
 (defalias 'org-index-dispatch 'org-index) ; for backward compatibility
@@ -938,8 +942,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                 (if org-index--short-help-wanted "" " (<space> or ? for short help)")
                 ": ")
                (append (mapcar 'symbol-name org-index--commands)
-                       (mapcar 'upcase-initials (mapcar 'symbol-name org-index--commands)))
-               nil t))
+                       (mapcar 'upcase-initials (mapcar 'symbol-name org-index--commands)))))
       (remove-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
       (remove-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
       (unless (string= command (downcase command))
@@ -982,8 +985,7 @@ Optional argument KEYS-VALUES specifies content of new line."
       (fit-window-to-buffer (get-buffer-window))
       (setq window-size-fixed 'height)
       (goto-char (point-min))
-      (end-of-line)
-      (goto-char (point-min)))))
+      (end-of-line))))
 
 
 (defun org-index--get-short-help-text ()
@@ -1028,6 +1030,32 @@ Optional argument KEYS-VALUES specifies content of new line."
         (unless (> (length org-index--shortcut-chars) 0)
           (error "Internal error, did not find shortcut chars"))
         org-index--shortcut-chars)))
+
+
+(defun org-index--completing-read (prompt choices &optional default)
+  "Completing read, that displays multiline PROMPT in a windows and then asks for CHOICES."
+  (interactive)
+  (let ((bname "*org-index explanation for input prompt*")
+        explain short-prompt lines result)
+    (ignore-errors (quit-windows-on bname))
+    (setq lines (split-string prompt "\n"))
+    (setq short-prompt (car (last lines)))
+    (setq explain (apply 'concat (mapcar (lambda (x) (concat x "\n")) (butlast lines))))
+    (setq explain (substring explain 0 (- (length explain) 1)))
+    (unwind-protect
+        (progn
+          (when (not (string= explain ""))
+            (with-temp-buffer-window
+             bname nil nil
+             (princ explain))
+            (with-current-buffer bname
+              (let ((inhibit-read-only t))
+                (fit-window-to-buffer (get-buffer-window))
+                (setq window-size-fixed 'height)
+                (goto-char (point-min)))))
+          (setq result (org-completing-read short-prompt choices nil t nil nil default)))      
+      (if (not (string= explain))  (quit-windows-on bname)))
+    result))
 
 
 (defun org-index--goto-focus ()
@@ -1558,24 +1586,25 @@ Argument COLUMN and VALUE specify line to get."
 (defun org-index--verify-id ()
   "Check, that we have a valid id."
 
-  ;; Check id
-  (unless org-index-id
-    (let ((answer (org-completing-read "Cannot find an index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") nil t nil nil "read-help")))
-      (if (string= answer "create-index")
-          (org-index--create-missing-index "Variable org-index-id is not set, so probably no index table has been created yet.")
-        (describe-function 'org-index)
-        (throw 'new-index nil))))
+  (unless org-index--skip-verify-id
+    ;; Check id
+    (unless org-index-id
+      (let ((answer (org-index--completing-read "Cannot find an index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") "read-help")))
+        (if (string= answer "create-index")
+            (org-index--create-missing-index "Variable org-index-id is not set, so probably no index table has been created yet.")
+          (describe-function 'org-index)
+          (throw 'new-index nil))))
 
-  ;; Find node
-  (let (marker)
-    (setq marker (org-id-find org-index-id 'marker))
-    (unless marker (org-index--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))
+    ;; Find node
+    (let (marker)
+      (setq marker (org-id-find org-index-id 'marker))
+      (unless marker (org-index--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))
                                                   ; Try again with new node
-    (setq marker (org-id-find org-index-id 'marker))
-    (unless marker (error "Could not create node"))
-    (setq org-index--buffer (marker-buffer marker)
-          org-index--point (marker-position marker))
-    (move-marker marker nil)))
+      (setq marker (org-id-find org-index-id 'marker))
+      (unless marker (error "Could not create node"))
+      (setq org-index--buffer (marker-buffer marker)
+            org-index--point (marker-position marker))
+      (move-marker marker nil))))
 
 
 (defun org-index--retrieve-context ()
@@ -1771,7 +1800,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (org-index--display-short-help "These checks and fixes are available:\n" (apply 'concat choices))
 
     (setq choices-short (mapcar (lambda (x) (first (split-string x))) choices))
-    (setq check-what (intern (org-completing-read "Please choose: " choices-short nil t nil nil (first choices-short))))
+    (setq check-what (intern (org-index--completing-read "Please choose: " choices-short (first choices-short))))
     (quit-windows-on org-index--short-help-buffer-name)
 
     (message nil)
@@ -2023,7 +2052,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
             (erase-buffer)
             (org-mode)))
 
-      (setq buffer (get-buffer (org-completing-read "Please choose the buffer, where the new node for the index table should be created; the new node will be inserted at its end.\n\nBuffer: " (mapcar 'buffer-name (org-buffer-list))))))
+      (setq buffer (get-buffer (org-index--completing-read "Please choose the buffer, where the new node for the index table should be created; the new node will be inserted at its end.\n\nBuffer: " (mapcar 'buffer-name (org-buffer-list))))))
 
     (setq title (read-from-minibuffer "Please enter the title of the index node (leave empty for default 'index'): "))
     (if (string= title "") (setq title "index"))
