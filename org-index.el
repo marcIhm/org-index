@@ -1051,10 +1051,12 @@ Optional argument KEYS-VALUES specifies content of new line."
             (with-temp-buffer-window
              bname '((display-buffer-at-bottom)) nil
              (princ explain))
+            
             (with-current-buffer bname
               (let ((inhibit-read-only t))
                 (fit-window-to-buffer (get-buffer-window))
                 (setq window-size-fixed 'height)
+                (add-text-properties (point-min) (point-at-eol) '(face bold))
                 (goto-char (point-min)))))
           (setq result (org-completing-read short-prompt choices nil t nil nil default)))      
       (ignore-errors (quit-windows-on bname)))
@@ -1791,7 +1793,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 (defun org-index--do-maintain ()
   "Choose among and perform some tasks to maintain index."
   (let ((max-mini-window-height 1.0)
-        message-text choices choices-short check-what)
+        message-text choices choices-short check-what text)
     
     (setq choices (list "statistics : compute statistics about index table\n"
                         "verify     : verify ids by visiting their nodes\n"
@@ -1800,10 +1802,9 @@ Optional argument NO-INC skips automatic increment on maxref."
                         "clean      : remove obsolete property org-index-id\n"
                         "update     : update content of index lines having an id\n"))
 
-    (org-index--display-short-help "These checks and fixes are available:\n" (apply 'concat choices))
-
     (setq choices-short (mapcar (lambda (x) (first (split-string x))) choices))
-    (setq check-what (intern (org-index--completing-read "Please choose: " choices-short (first choices-short))))
+    (setq text (concat "These checks and fixes are available:\n" (apply 'concat choices) "Please choose: "))
+    (setq check-what (intern (org-index--completing-read text choices-short (first choices-short))))
     (quit-windows-on org-index--short-help-buffer-name)
 
     (message nil)
