@@ -1054,9 +1054,10 @@ Optional argument KEYS-VALUES specifies content of new line."
             
             (with-current-buffer bname
               (let ((inhibit-read-only t))
+                (setq mode-line-format nil)
                 (fit-window-to-buffer (get-buffer-window))
                 (setq window-size-fixed 'height)
-                (add-text-properties (point-min) (point-at-eol) '(face bold))
+                (add-text-properties (point-min) (point-at-eol) '(face org-todo))
                 (goto-char (point-min)))))
           (setq result (org-completing-read short-prompt choices nil t nil nil default)))      
       (ignore-errors (quit-windows-on bname)))
@@ -1143,7 +1144,7 @@ Optional argument KEYS-VALUES specifies content of new line."
             (org-reveal)
             (recenter -2)))
 
-        (setq head (org-get-heading t t t t))
+        (setq head (org-with-limited-levels (org-get-heading t t t t)))
         (when org-index-show-focus-overlay
           ;; tooltip-overlay to show current heading
           (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
