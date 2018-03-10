@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.8.2
+;; Version: 5.8.3
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -88,7 +88,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.8.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.8.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -301,7 +301,7 @@ if VALUE cannot be found."
 
 
 (defun org-index-1 (&optional command search-ref arg)
-"Does the work for `org-index'."
+"Does the work for `org-index', for arguments COMMAND, SEARCH-REF and ARG see there."
   (interactive "i\ni\nP")
 
   (let (search-id             ; id to search for
@@ -775,7 +775,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 entries and 'occur' to find them.
 
-This is version 5.8.2 of org-index.el.
+This is version 5.8.3 of org-index.el.
 
 The function `org-index' is the only interactive function of this
 package and its main entry point; it will present you with a list
@@ -1035,7 +1035,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 
 (defun org-index--completing-read (prompt choices &optional default)
-  "Completing read, that displays multiline PROMPT in a windows and then asks for CHOICES."
+  "Completing read, that displays multiline PROMPT in a windows and then asks for CHOICES with DEFAULT."
   (interactive)
   (let ((bname "*org-index explanation for input prompt*")
         explain short-prompt lines result)
@@ -1059,8 +1059,10 @@ Optional argument KEYS-VALUES specifies content of new line."
                 (setq window-size-fixed 'height)
                 (add-text-properties (point-min) (point-at-eol) '(face org-todo))
                 (goto-char (point-min)))))
-          (setq result (org-completing-read short-prompt choices nil t nil nil default)))      
-      (ignore-errors (quit-windows-on bname)))
+          (setq result (org-completing-read short-prompt choices nil t nil nil default)))
+      (ignore-errors
+        (quit-windows-on bname)
+        (kill-buffer bname)))
     result))
 
 
@@ -1806,7 +1808,6 @@ Optional argument NO-INC skips automatic increment on maxref."
     (setq choices-short (mapcar (lambda (x) (first (split-string x))) choices))
     (setq text (concat "These checks and fixes are available:\n" (apply 'concat choices) "Please choose: "))
     (setq check-what (intern (org-index--completing-read text choices-short (first choices-short))))
-    (quit-windows-on org-index--short-help-buffer-name)
 
     (message nil)
     
@@ -2183,7 +2184,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
           (unless (or org-index-key
                       (key-binding (kbd "C-c i")))
-            (if (y-or-n-p "The central function `org-index' can be bound to a global key. The suggested key is 'C-c i'; do you want to make this binding for now and save it for future Emacs sessions ? ")
+            (if (y-or-n-p "The central function `org-index' can be bound to a global key.  The suggested key is 'C-c i'; do you want to make this binding for now and save it for future Emacs sessions ? ")
                 (progn
                   (customize-save-variable 'org-index-key (kbd "C-c i"))
                   (global-set-key org-index-key 'org-index)
