@@ -71,7 +71,9 @@ class OrgTable < Hash
 
   def initialize name, text
     puts "Reading file #{name} as #{text}"
-    match_data = File.new(name).read.match(Regexp.new('
+    match_data = false
+    while not match_data
+      match_data = File.new(name).read.match(Regexp.new('
 \A  
 (?<before_heading>(^\s*\R)*)
 (?<heading>^\*+\s.*\R)
@@ -80,7 +82,15 @@ class OrgTable < Hash
 (?<table_hline>^\s*\|[-+]+\|\s*$\R)
 (?<table_body>(^\s*\|.*\|\s*$\R)+)
 (?<after_table>((^\s*[^|*\s].*\R)|(^\s*\R))*)
-\Z',Regexp::EXTENDED)) or fail "Could not parse file '#{name}'; it should contain a single node with a single table."
+\Z',Regexp::EXTENDED))
+
+      if not match_data
+        puts "Could not parse file '#{name}'; it should contain a single node with a single table."
+        puts "You may now fix the file from another session and press RETURN when done,"
+        puts "or you may press Ctrl-C to abort this merge."
+        gets
+      end
+    end
 
     match_data.names.each { |n| self[n.to_sym] = match_data[n.to_sym] }
 

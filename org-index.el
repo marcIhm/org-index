@@ -1057,7 +1057,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                 (setq mode-line-format nil)
                 (fit-window-to-buffer (get-buffer-window))
                 (setq window-size-fixed 'height)
-                (add-text-properties (point-min) (point-at-eol) '(face org-todo))
+                (add-text-properties (point-min) (point-at-eol) '(face org-level-3))
                 (goto-char (point-min)))))
           (setq result (org-completing-read short-prompt choices nil t nil nil default)))
       (ignore-errors
