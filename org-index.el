@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.8.3
+;; Version: 5.8.4
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -88,7 +88,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.8.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.8.4" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -112,7 +112,7 @@ mixed  First, show all index entries, which have been
        older entries sorted by usage count."
   :group 'org-index
   :set (lambda (s v)
-         (set-default s v)
+         (custom-set-default s v)
          (if (and org-index-id
                   org-index--buffer
                   (functionp 'org-index--sort-silent))
@@ -128,8 +128,8 @@ mixed  First, show all index entries, which have been
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
+         (custom-set-default var val)
          (when val
-           (set-default var val)
            (global-set-key org-index-key 'org-index)))
   :type 'key-sequence)
 
@@ -145,7 +145,7 @@ invocation of `org-index' needs a noticable amount of time."
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
-         (set-default var val)
+         (custom-set-default var val)
          (when val
            (run-with-idle-timer org-index-idle-delay nil 'org-index--idle-prepare)))
   :type 'boolean)
@@ -775,7 +775,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 entries and 'occur' to find them.
 
-This is version 5.8.3 of org-index.el.
+This is version 5.8.4 of org-index.el.
 
 The function `org-index' is the only interactive function of this
 package and its main entry point; it will present you with a list
