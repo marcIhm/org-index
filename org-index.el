@@ -1126,9 +1126,9 @@ Optional argument KEYS-VALUES specifies content of new line."
                                    ;; Clean up overlay
                                    (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
                                    (setq org-index--focus-overlay nil)
-                                   (when org-index-clock-into-focus
-                                     (org-clock-in)
-                                     (org-index--update-line (org-id-get) t)))))
+                                   (if org-index-clock-into-focus
+                                       (org-with-limited-levels (org-clock-in)))
+                                   (org-index--update-line (org-id-get) t))))
         (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
 
         (if (member target-id (org-index--ids-up-to-top))
@@ -1224,7 +1224,7 @@ Optional argument KEYS-VALUES specifies content of new line."
             (setq org-index--ids-focused-nodes (list id))
             (setq org-index--id-last-goto-focus id)
             (org-index--update-line id t)
-            (if org-index-clock-into-focus (org-clock-in))
+            (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
             "focus has been set on current node (1 node in focus)")
 
            ((eq char ?a)
@@ -1295,24 +1295,13 @@ Optional argument KEYS-VALUES specifies content of new line."
 (defun org-index--ids-up-to-top ()
   "Get list of all ids from current node up to top level."
   (when (string= major-mode "org-mode")
-    (let (ancestors id level start-level)
+    (let (ids id)
       (save-excursion
         (ignore-errors
-          (org-with-limited-levels (org-back-to-heading))
-          (setq id (org-id-get))
-          (if id (setq ancestors (cons id ancestors)))
-          (setq start-level (org-outline-level))
-          (if (<= start-level 1)
-              nil
-            (while (> start-level 1)
-              (setq level start-level)
-              (while (>= level start-level)
-                (outline-previous-heading)
-                (setq level (org-outline-level)))
-              (setq start-level level)
-              (setq id (org-id-get))
-              (if id (setq ancestors (cons id ancestors))))
-            ancestors))))))
+          (while (progn (and (setq id (org-id-get))
+                             (setq ids (cons id ids)))
+                        (outline-up-heading 1)))))
+      ids)))
 
 
 (defun org-index--do-edit ()
@@ -1795,8 +1784,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 (defun org-index--do-maintain ()
   "Choose among and perform some tasks to maintain index."
-  (let ((max-mini-window-height 1.0)
-        message-text choices choices-short check-what text)
+  (let (message-text choices choices-short check-what text)
     
     (setq choices (list "statistics : compute statistics about index table\n"
                         "verify     : verify ids by visiting their nodes\n"
