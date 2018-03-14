@@ -59,14 +59,14 @@
 ;;    index table.
 ;;
 ;;  - Optionally invoke `M-x org-customize', group 'Org Index', to tune
-;;    some settings, e.g. the global prefix key 'C-c i'.
+;;    its settings.
 ;;
 ;;
 ;; Further information:
 ;;
 ;;  - Watch the screencast at http://2484.de/org-index.html.
 ;;  - See the documentation of `org-index', which can also be read by
-;;    invoking `org-index' and choosing the command help or '?'.
+;;    invoking `org-index' and typing '?'.
 ;;
 ;;
 
@@ -947,10 +947,11 @@ Optional argument KEYS-VALUES specifies content of new line."
                        (mapcar 'upcase-initials (mapcar 'symbol-name org-index--commands)))))
       (remove-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
       (remove-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
-      (unless (string= command (downcase command))
-        (if command (setq command (downcase command)))
-        (setq org-index--prefix-arg '(4)))
-      (setq command (intern command))
+      (when command
+        (unless (string= command (downcase command))
+          (setq command (downcase command))
+          (setq org-index--prefix-arg '(4)))
+        (setq command (intern command)))
       (when org-index--short-help-displayed
         (quit-windows-on org-index--short-help-buffer-name)))
     command))
@@ -2096,7 +2097,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
   Invoke `org-customize' to tweak the behaviour of org-index,
   see the group org-index. It might be useful to set the global
-  key `org-index-key' e.g. to  'C-c i'.
+  key `org-index-key'.
 
   This node needs not be a top level node; its name is completely
   at your choice; it is found through its ID only.
@@ -2170,13 +2171,21 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
               (kill-new sq)
               (message "Did not make the id of this new index permanent; you may want to put\n\n   %s\n\ninto your own initialization; it is copied already, just yank it." sq)))
 
-          (unless (or org-index-key
-                      (key-binding (kbd "C-c i")))
-            (if (y-or-n-p "The central function `org-index' can be bound to a global key.  The suggested key is 'C-c i'; do you want to make this binding for now and save it for future Emacs sessions ? ")
+          (unless org-index-key
+            (if (y-or-n-p "The central function `org-index' can be bound to a global key.  Do you want to make this binding for now and save it for future Emacs sessions ? ")
                 (progn
-                  (customize-save-variable 'org-index-key (kbd "C-c i"))
-                  (global-set-key org-index-key 'org-index)
-                  (message "Set and saved org-index-key 'C-c i' to %s." (or custom-file user-init-file)))
+                  (let ((prompt (concat "Please type your desired key sequence. For example, with the user-prefix key C-c, these keys are available: " (mapconcat 'char-to-string (remove nil (mapcar (lambda (c) (if (key-binding (kbd (format "C-c %c" c))) nil c)) (number-sequence ?a ?z))) ",") ". But of course, you may choose any free key-sequence you like (C-g to cancel): "))
+                        (preprompt "")
+                        key)
+                    (while (progn
+                             (setq key (read-key-sequence (concat preprompt prompt)))
+                             (setq preprompt (format "Key '%s' is already taken; please choose another one. " (kbd key)))
+                             (and (key-binding key)
+                                  (not (string= (kbd key) (kbd "^g"))))))
+                    (unless (string= (kbd key) (kbd "^g"))
+                      (customize-save-variable 'org-index-key key)
+                      (global-set-key org-index-key 'org-index))
+                    (message "Set and saved org-index-key '%s' to %s." (kbd key) (or custom-file user-init-file))))
               (message "Did not set org-index-key; however this can be done any time with `org-customize'.")))
           (throw 'new-index nil))))))
 
@@ -2889,6 +2898,7 @@ If OTHER in separate window."
         key                            ; input from user in various forms
         key-sequence
         key-sequence-raw
+        win-config                     ; window configuration
         days-clause)                   ; clause to display for days back search
 
     
@@ -2896,6 +2906,7 @@ If OTHER in separate window."
     (if (get-buffer org-index--occur-buffer-name)
         (kill-buffer org-index--occur-buffer-name))
     (setq occur-buffer (make-indirect-buffer org-index--buffer org-index--occur-buffer-name))
+    (setq win-config (current-window-configuration))
     (pop-to-buffer-same-window occur-buffer)
     (setq initial-frame (selected-frame))
 
@@ -3038,7 +3049,9 @@ If OTHER in separate window."
        (t (setq done t))))
 
     ;; put back input event, that caused the loop to end
-    (unless (string= key "C-g")
+    (if (string= key "C-g")
+        (progn (if win-config (set-window-configuration win-config))
+               (keyboard-quit))
       (setq unread-command-events (listify-key-sequence key-sequence-raw))
       (message key))
     
