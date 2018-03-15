@@ -289,7 +289,7 @@
   (oidx-with-test-setup
     (oidx-save-and-set-state nil)
     (condition-case result
-        (oidx-do "c r e a t e <return> y o i d x - e r t - w o r k . o r g <return> f o o <return> # 1 # <return> n")
+        (oidx-do "c r e a t e <return> y o i d x - e r t - w o r k . o r g <return> f o o <return> # 1 # <return> n n")
       (error (should (string-match "^Did not make the id of this new index permanent" (second result))))) 
     (forward-line -1)
     (org-reveal)
@@ -306,20 +306,9 @@
   (oidx-with-test-setup
     (oidx-do "e x a m p l e <return> y e x a m p l e <return> - 1 - <return>")
     (with-current-buffer "*org-index-example-index*"
-      ;; replace own id in index
-      (mapc
-       (lambda (x)
-         (beginning-of-buffer)
-         (while (search-forward x nil t)
-           (backward-delete-char (length x))
-           (insert "replaced")))
-       (list (org-entry-get (point) "ID") 
-             (with-temp-buffer (org-insert-time-stamp nil nil t))))
+      (should (search-forward "Below you find"))
       (org-index--go-below-hline)
-      (org-table-align))
-    (should (oidx-check-buffer "*org-index-example-index*" 
-                               "6853141b10ce82625896494b35a4eba1"
-                               "oidx-test-example"))))
+      (should (org-at-table-p)))))
 
 
 (ert-deftest oidx-test-node-above-index ()
