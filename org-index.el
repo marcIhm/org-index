@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.8.4
+;; Version: 5.8.5
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -88,7 +88,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.8.4" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.8.5" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -775,7 +775,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 entries and 'occur' to find them.
 
-This is version 5.8.4 of org-index.el.
+This is version 5.8.5 of org-index.el.
 
 The function `org-index' is the only interactive function of this
 package and its main entry point; it will present you with a list
@@ -1122,14 +1122,16 @@ Optional argument KEYS-VALUES specifies content of new line."
                                        (org-index--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (org-index--goto-focus)))
                                        (setq org-index--cancel-focus-wait-function nil)))
                                    map)
-                                 t ;; this is run (in any case) on finishing the map
+                                 t
+				 ;; this is run (in any case) on leaving the map
                                  (lambda () (cancel-timer org-index--focus-cancel-timer)
                                    ;; Clean up overlay
                                    (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
                                    (setq org-index--focus-overlay nil)
                                    (if org-index-clock-into-focus
                                        (org-with-limited-levels (org-clock-in)))
-                                   (org-index--update-line (org-id-get) t))))
+				   ;; ignore-errors saves during tear-down of some tests
+                                   (ignore-errors (org-index--update-line (org-id-get) t)))))
         (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
 
         (if (member target-id (org-index--ids-up-to-top))
@@ -2162,7 +2164,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
           (delete-other-windows)
           (org-id-goto id)
           (org-index--unfold-buffer)
-          (if (y-or-n-p "This is your new index table.  It is already set for this Emacs session, so you may try it out.  Do you want to save its id to make it available for future Emacs sessions too ? ")
+          (if (y-or-n-p "This is your new index table.  It is already set for this Emacs session, so you may try it out.  Do you want to save it's id to make it available for future Emacs sessions too ? ")
               (progn
                 (customize-save-variable 'org-index-id id)
                 (message "Saved org-index-id '%s' to %s." id (or custom-file user-init-file)))
@@ -2171,22 +2173,24 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
               (kill-new sq)
               (message "Did not make the id of this new index permanent; you may want to put\n\n   %s\n\ninto your own initialization; it is copied already, just yank it." sq)))
 
-          (unless org-index-key
-            (if (y-or-n-p "The central function `org-index' can be bound to a global key.  Do you want to make this binding for now and save it for future Emacs sessions ? ")
-                (progn
-                  (let ((prompt (concat "Please type your desired key sequence. For example, with the user-prefix key C-c, these keys are available: " (mapconcat 'char-to-string (remove nil (mapcar (lambda (c) (if (key-binding (kbd (format "C-c %c" c))) nil c)) (number-sequence ?a ?z))) ",") ". But of course, you may choose any free key-sequence you like (C-g to cancel): "))
-                        (preprompt "")
-                        key)
-                    (while (progn
-                             (setq key (read-key-sequence (concat preprompt prompt)))
-                             (setq preprompt (format "Key '%s' is already taken; please choose another one. " (kbd key)))
-                             (and (key-binding key)
-                                  (not (string= (kbd key) (kbd "^g"))))))
-                    (unless (string= (kbd key) (kbd "^g"))
-                      (customize-save-variable 'org-index-key key)
-                      (global-set-key org-index-key 'org-index))
-                    (message "Set and saved org-index-key '%s' to %s." (kbd key) (or custom-file user-init-file))))
-              (message "Did not set org-index-key; however this can be done any time with `org-customize'.")))
+          (when (and (not org-index-key)
+		     (y-or-n-p "The central function `org-index' can be bound to a global key.  Do you want to make such a binding for now ? "))
+	    (let ((prompt (concat "Please type your desired key sequence. For example, with the user-prefix key C-c, these keys are available: " (mapconcat 'char-to-string (remove nil (mapcar (lambda (c) (if (key-binding (kbd (format "C-c %c" c))) nil c)) (number-sequence ?a ?z))) ",") ". But of course, you may choose any free key-sequence you like (C-g to cancel): "))
+		  (preprompt "")
+		  key)
+	      (while (progn
+		       (setq key (read-key-sequence (concat preprompt prompt)))
+		       (setq preprompt (format "Key '%s' is already taken; please choose another one. " (kbd key)))
+		       (and (key-binding key)
+			    (not (string= (kbd key) (kbd "^g"))))))
+	      (unless (string= (kbd key) (kbd "^g"))
+		(global-set-key key 'org-index)
+		(let ((saved ""))
+		  (when (y-or-n-p "Do you want to save this for future Emacs sessions ?")
+		    (customize-save-variable 'org-index-key key)
+		    (setq saved "and saved "))
+		  (message "Set %sorg-index-key '%s' to %s." saved (kbd key) (or custom-file user-init-file)))))
+	    (message "Did not set org-index-key; however this can be done any time with `org-customize'."))
           (throw 'new-index nil))))))
 
 
