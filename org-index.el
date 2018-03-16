@@ -1252,7 +1252,7 @@ Optional argument KEYS-VALUES specifies content of new line."
               (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
             (setq org-index--id-last-goto-focus id)
             (org-index--update-line id t)
-            (if org-index-clock-into-focus (org-clock-in))
+            (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
             "current node has been appended to list of focused nodes%s (%d node%s in focus)")
 
            ((eq char ?d)
