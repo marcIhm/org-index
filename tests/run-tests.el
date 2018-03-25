@@ -1,8 +1,11 @@
 (setq load-prefer-newer t)
 (add-to-list 'load-path "c:/org-mode/lisp")
-(add-to-list 'load-path "c:/org-mode/contrib/lisp" t)
+(add-to-list 'load-path "c:/org/custom")
 (add-to-list 'load-path "c:/org-index")
-(add-to-list 'load-path "c:/org-index/support")
+(add-to-list 'load-path "c:/org-index/tests")
+
+(setq package-user-dir "c:/org/custom/elpa")
+(package-initialize)
 
 (require 'org)
 (require 'org-index)

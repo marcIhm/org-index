@@ -7,11 +7,6 @@
 
   - Visit http://2484.de/org-index.html for a Screencast.
 
-
-  - org-index.el is also in the contrib-directory of org:
-
-    http://orgmode.org/w/?p=org-mode.git;a=blob_plain;f=contrib/lisp/org-index.el;hb=HEAD
-
 ** Table of Content						      :TOC_3:
  - [[#org-index][org-index]]
    - [[#files][Files]]
@@ -28,11 +23,15 @@
 
 *** Tests
     
+    In subdir tests.
+
     - oidx.el :: ert-tests for org-index
     - test.bat :: Windows command file to start a specifically prepared emacs for the tests
     - test-init.el :: Customizations for the tests
 
 *** Screencasts
+    
+    In subdir screencast.
 
     These files have been used to produce the screencast on http://2484.de/org-index.html:
 
@@ -42,6 +41,8 @@
     - screencast.org :: Internal Notes about the screencast
 		       	
 *** Custom merge-driver for git
+
+    In subdir merge-driver.
 
     - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table;
       see the comments within the file for instructions	 
