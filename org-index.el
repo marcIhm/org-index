@@ -1275,7 +1275,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 (defun org-index--persist-focused-nodes ()
   "Write list of focused nodes to property."
   (with-current-buffer org-index--buffer
-    (org-entry-put org-index--point "ids-focused-nodes" (string-join org-index--ids-focused-nodes " "))))
+    (org-entry-put org-index--point "ids-focused-nodes" (mapconcat 'identity org-index--ids-focused-nodes " "))))
 
 
 (defun org-index--delete-from-focus ()
@@ -1796,9 +1796,9 @@ Optional argument NO-INC skips automatic increment on maxref."
                         "clean      : remove obsolete property org-index-id\n"
                         "update     : update content of index lines having an id\n"))
 
-    (setq choices-short (mapcar (lambda (x) (first (split-string x))) choices))
+    (setq choices-short (mapcar (lambda (x) (car (split-string x))) choices))
     (setq text (concat "These checks and fixes are available:\n" (apply 'concat choices) "Please choose: "))
-    (setq check-what (intern (org-index--completing-read text choices-short (first choices-short))))
+    (setq check-what (intern (org-index--completing-read text choices-short (car choices-short))))
 
     (message nil)
     
