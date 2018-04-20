@@ -1129,7 +1129,11 @@ Optional argument KEYS-VALUES specifies content of new line."
                                    (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
                                    (setq org-index--focus-overlay nil)
                                    (if org-index-clock-into-focus
-                                       (org-with-limited-levels (org-clock-in)))
+                                       (let (keys)
+                                         ;; save and repeat terminating key, because org-clock-in might read interactively
+                                         (if (input-pending-p) (setq keys (read-key-sequence nil)))
+                                         (org-with-limited-levels (org-clock-in))
+                                         (if keys (setq unread-command-events (listify-key-sequence keys)))))
 				   ;; ignore-errors saves during tear-down of some tests
                                    (ignore-errors (org-index--update-line (org-id-get) t)))))
         (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
