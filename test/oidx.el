@@ -240,11 +240,11 @@
     (oidx-do "f o c u s <return> a" "C-u")
     (oidx-do "f o c u s <return>")
     (should (looking-at ".* --8--"))
-    (org-index-1 'focus)
+    (org-index--do 'focus)
     (should (looking-at ".* --13--"))
     (setq this-command 'org-index)
     (setq last-command 'org-index)
-    (org-index-1 'focus)
+    (org-index--do 'focus)
     (should (looking-at ".* --8--"))))
 
 
@@ -673,7 +673,7 @@
 
 
 (defun oidx-do (keys &optional prefix)
-  (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o r g - i n d e x - 1 <return> " keys))))
+  (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o r g - i n d e x - - do <return> " keys))))
 
 
 (defun oidx-get-refs ()
