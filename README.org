@@ -46,3 +46,13 @@
 
     - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table;
       see the comments within the file for instructions	 
+
+
+** Testing a new Release
+
+   - ert
+   - Byte Compile
+   - Alle neuen Funktionen
+   - elint-current-buffer
+   - checkdoc
+   - Package lint

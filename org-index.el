@@ -98,6 +98,7 @@
 
 (defcustom org-index-id nil
   "Id of the Org-mode node, which contains the index table."
+  :type 'string
   :group 'org-index)
 
 (defcustom org-index-sort-by 'mixed
@@ -231,6 +232,7 @@ those pieces."
 (defvar org-index--id-last-goto-focus nil "Id of last node, that has been focused to.")
 
 ;; Variables to hold context and state
+;; Variables for occur, see the respective section
 (defvar org-index--buffer nil "Buffer, that contains index.")
 (defvar org-index--last-fingerprint nil "Fingerprint of last line created.")
 (defvar org-index--category-before nil "Category of node before.")
@@ -239,11 +241,6 @@ those pieces."
 (defvar org-index--within-index-node nil "True, if we are within node of the index table.")
 (defvar org-index--within-occur nil "True, if we are within the occur-buffer.")
 (defvar org-index--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
-(defvar org-index--occur-help-text nil "Text for help in occur buffer.")
-(defvar org-index--occur-help-overlay nil "Overlay for help in occur buffer.")
-(defvar org-index--occur-stack nil "Stack with overlays for hiding lines.")
-(defvar org-index--occur-tail-overlay nil "Overlay to cover invisible lines.")
-(defvar org-index--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar org-index--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar org-index--sort-timer nil "Timer to sort index in correct order.")
 (defvar org-index--inhibit-sort-idle nil "If set, index will not be sorted in idle background.")
@@ -270,7 +267,6 @@ those pieces."
 ;; static information for this program package
 (defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
 (defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
-(defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
 (defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
@@ -1065,250 +1061,6 @@ Optional argument KEYS-VALUES specifies content of new line."
         (quit-windows-on bname)
         (kill-buffer bname)))
     result))
-
-
-(defun org-index--goto-focus ()
-  "Goto focus node, one after the other."
-  (if org-index--ids-focused-nodes
-      (let (again last-id following-id in-last-id target-id explain marker heading-is-clause head
-                  (bottom-clause (if org-index-goto-bottom-after-focus "bottom of " ""))
-                  (menu-clause ""))
-        (setq again (and (eq this-command last-command)
-                         (eq org-index--this-command org-index--last-command)))
-        (setq last-id (or org-index--id-last-goto-focus
-                          (car (last org-index--ids-focused-nodes))))
-        (setq following-id (car (or (cdr-safe (member last-id
-                                                      (append org-index--ids-focused-nodes
-                                                              org-index--ids-focused-nodes)))
-                                    org-index--ids-focused-nodes)))
-        (setq in-last-id (string= (ignore-errors (org-id-get)) last-id))
-
-        (setq target-id (if (or again in-last-id) following-id last-id))
-
-        ;; bail out on inactivity
-        (if org-index--focus-cancel-timer (cancel-timer org-index--focus-cancel-timer))
-        (setq org-index--focus-cancel-timer
-              (run-at-time 8 nil
-                           (lambda () (if org-index--cancel-focus-wait-function
-                                          (funcall org-index--cancel-focus-wait-function)))))
-        
-        (setq org-index--cancel-focus-wait-function
-              (set-transient-map (let ((map (make-sparse-keymap)))
-                                   (define-key map (vector ?f)
-                                     (lambda () (interactive)
-                                       (setq this-command last-command)
-                                       (setq org-index--this-command org-index--last-command)
-                                       (org-index--focus-message (org-index--goto-focus))))
-                                   (define-key map (vector ?h)
-                                     (lambda () (interactive)
-                                       (org-with-limited-levels (org-back-to-heading))
-                                       (recenter 1)
-                                       (org-index--focus-message "On heading of focused node")))
-                                   (define-key map (vector ?b)
-                                     (lambda () (interactive)
-                                       (org-index--end-of-focused-node)
-                                       (recenter -1)
-                                       (org-index--focus-message "At bottom of focused node")))
-                                   (define-key map (vector ??)
-                                     (lambda () (interactive)
-                                       (setq org-index--short-help-wanted t)
-                                       (message (org-index--goto-focus))
-                                       (setq org-index--short-help-wanted nil)))
-                                   (define-key map (vector ?d)
-                                     (lambda () (interactive)
-                                       (setq this-command last-command)
-                                       (org-index--delete-from-focus)
-                                       (org-index--persist-focused-nodes)
-                                       (org-index--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (org-index--goto-focus)))
-                                       (setq org-index--cancel-focus-wait-function nil)))
-                                   map)
-                                 t
-				 ;; this is run (in any case) on leaving the map
-                                 (lambda () (cancel-timer org-index--focus-cancel-timer)
-                                   ;; Clean up overlay
-                                   (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
-                                   (setq org-index--focus-overlay nil)
-                                   (if org-index-clock-into-focus
-                                       (let (keys)
-                                         ;; save and repeat terminating key, because org-clock-in might read interactively
-                                         (if (input-pending-p) (setq keys (read-key-sequence nil)))
-                                         (org-with-limited-levels (org-clock-in))
-                                         (if keys (setq unread-command-events (listify-key-sequence keys)))))
-				   ;; ignore-errors saves during tear-down of some tests
-                                   (ignore-errors (org-index--update-line (org-id-get) t)))))
-        (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
-
-        (if (member target-id (org-index--ids-up-to-top))
-            (setq explain (format "staying below %scurrent" bottom-clause))
-          (unless (setq marker (org-id-find target-id 'marker))
-            (setq org-index--id-last-goto-focus nil)
-            (error "Could not find focus-node with id %s" target-id))
-          
-          (pop-to-buffer-same-window (marker-buffer marker))
-          (goto-char (marker-position marker))
-          (org-index--unfold-buffer)
-          (move-marker marker nil)
-          (when org-index-goto-bottom-after-focus
-            (org-index--end-of-focused-node)
-            (org-reveal)
-            (recenter -2)))
-
-        (setq head (org-with-limited-levels (org-get-heading t t t t)))
-        (when org-index-show-focus-overlay
-          ;; tooltip-overlay to show current heading
-          (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
-          (setq org-index--focus-overlay (make-overlay (point-at-bol) (point-at-bol)))
-          (overlay-put org-index--focus-overlay
-                       'after-string
-                       (propertize
-                        (format " %s (%d of %d) "
-                                head
-                                (1+ (- (length org-index--ids-focused-nodes)
-                                       (length (member target-id org-index--ids-focused-nodes))))
-                                (length org-index--ids-focused-nodes))
-                        'face 'highlight))
-          (overlay-put org-index--focus-overlay 'priority most-positive-fixnum))
-
-        (setq heading-is-clause (format "Focus %s, " (propertize head 'face 'org-todo)))
-        
-        (setq explain (or explain
-                          (if (or again in-last-id)
-                              (format "at %snext" bottom-clause)
-                            (format "back to %scurrent" bottom-clause))))
-        
-        (setq org-index--id-last-goto-focus target-id)
-        (concat
-         heading-is-clause
-         (if (cdr org-index--ids-focused-nodes)
-             (format "%s node (out of %d)"
-                     explain
-                     (length org-index--ids-focused-nodes))
-           (format "%s single node" explain))
-         menu-clause))
-    "No nodes in focus, use set-focus"))
-
-
-(defun org-index--focus-message (message)
-  "Issue given MESSAGE and append string '(again)' if appropriate."
-  (let ((again (if (string= message org-index--last-focus-message) " (again)" "")))
-    (setq org-index--last-focus-message message)
-    (message (concat message again "."))))
-
-
-(defun org-index--end-of-focused-node ()
-  "Goto end of focused nodes, ignoring inline-tasks but stopping at first child."
-  (let (level (pos (point)))
-    (when (ignore-errors (org-with-limited-levels (org-back-to-heading)))
-      (setq level (outline-level))
-      (forward-char 1)
-      (if (and (org-with-limited-levels (re-search-forward org-outline-regexp-bol nil t))
-               (> (outline-level) level))
-          (progn        ; landed on child node
-            (goto-char (match-beginning 0))
-            (forward-line -1))
-        (goto-char pos) ; landed on next sibling or end of buffer
-        (org-with-limited-levels
-         (org-end-of-subtree nil t)
-         (when (org-at-heading-p)
-           (forward-line -1))))
-      (beginning-of-line))))
-
-
-(defun org-index--more-focus-commands ()
-  "More commands for handling focused nodes."
-  (let (id text more-text char prompt ids-up-to-top)
-
-    (setq prompt (format "Please specify action on list of %d focused nodes (s,a,d,r or ? for short help) - " (length org-index--ids-focused-nodes)))
-    (while (not (memq char (list ?s ?a ?d ?r)))
-      (setq char (read-char prompt))
-      (setq prompt (format "Actions on list of %d focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list,  r)estore previous list of focused nodes.  Please choose - " (length org-index--ids-focused-nodes))))
-    (setq text
-          (cond
-
-           ((eq char ?s)
-            (setq id (org-id-get-create))
-            (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
-            (setq org-index--ids-focused-nodes (list id))
-            (setq org-index--id-last-goto-focus id)
-            (org-index--update-line id t)
-            (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
-            "focus has been set on current node (1 node in focus)")
-
-           ((eq char ?a)
-            (setq id (org-id-get-create))
-            (unless (member id org-index--ids-focused-nodes)
-              ;; remove any children, that are already in list of focused nodes
-              (setq org-index--ids-focused-nodes
-                    (delete nil (mapcar (lambda (x)
-                                          (if (member id (org-with-point-at (org-id-find x t)
-                                                           (org-index--ids-up-to-top)))
-                                              (progn
-                                                (setq more-text ", removing its children")
-                                                nil)
-                                            x))
-                                        org-index--ids-focused-nodes)))
-              (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
-              ;; remove parent, if already in list of focused nodes
-              (setq ids-up-to-top (org-index--ids-up-to-top))
-              (when (seq-intersection ids-up-to-top org-index--ids-focused-nodes)
-                (setq org-index--ids-focused-nodes (seq-difference org-index--ids-focused-nodes ids-up-to-top))
-                (setq more-text (concat more-text ", replacing its parent")))
-              (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
-            (setq org-index--id-last-goto-focus id)
-            (org-index--update-line id t)
-            (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
-            "current node has been appended to list of focused nodes%s (%d node%s in focus)")
-
-           ((eq char ?d)
-            (org-index--delete-from-focus)
-            (concat "current node has been removed from list of focused nodes%s (%d node%s in focus), " (org-index--goto-focus) "."))
-
-           ((eq char ?r)
-            (if org-index--ids-focused-nodes-saved
-                (let (txt)
-                  (setq txt (format "discarded current list of focused %d focused node%s and restored previous list; now %%s%%d node%%s in focus" (length org-index--ids-focused-nodes-saved) (if (cdr org-index--ids-focused-nodes-saved) "s" "")))
-                  (setq org-index--ids-focused-nodes org-index--ids-focused-nodes-saved)
-                  txt)
-              "no saved list of focused nodes to restore, nothing to do"))))
-
-    (org-index--persist-focused-nodes)
-    
-    (format text (or more-text "") (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
-
-
-(defun org-index--persist-focused-nodes ()
-  "Write list of focused nodes to property."
-  (with-current-buffer org-index--buffer
-    (org-entry-put org-index--point "ids-focused-nodes" (mapconcat 'identity org-index--ids-focused-nodes " "))))
-
-
-(defun org-index--delete-from-focus ()
-  "Delete current node from list of focused nodes."
-  (let (id)
-    (setq id (org-id-get))
-    (if (and id (member id org-index--ids-focused-nodes))
-        (progn
-          (setq org-index--id-last-goto-focus
-                (or (car-safe (cdr-safe (member id (reverse (append org-index--ids-focused-nodes
-                                                                    org-index--ids-focused-nodes)))))
-                    org-index--id-last-goto-focus))
-          (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
-          (setq org-index--ids-focused-nodes (delete id org-index--ids-focused-nodes))
-          (setq org-index--id-last-goto-focus nil)
-          "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
-      "Current node has not been in list of focused nodes%s (%d node%s in focus)")))
-
-
-(defun org-index--ids-up-to-top ()
-  "Get list of all ids from current node up to top level."
-  (when (string= major-mode "org-mode")
-    (let (ids id)
-      (save-excursion
-        (ignore-errors
-          (while (progn (and (setq id (org-id-get))
-                             (setq ids (cons id ids)))
-                        (outline-up-heading 1)))))
-      ids)))
 
 
 (defun org-index--do-edit ()
@@ -2888,79 +2640,361 @@ If OTHER in separate window."
     message))
 
 
+(defun org-index--line-in-canonical-form ()
+  "Return current line in its canonical form."
+  (org-trim (substring-no-properties (replace-regexp-in-string "\s +" " " (buffer-substring (line-beginning-position) (line-beginning-position 2))))))
+
+
+(defun org-index--wrap (text)
+  "Wrap TEXT at fill column."
+  (with-temp-buffer
+    (insert text)
+    (fill-region (point-min) (point-max) nil t)
+    (buffer-string)))
+
+
+(defun org-index--sort-silent ()
+  "Sort index for default column to remove any effects of temporary sorting."
+  (unless org-index--inhibit-sort-idle
+    (save-excursion
+      (org-index--verify-id)
+      (org-index--parse-table)
+      (with-current-buffer org-index--buffer
+        (save-excursion
+          (goto-char org-index--below-hline)
+          (org-index--do-sort-index org-index-sort-by)
+          (remove-hook 'before-save-hook 'org-index--sort-silent))))))
+
+
+(defun org-index--idle-prepare ()
+  "For parsing table when idle."
+  (org-index--verify-id)
+  (org-index--parse-table most-positive-fixnum t))
+
+
+(defun org-index--copy-visible (beg end)
+  "Copy the visible parts of the region between BEG and END without adding it to `kill-ring'; copy of `org-copy-visible'."
+  (let (snippets s)
+    (save-excursion
+      (save-restriction
+	(narrow-to-region beg end)
+	(setq s (goto-char (point-min)))
+	(while (not (= (point) (point-max)))
+	  (goto-char (org-find-invisible))
+	  (push (buffer-substring s (point)) snippets)
+	  (setq s (goto-char (org-find-visible))))))
+    (apply 'concat (nreverse snippets))))
+
+
+(defun org-index--create-new-line ()
+  "Do the common work for `org-index-new-line' and `org-index'."
+
+  ;; insert ref or id as last or first line, depending on sort-column
+  (goto-char org-index--below-hline)
+  (if (eq org-index-sort-by 'count)
+      (progn
+        (goto-char (org-table-end))
+        (forward-line -1)
+        (org-table-insert-row t))
+    (org-table-insert-row))
+
+  ;; insert some of the standard values
+  (org-table-goto-column (org-index--column-num 'created))
+  (org-insert-time-stamp nil nil t)
+  (org-table-goto-column (org-index--column-num 'count))
+  (insert "1"))
+
+
+
+;; Functions for focus-feature
+(defun org-index--goto-focus ()
+  "Goto focus node, one after the other."
+  (if org-index--ids-focused-nodes
+      (let (again last-id following-id in-last-id target-id explain marker heading-is-clause head
+                  (bottom-clause (if org-index-goto-bottom-after-focus "bottom of " ""))
+                  (menu-clause ""))
+        (setq again (and (eq this-command last-command)
+                         (eq org-index--this-command org-index--last-command)))
+        (setq last-id (or org-index--id-last-goto-focus
+                          (car (last org-index--ids-focused-nodes))))
+        (setq following-id (car (or (cdr-safe (member last-id
+                                                      (append org-index--ids-focused-nodes
+                                                              org-index--ids-focused-nodes)))
+                                    org-index--ids-focused-nodes)))
+        (setq in-last-id (string= (ignore-errors (org-id-get)) last-id))
+
+        (setq target-id (if (or again in-last-id) following-id last-id))
+
+        ;; bail out on inactivity
+        (if org-index--focus-cancel-timer (cancel-timer org-index--focus-cancel-timer))
+        (setq org-index--focus-cancel-timer
+              (run-at-time 8 nil
+                           (lambda () (if org-index--cancel-focus-wait-function
+                                          (funcall org-index--cancel-focus-wait-function)))))
+        
+        (setq org-index--cancel-focus-wait-function
+              (set-transient-map (let ((map (make-sparse-keymap)))
+                                   (define-key map (vector ?f)
+                                     (lambda () (interactive)
+                                       (setq this-command last-command)
+                                       (setq org-index--this-command org-index--last-command)
+                                       (org-index--focus-message (org-index--goto-focus))))
+                                   (define-key map (vector ?h)
+                                     (lambda () (interactive)
+                                       (org-with-limited-levels (org-back-to-heading))
+                                       (recenter 1)
+                                       (org-index--focus-message "On heading of focused node")))
+                                   (define-key map (vector ?b)
+                                     (lambda () (interactive)
+                                       (org-index--end-of-focused-node)
+                                       (recenter -1)
+                                       (org-index--focus-message "At bottom of focused node")))
+                                   (define-key map (vector ??)
+                                     (lambda () (interactive)
+                                       (setq org-index--short-help-wanted t)
+                                       (message (org-index--goto-focus))
+                                       (setq org-index--short-help-wanted nil)))
+                                   (define-key map (vector ?d)
+                                     (lambda () (interactive)
+                                       (setq this-command last-command)
+                                       (org-index--delete-from-focus)
+                                       (org-index--persist-focused-nodes)
+                                       (org-index--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (org-index--goto-focus)))
+                                       (setq org-index--cancel-focus-wait-function nil)))
+                                   map)
+                                 t
+				 ;; this is run (in any case) on leaving the map
+                                 (lambda () (cancel-timer org-index--focus-cancel-timer)
+                                   ;; Clean up overlay
+                                   (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
+                                   (setq org-index--focus-overlay nil)
+                                   (if org-index-clock-into-focus
+                                       (let (keys)
+                                         ;; save and repeat terminating key, because org-clock-in might read interactively
+                                         (if (input-pending-p) (setq keys (read-key-sequence nil)))
+                                         (org-with-limited-levels (org-clock-in))
+                                         (if keys (setq unread-command-events (listify-key-sequence keys)))))
+				   ;; ignore-errors saves during tear-down of some tests
+                                   (ignore-errors (org-index--update-line (org-id-get) t)))))
+        (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
+
+        (if (member target-id (org-index--ids-up-to-top))
+            (setq explain (format "staying below %scurrent" bottom-clause))
+          (unless (setq marker (org-id-find target-id 'marker))
+            (setq org-index--id-last-goto-focus nil)
+            (error "Could not find focus-node with id %s" target-id))
+          
+          (pop-to-buffer-same-window (marker-buffer marker))
+          (goto-char (marker-position marker))
+          (org-index--unfold-buffer)
+          (move-marker marker nil)
+          (when org-index-goto-bottom-after-focus
+            (org-index--end-of-focused-node)
+            (org-reveal)
+            (recenter -2)))
+
+        (setq head (org-with-limited-levels (org-get-heading t t t t)))
+        (when org-index-show-focus-overlay
+          ;; tooltip-overlay to show current heading
+          (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
+          (setq org-index--focus-overlay (make-overlay (point-at-bol) (point-at-bol)))
+          (overlay-put org-index--focus-overlay
+                       'after-string
+                       (propertize
+                        (format " %s (%d of %d) "
+                                head
+                                (1+ (- (length org-index--ids-focused-nodes)
+                                       (length (member target-id org-index--ids-focused-nodes))))
+                                (length org-index--ids-focused-nodes))
+                        'face 'highlight))
+          (overlay-put org-index--focus-overlay 'priority most-positive-fixnum))
+
+        (setq heading-is-clause (format "Focus %s, " (propertize head 'face 'org-todo)))
+        
+        (setq explain (or explain
+                          (if (or again in-last-id)
+                              (format "at %snext" bottom-clause)
+                            (format "back to %scurrent" bottom-clause))))
+        
+        (setq org-index--id-last-goto-focus target-id)
+        (concat
+         heading-is-clause
+         (if (cdr org-index--ids-focused-nodes)
+             (format "%s node (out of %d)"
+                     explain
+                     (length org-index--ids-focused-nodes))
+           (format "%s single node" explain))
+         menu-clause))
+    "No nodes in focus, use set-focus"))
+
+
+(defun org-index--focus-message (message)
+  "Issue given MESSAGE and append string '(again)' if appropriate."
+  (let ((again (if (string= message org-index--last-focus-message) " (again)" "")))
+    (setq org-index--last-focus-message message)
+    (message (concat message again "."))))
+
+
+(defun org-index--end-of-focused-node ()
+  "Goto end of focused nodes, ignoring inline-tasks but stopping at first child."
+  (let (level (pos (point)))
+    (when (ignore-errors (org-with-limited-levels (org-back-to-heading)))
+      (setq level (outline-level))
+      (forward-char 1)
+      (if (and (org-with-limited-levels (re-search-forward org-outline-regexp-bol nil t))
+               (> (outline-level) level))
+          (progn        ; landed on child node
+            (goto-char (match-beginning 0))
+            (forward-line -1))
+        (goto-char pos) ; landed on next sibling or end of buffer
+        (org-with-limited-levels
+         (org-end-of-subtree nil t)
+         (when (org-at-heading-p)
+           (forward-line -1))))
+      (beginning-of-line))))
+
+
+(defun org-index--more-focus-commands ()
+  "More commands for handling focused nodes."
+  (let (id text more-text char prompt ids-up-to-top)
+
+    (setq prompt (format "Please specify action on list of %d focused nodes (s,a,d,r or ? for short help) - " (length org-index--ids-focused-nodes)))
+    (while (not (memq char (list ?s ?a ?d ?r)))
+      (setq char (read-char prompt))
+      (setq prompt (format "Actions on list of %d focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list,  r)estore previous list of focused nodes.  Please choose - " (length org-index--ids-focused-nodes))))
+    (setq text
+          (cond
+
+           ((eq char ?s)
+            (setq id (org-id-get-create))
+            (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
+            (setq org-index--ids-focused-nodes (list id))
+            (setq org-index--id-last-goto-focus id)
+            (org-index--update-line id t)
+            (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
+            "focus has been set on current node (1 node in focus)")
+
+           ((eq char ?a)
+            (setq id (org-id-get-create))
+            (unless (member id org-index--ids-focused-nodes)
+              ;; remove any children, that are already in list of focused nodes
+              (setq org-index--ids-focused-nodes
+                    (delete nil (mapcar (lambda (x)
+                                          (if (member id (org-with-point-at (org-id-find x t)
+                                                           (org-index--ids-up-to-top)))
+                                              (progn
+                                                (setq more-text ", removing its children")
+                                                nil)
+                                            x))
+                                        org-index--ids-focused-nodes)))
+              (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
+              ;; remove parent, if already in list of focused nodes
+              (setq ids-up-to-top (org-index--ids-up-to-top))
+              (when (seq-intersection ids-up-to-top org-index--ids-focused-nodes)
+                (setq org-index--ids-focused-nodes (seq-difference org-index--ids-focused-nodes ids-up-to-top))
+                (setq more-text (concat more-text ", replacing its parent")))
+              (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
+            (setq org-index--id-last-goto-focus id)
+            (org-index--update-line id t)
+            (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
+            "current node has been appended to list of focused nodes%s (%d node%s in focus)")
+
+           ((eq char ?d)
+            (org-index--delete-from-focus)
+            (concat "current node has been removed from list of focused nodes%s (%d node%s in focus), " (org-index--goto-focus) "."))
+
+           ((eq char ?r)
+            (if org-index--ids-focused-nodes-saved
+                (let (txt)
+                  (setq txt (format "discarded current list of focused %d focused node%s and restored previous list; now %%s%%d node%%s in focus" (length org-index--ids-focused-nodes-saved) (if (cdr org-index--ids-focused-nodes-saved) "s" "")))
+                  (setq org-index--ids-focused-nodes org-index--ids-focused-nodes-saved)
+                  txt)
+              "no saved list of focused nodes to restore, nothing to do"))))
+
+    (org-index--persist-focused-nodes)
+    
+    (format text (or more-text "") (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
+
+
+(defun org-index--persist-focused-nodes ()
+  "Write list of focused nodes to property."
+  (with-current-buffer org-index--buffer
+    (org-entry-put org-index--point "ids-focused-nodes" (mapconcat 'identity org-index--ids-focused-nodes " "))))
+
+
+(defun org-index--delete-from-focus ()
+  "Delete current node from list of focused nodes."
+  (let (id)
+    (setq id (org-id-get))
+    (if (and id (member id org-index--ids-focused-nodes))
+        (progn
+          (setq org-index--id-last-goto-focus
+                (or (car-safe (cdr-safe (member id (reverse (append org-index--ids-focused-nodes
+                                                                    org-index--ids-focused-nodes)))))
+                    org-index--id-last-goto-focus))
+          (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
+          (setq org-index--ids-focused-nodes (delete id org-index--ids-focused-nodes))
+          (setq org-index--id-last-goto-focus nil)
+          "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
+      "Current node has not been in list of focused nodes%s (%d node%s in focus)")))
+
+
+(defun org-index--ids-up-to-top ()
+  "Get list of all ids from current node up to top level."
+  (when (string= major-mode "org-mode")
+    (let (ids id)
+      (save-excursion
+        (ignore-errors
+          (while (progn (and (setq id (org-id-get))
+                             (setq ids (cons id ids)))
+                        (outline-up-heading 1)))))
+      ids)))
+
+
+
+;; Variable and Functions for occur; most of them share state between the
+;; various functions of the occur-family of functions
+(defconst org-index--usage-note " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k') \
+from within this buffer, the index is updated accordingly" "Note on usage in occur buffer")
+(defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
+(defvar org-index--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
+(defvar org-index--occur-help-overlay nil "Overlay for help in occur buffer.")
+(defvar org-index--occur-stack nil "Stack with overlays for hiding lines.")
+(defvar org-index--occur-tail-overlay nil "Overlay to cover invisible lines.")
+(defvar org-index--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
+(defvar org-index--occur-win-config nil "Window configuration stored away during occur")
+(defvar org-index--occur-point-begin nil "Point of first line of table contents")
+(defvar org-index--occur-buffer nil "Buffer, where occur takes place.")
+(defvar org-index--occur-search-text nil "Description of text to search for.")
+(defvar org-index--occur-words nil "Final list of match words.")
+(defvar org-index--occur-days-clause nil "Clause for help text, denoting the number of days searched back.")
+
+
 (defun org-index--do-occur (&optional days)
   "Perform command occur; optional narrow to DAYS back."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
-        (these-commands " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly")
         (lines-wanted (window-body-height))
         words                                ; list words that should match
-        occur-buffer
-        begin                          ; position of first line
-        help-text                      ; cons with help text short and long
-        search-text                    ; description of text to search for
         done                           ; true, if loop is done
         in-c-backspace                 ; true, while processing C-backspace
-        help-overlay                   ; Overlay with help text
         initial-frame                  ; Frame when starting occur
         key                            ; input from user in various forms
         key-sequence
-        key-sequence-raw
-        win-config                     ; window configuration
-        days-clause)                   ; clause to display for days back search
+        key-sequence-raw)
 
-    
-    ;; make and show buffer
-    (if (get-buffer org-index--occur-buffer-name)
-        (kill-buffer org-index--occur-buffer-name))
-    (setq occur-buffer (make-indirect-buffer org-index--buffer org-index--occur-buffer-name))
-    (setq win-config (current-window-configuration))
-    (pop-to-buffer-same-window occur-buffer)
+
+    (org-index--occur-prepare-buffer days)
+
     (setq initial-frame (selected-frame))
-
-    ;; avoid modifying direct buffer
-    (setq buffer-read-only t)
-    (toggle-truncate-lines 1)
-
-    ;; reset stack and overlays
-    (setq org-index--occur-stack nil)
-    (setq org-index--occur-tail-overlay nil)
-    
-    ;; narrow to table rows and one line before
-    (goto-char org-index--below-hline)
-    (forward-line 0)
-    (setq begin (point))
-    (forward-line -1)
-    (narrow-to-region (point) (org-table-end))
-    (forward-line)
-
-    ;; initialize help text
-    (setq days-clause (if days (format " (%d days back)" days) ""))
-    (setq help-text (cons
-                     (concat
-                      (propertize (format "Incremental occur%s" days-clause) 'face 'org-todo)
-                      (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
-                     (concat
-                      (propertize
-                       (org-index--wrap
-                        (concat
-                         "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word; <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index; all other keys end search." these-commands "\n"))
-                       'face 'org-agenda-dimmed-todo-face)
-                      org-index--headings)))
-    
-    ;; insert overlays for help text and to cover unsearched lines
-    (setq help-overlay (make-overlay (point-min) begin))
-    (overlay-put help-overlay 'display (car help-text))
-    (setq org-index--occur-tail-overlay (make-overlay (point-max) (point-max)))
-    (overlay-put org-index--occur-tail-overlay 'invisible t)
 
     ;; do not enter loop if number of days is requested
     (when days
-      (goto-char begin)
+      (goto-char org-index--occur-point-begin)
       (org-index--hide-with-overlays (cons word words) lines-wanted days)
       (move-overlay org-index--occur-tail-overlay (org-index--occur-end-of-visible) (point-max))
       
-      (goto-char begin)
+      (goto-char org-index--occur-point-begin)
       (setq done t))
 
     ;; main loop
@@ -2968,7 +3002,7 @@ If OTHER in separate window."
 
       (if in-c-backspace
           (setq key "<backspace>")
-        (setq search-text (mapconcat 'identity (reverse (cons word words)) ","))
+        (setq org-index--occur-search-text (mapconcat 'identity (reverse (cons word words)) ","))
 
         ;; read key, if selected frame has not changed
         (if (eq initial-frame (selected-frame))
@@ -2977,8 +3011,8 @@ If OTHER in separate window."
                     (let ((echo-keystrokes 0)
                           (full-prompt (format "%s%s%s"
                                                prompt
-                                               search-text
-                                               (if (string= search-text "") "" " "))))
+                                               org-index--occur-search-text
+                                               (if (string= org-index--occur-search-text "") "" " "))))
                       (read-key-sequence full-prompt nil nil t t)))
               (setq key (key-description key-sequence))
               (setq key-sequence-raw (this-single-command-raw-keys)))
@@ -3019,7 +3053,7 @@ If OTHER in separate window."
                         (point-max))
           
           ;; make sure, point is still visible
-          (goto-char begin)))
+          (goto-char org-index--occur-point-begin)))
 
 
        ((member key (list "SPC" ",")) ; space or comma: enter an additional search word
@@ -3031,8 +3065,9 @@ If OTHER in separate window."
 
 
        ((string= key "?") ; question mark: toggle display of headlines and help
-        (setq help-text (cons (cdr help-text) (car help-text)))
-        (overlay-put help-overlay 'display (car help-text)))
+        (setq org-index--occur-help-text (cons (cdr org-index--occur-help-text)
+                                               (car org-index--occur-help-text))) ; swap
+        (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text)))
 
        ((and (= (length key) 1)
              (aref printable-chars (elt key 0))) ; any printable char: add to current search word
@@ -3041,13 +3076,13 @@ If OTHER in separate window."
         (setq word (concat word key))
         
         ;; make overlays to hide lines, that do not match longer word any more
-        (goto-char begin)
+        (goto-char org-index--occur-point-begin)
         (org-index--hide-with-overlays (cons word words) lines-wanted days)
         (move-overlay org-index--occur-tail-overlay
                       (org-index--occur-end-of-visible)
                       (point-max))
         
-        (goto-char begin)
+        (goto-char org-index--occur-point-begin)
         
         ;; make sure, point is on a visible line
         (line-move -1 t)
@@ -3056,24 +3091,81 @@ If OTHER in separate window."
        ;; anything else terminates input loop
        (t (setq done t))))
 
+    ;; remember list of words
+    (setq org-index--occur-words (cons word words))
+
     ;; put back input event, that caused the loop to end
     (if (string= key "C-g")
-        (progn (if win-config (set-window-configuration win-config))
+        (progn (if org-index--occur-win-config (set-window-configuration org-index--occur-win-config))
                (keyboard-quit))
       (setq unread-command-events (listify-key-sequence key-sequence-raw))
       (message key))
     
-    ;; For performance reasons do not show matching lines for rest of table. So no code here.
-    
-    ;; make permanent copy
-    ;; copy visible lines
-    (let ((lines-collected 0)
-          keymap line all-lines all-lines-lbp header-lines lbp)
+
+    (org-index--occur-make-permanent lines-wanted)
+
+    (org-index--occur-install-keyboard-shortcuts)))
+
+
+(defun org-index--occur-prepare-buffer (days)
+  "Prepare buffer for 'org-index--do-occur´"
+
+  ;; make and show buffer
+  (if (get-buffer org-index--occur-buffer-name)
+      (kill-buffer org-index--occur-buffer-name))
+  (setq org-index--occur-buffer (make-indirect-buffer org-index--buffer org-index--occur-buffer-name))
+  (setq org-index--occur-win-config (current-window-configuration))
+  (pop-to-buffer-same-window org-index--occur-buffer)
+
+  ;; avoid modifying direct buffer
+  (setq buffer-read-only t)
+  (toggle-truncate-lines 1)
+
+  ;; reset stack and overlays
+  (setq org-index--occur-stack nil)
+  (setq org-index--occur-tail-overlay nil)
+  
+  ;; narrow to table rows and one line before
+  (goto-char org-index--below-hline)
+  (forward-line 0)
+  (setq org-index--occur-point-begin (point))
+  (forward-line -1)
+  (narrow-to-region (point) (org-table-end))
+  (forward-line)
+
+  ;; initialize help text
+  (setq org-index--occur-days-clause (if days (format " (%d days back)" days) ""))
+  (setq org-index--occur-help-text
+        (cons
+         (concat
+          (propertize (format "Incremental occur%s" org-index--occur-days-clause) 'face 'org-todo)
+          (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
+         (concat
+          (propertize
+           (org-index--wrap
+            (concat
+             "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word; <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index; all other keys end search." org-index--usage-note "\n"))
+           'face 'org-agenda-dimmed-todo-face)
+          org-index--headings)))
+  
+  ;; insert overlays for help text and to cover unsearched lines
+  (setq org-index--occur-help-overlay (make-overlay (point-min) org-index--occur-point-begin))
+  (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text))
+  (setq org-index--occur-tail-overlay (make-overlay (point-max) (point-max)))
+  (overlay-put org-index--occur-tail-overlay 'invisible t))
+
+
+(defun org-index--occur-make-permanent (lines-wanted)
+  "Make permanent copy of current view into index"
+
+  ;; copy visible lines
+  (let ((lines-collected 0)
+        line all-lines all-lines-lbp header-lines lbp)
 
       (setq cursor-type t)
-      (goto-char begin)
+      (goto-char org-index--occur-point-begin)
       (let ((inhibit-read-only t))
-        (put-text-property begin (org-table-end) 'face nil))
+        (put-text-property org-index--occur-point-begin (org-table-end) 'face nil))
 
       ;; collect all visible lines
       (while (and (not (eobp))
@@ -3095,8 +3187,8 @@ If OTHER in separate window."
       (kill-buffer org-index--occur-buffer-name) ; cannot keep this buffer; might become stale soon
 
       ;; create new buffer
-      (setq occur-buffer (get-buffer-create org-index--occur-buffer-name))
-      (pop-to-buffer-same-window occur-buffer)
+      (setq org-index--occur-buffer (get-buffer-create org-index--occur-buffer-name))
+      (pop-to-buffer-same-window org-index--occur-buffer)
       (insert org-index--headings)
       (setq header-lines (line-number-at-pos))
 
@@ -3127,17 +3219,17 @@ If OTHER in separate window."
       (setq org-index--occur-help-text
             (cons
              (org-index--wrap
-              (propertize (format "Search is done%s;    ? toggles help and headlines.\n" days-clause) 'face 'org-agenda-dimmed-todo-face))
+              (propertize (format "Search is done%s;    ? toggles help and headlines.\n" org-index--occur-days-clause) 'face 'org-agenda-dimmed-todo-face))
              (concat
               (org-index--wrap
                (propertize
                 (format
-                 (concat (format "Search is done%s." days-clause)
+                 (concat (format "Search is done%s." org-index--occur-days-clause)
                          (if (< lines-collected lines-wanted)
                              " Showing all %d matches for "
                            " Showing one window of matches for ")
-                         "\"" search-text
-                         "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count.\n" these-commands "\n")
+                         "\"" org-index--occur-search-text
+                         "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count.\n" org-index--usage-note "\n")
                  (length all-lines))
                 'face 'org-agenda-dimmed-todo-face))
               org-index--headings)))
@@ -3153,62 +3245,66 @@ If OTHER in separate window."
                                                                     (char-to-string c)))
                                                       (regexp-quote w)))
                              (regexp-quote w)) 'isearch)))
-            (cons word words))
+            org-index--occur-words)
       
-      (setq buffer-read-only t)
+      (setq buffer-read-only t)))
 
-      ;; install keyboard-shortcuts
-      (setq keymap (make-sparse-keymap))
-      (set-keymap-parent keymap org-mode-map)
 
-      (mapc (lambda (x) (define-key keymap (kbd x)
-                          (lambda () (interactive)
-                            (message "%s" (org-index--occur-action)))))
-            (list "<return>" "RET"))
+(defun org-index--occur-install-keyboard-shortcuts ()
+  "Install keyboard-shortcuts for result of occur buffer."
 
-      (define-key keymap (kbd "<tab>")
-        (lambda () (interactive)
-          (message (org-index--occur-action t))))
-      
-      (define-key keymap (kbd "e")
-        (lambda () (interactive)
-          (message (org-index-1 'edit))))
-      
-      (define-key keymap (kbd "SPC")
-        (lambda () (interactive)
+  (let (keymap)
+    (setq keymap (make-sparse-keymap))
+    (set-keymap-parent keymap org-mode-map)
+    
+    (mapc (lambda (x) (define-key keymap (kbd x)
+                   (lambda () (interactive)
+                     (message "%s" (org-index--occur-action)))))
+          (list "<return>" "RET"))
+    
+    (define-key keymap (kbd "<tab>")
+      (lambda () (interactive)
+        (message (org-index--occur-action t))))
+    
+    (define-key keymap (kbd "e")
+      (lambda () (interactive)
+        (message (org-index-1 'edit))))
+    
+    (define-key keymap (kbd "SPC")
+      (lambda () (interactive)
+        (org-index--refresh-parse-table)
+        ;; increment in index
+        (let ((ref (org-index--get-or-set-field 'ref))
+              count)
+          (org-index--on
+              'ref ref
+            (setq count (+ 1 (string-to-number (org-index--get-or-set-field 'count))))
+            (org-index--get-or-set-field 'count (number-to-string count))
+            (org-index--promote-current-line)
+            (org-index--align-and-fontify-current-line))
+          ;; increment in this buffer
+          (let ((inhibit-read-only t))
+            (org-index--get-or-set-field 'count (number-to-string count)))
+          (message "Incremented count to %d" count))))
+    
+    (define-key keymap (kbd "<S-return>")
+      (lambda () (interactive)
+        (let ((pos (get-text-property (point) 'org-index-lbp)))
           (org-index--refresh-parse-table)
-          ;; increment in index
-          (let ((ref (org-index--get-or-set-field 'ref))
-                count)
-            (org-index--on
-             'ref ref
-             (setq count (+ 1 (string-to-number (org-index--get-or-set-field 'count))))
-             (org-index--get-or-set-field 'count (number-to-string count))
-             (org-index--promote-current-line)
-             (org-index--align-and-fontify-current-line))
-            ;; increment in this buffer
-            (let ((inhibit-read-only t))
-              (org-index--get-or-set-field 'count (number-to-string count)))
-            (message "Incremented count to %d" count))))
-      
-      (define-key keymap (kbd "<S-return>")
-        (lambda () (interactive)
-          (let ((pos (get-text-property (point) 'org-index-lbp)))
-            (org-index--refresh-parse-table)
-            (org-index--occur-test-stale pos)
-            (pop-to-buffer org-index--buffer)
-            (goto-char pos)
-            (org-reveal t)
-            (org-index--update-current-line)
-            (beginning-of-line))))
+          (org-index--occur-test-stale pos)
+          (pop-to-buffer org-index--buffer)
+          (goto-char pos)
+          (org-reveal t)
+          (org-index--update-current-line)
+          (beginning-of-line))))
 
-      (define-key keymap (kbd "?")
-        (lambda () (interactive)
-          (org-index--refresh-parse-table)
-          (setq-local org-index--occur-help-text (cons (cdr org-index--occur-help-text) (car org-index--occur-help-text)))
-          (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text))))
-      
-      (use-local-map keymap))))
+    (define-key keymap (kbd "?")
+      (lambda () (interactive)
+        (org-index--refresh-parse-table)
+        (setq-local org-index--occur-help-text (cons (cdr org-index--occur-help-text) (car org-index--occur-help-text)))
+        (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text))))
+    
+    (use-local-map keymap)))
 
 
 (defun org-index--occur-end-of-visible ()
@@ -3228,19 +3324,6 @@ If OTHER in separate window."
       (setq there (org-index--line-in-canonical-form)))
     (unless (string= here there)
       (error "Occur buffer has become stale; please repeat search"))))
-
-
-(defun org-index--line-in-canonical-form ()
-  "Return current line in its canonical form."
-  (org-trim (substring-no-properties (replace-regexp-in-string "\s +" " " (buffer-substring (line-beginning-position) (line-beginning-position 2))))))
-
-
-(defun org-index--wrap (text)
-  "Wrap TEXT at fill column."
-  (with-temp-buffer
-    (insert text)
-    (fill-region (point-min) (point-max) nil t)
-    (buffer-string)))
 
 
 (defun org-index--occur-action (&optional other)
@@ -3377,58 +3460,6 @@ Argument DAYS hides older lines."
             (setq places (cons (cons (+ lbp index) (length word)) places))
           (throw 'not-found nil)))
       places)))
-
-
-(defun org-index--create-new-line ()
-  "Do the common work for `org-index-new-line' and `org-index'."
-
-  ;; insert ref or id as last or first line, depending on sort-column
-  (goto-char org-index--below-hline)
-  (if (eq org-index-sort-by 'count)
-      (progn
-        (goto-char (org-table-end))
-        (forward-line -1)
-        (org-table-insert-row t))
-    (org-table-insert-row))
-
-  ;; insert some of the standard values
-  (org-table-goto-column (org-index--column-num 'created))
-  (org-insert-time-stamp nil nil t)
-  (org-table-goto-column (org-index--column-num 'count))
-  (insert "1"))
-
-
-(defun org-index--sort-silent ()
-  "Sort index for default column to remove any effects of temporary sorting."
-  (unless org-index--inhibit-sort-idle
-    (save-excursion
-      (org-index--verify-id)
-      (org-index--parse-table)
-      (with-current-buffer org-index--buffer
-        (save-excursion
-          (goto-char org-index--below-hline)
-          (org-index--do-sort-index org-index-sort-by)
-          (remove-hook 'before-save-hook 'org-index--sort-silent))))))
-
-
-(defun org-index--idle-prepare ()
-  "For parsing table when idle."
-  (org-index--verify-id)
-  (org-index--parse-table most-positive-fixnum t))
-
-
-(defun org-index--copy-visible (beg end)
-  "Copy the visible parts of the region between BEG and END without adding it to `kill-ring'; copy of `org-copy-visible'."
-  (let (snippets s)
-    (save-excursion
-      (save-restriction
-	(narrow-to-region beg end)
-	(setq s (goto-char (point-min)))
-	(while (not (= (point) (point-max)))
-	  (goto-char (org-find-invisible))
-	  (push (buffer-substring s (point)) snippets)
-	  (setq s (goto-char (org-find-visible))))))
-    (apply 'concat (nreverse snippets))))
 
 
 (provide 'org-index)
