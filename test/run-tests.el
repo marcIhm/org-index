@@ -9,12 +9,12 @@
 
 (require 'org)
 (require 'org-index)
-(require 'oidx)
+(require 'oidxt)
 (require 'paredit)
 (autoload 'paredit-mode "paredit" "Minor mode for pseudo-structurally editing Lisp code." t)
 (add-hook 'emacs-lisp-mode-hook       (lambda () (paredit-mode +1) (hs-minor-mode)))
 
-(setq oidx-keep-test-state t)
+(setq oidxt-keep-test-state t)
 
 (setq org-id-locations-file "~\\.emacs.d\\.org-id-locations-for-test")
 (setq custom-theme-directory "c:/org/custom/themes")
