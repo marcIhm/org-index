@@ -81,6 +81,11 @@
 
 ;;; Code:
 
+;;
+;;  Please note, that this package uses two prefixes, `org-index' for user
+;;  visible symbols and `oidx' for internal stuff.
+;; 
+
 (require 'org-table)
 (require 'org-id)
 (require 'org-inlinetask)
@@ -115,9 +120,9 @@ mixed  First, show all index entries, which have been
   :set (lambda (s v)
          (custom-set-default s v)
          (if (and org-index-id
-                  org-index--buffer
-                  (functionp 'org-index--sort-silent))
-             (org-index--sort-silent)))
+                  oidx--buffer
+                  (functionp 'oidx--sort-silent))
+             (oidx--sort-silent)))
   :initialize 'custom-initialize-default
   :type '(choice
 	  (const last-accessed)
@@ -148,7 +153,7 @@ invocation of `org-index' needs a noticable amount of time."
   :set (lambda (var val)
          (custom-set-default var val)
          (when val
-           (run-with-idle-timer org-index-idle-delay nil 'org-index--idle-prepare)))
+           (run-with-idle-timer org-index-idle-delay nil 'oidx--idle-prepare)))
   :type 'boolean)
 
 (defcustom org-index-yank-after-add 'ref
@@ -215,64 +220,64 @@ those pieces."
   :type 'boolean)
 
 ;; Variables to hold the configuration of the index table
-(defvar org-index--head nil "Header before number (e.g. 'R').")
-(defvar org-index--tail nil "Tail after number (e.g. '}' or ')'.")
-(defvar org-index--numcols nil "Number of columns in index table.")
-(defvar org-index--ref-regex nil "Regular expression to match a reference.")
-(defvar org-index--ref-format nil "Format, that can print a reference.")
-(defvar org-index--columns nil "Columns of index-table.")
-(defvar org-index--buffer nil "Buffer of index table.")
-(defvar org-index--point nil "Position at start of headline of index table.")
-(defvar org-index--below-hline nil "Position of first cell in first line below hline.")
-(defvar org-index--saved-positions nil "Saved positions within current buffer and index buffer; filled by ‘org-index--save-positions’.")
-(defvar org-index--headings nil "Headlines of index-table as a string.")
-(defvar org-index--headings-visible nil "Visible part of headlines of index-table as a string.")
-(defvar org-index--ids-focused-nodes nil "Ids of focused node (if any).")
-(defvar org-index--ids-focused-nodes-saved nil "Backup for ‘org-index--ids-focused-nodes’.")
-(defvar org-index--id-last-goto-focus nil "Id of last node, that has been focused to.")
+(defvar oidx--head nil "Header before number (e.g. 'R').")
+(defvar oidx--tail nil "Tail after number (e.g. '}' or ')'.")
+(defvar oidx--numcols nil "Number of columns in index table.")
+(defvar oidx--ref-regex nil "Regular expression to match a reference.")
+(defvar oidx--ref-format nil "Format, that can print a reference.")
+(defvar oidx--columns nil "Columns of index-table.")
+(defvar oidx--buffer nil "Buffer of index table.")
+(defvar oidx--point nil "Position at start of headline of index table.")
+(defvar oidx--below-hline nil "Position of first cell in first line below hline.")
+(defvar oidx--saved-positions nil "Saved positions within current buffer and index buffer; filled by ‘oidx--save-positions’.")
+(defvar oidx--headings nil "Headlines of index-table as a string.")
+(defvar oidx--headings-visible nil "Visible part of headlines of index-table as a string.")
+(defvar oidx--ids-focused-nodes nil "Ids of focused node (if any).")
+(defvar oidx--ids-focused-nodes-saved nil "Backup for ‘oidx--ids-focused-nodes’.")
+(defvar oidx--id-last-goto-focus nil "Id of last node, that has been focused to.")
 
 ;; Variables to hold context and state
 ;; Variables for occur, see the respective section
-(defvar org-index--buffer nil "Buffer, that contains index.")
-(defvar org-index--last-fingerprint nil "Fingerprint of last line created.")
-(defvar org-index--category-before nil "Category of node before.")
-(defvar org-index--active-region nil "Active region, initially.  I.e. what has been marked.")
-(defvar org-index--below-cursor nil "Word below cursor.")
-(defvar org-index--within-index-node nil "True, if we are within node of the index table.")
-(defvar org-index--within-occur nil "True, if we are within the occur-buffer.")
-(defvar org-index--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
-(defvar org-index--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
-(defvar org-index--sort-timer nil "Timer to sort index in correct order.")
-(defvar org-index--inhibit-sort-idle nil "If set, index will not be sorted in idle background.")
-(defvar org-index--aligned 0 "For this Emacs session: remember number of table lines aligned.")
-(defvar org-index--align-interactive most-positive-fixnum "Number of rows to align in ‘org-index--parse-table’.")
-(defvar org-index--edit-widgets nil "List of widgets used to edit.")
-(defvar org-index--context-index nil "Position and line used for index in edit buffer.")
-(defvar org-index--context-occur nil "Position and line used for occur in edit buffer.")
-(defvar org-index--context-node nil "Buffer and position for node in edit buffer.")
-(defvar org-index--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
-(defvar org-index--news-buffer-name "*org-index news*" "Name of buffer to display news.")
-(defvar org-index--short-help-wanted nil "True, if short help should be displayed.")
-(defvar org-index--short-help-displayed nil "True, if short help message has been displayed.")
-(defvar org-index--prefix-arg nil "True, if prefix argument has been received during input.")
-(defvar org-index--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
-(defvar org-index--this-command nil "Subcommand, that is currently excecuted.")
-(defvar org-index--last-command nil "Subcommand, that hast been excecuted last.")
-(defvar org-index--last-focus-message nil "Last message issued by focus-command.")
-(defvar org-index--cancel-focus-wait-function nil "Function to call on timeout for focus commands.")
-(defvar org-index--focus-cancel-timer nil "Timer to cancel waiting for key.")
-(defvar org-index--focus-overlay nil "Overlay to display name of focus node.")
-(defvar org-index--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
+(defvar oidx--buffer nil "Buffer, that contains index.")
+(defvar oidx--last-fingerprint nil "Fingerprint of last line created.")
+(defvar oidx--category-before nil "Category of node before.")
+(defvar oidx--active-region nil "Active region, initially.  I.e. what has been marked.")
+(defvar oidx--below-cursor nil "Word below cursor.")
+(defvar oidx--within-index-node nil "True, if we are within node of the index table.")
+(defvar oidx--within-occur nil "True, if we are within the occur-buffer.")
+(defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
+(defvar oidx--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
+(defvar oidx--sort-timer nil "Timer to sort index in correct order.")
+(defvar oidx--inhibit-sort-idle nil "If set, index will not be sorted in idle background.")
+(defvar oidx--aligned 0 "For this Emacs session: remember number of table lines aligned.")
+(defvar oidx--align-interactive most-positive-fixnum "Number of rows to align in ‘oidx--parse-table’.")
+(defvar oidx--edit-widgets nil "List of widgets used to edit.")
+(defvar oidx--context-index nil "Position and line used for index in edit buffer.")
+(defvar oidx--context-occur nil "Position and line used for occur in edit buffer.")
+(defvar oidx--context-node nil "Buffer and position for node in edit buffer.")
+(defvar oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
+(defvar oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
+(defvar oidx--short-help-wanted nil "True, if short help should be displayed.")
+(defvar oidx--short-help-displayed nil "True, if short help message has been displayed.")
+(defvar oidx--prefix-arg nil "True, if prefix argument has been received during input.")
+(defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
+(defvar oidx--this-command nil "Subcommand, that is currently excecuted.")
+(defvar oidx--last-command nil "Subcommand, that hast been excecuted last.")
+(defvar oidx--last-focus-message nil "Last message issued by focus-command.")
+(defvar oidx--cancel-focus-wait-function nil "Function to call on timeout for focus commands.")
+(defvar oidx--focus-cancel-timer nil "Timer to cancel waiting for key.")
+(defvar oidx--focus-overlay nil "Overlay to display name of focus node.")
+(defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
-(defconst org-index--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
-(defconst org-index--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
-(defconst org-index--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
-(defvar org-index--short-help-text nil "Cache for result of `org-index--get-short-help-text.")
-(defvar org-index--shortcut-chars nil "Cache for result of `org-index--get-shortcut-chars.")
+(defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
+(defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
+(defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
+(defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
+(defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 
-(defmacro org-index--on (column value &rest body)
+(defmacro oidx--on (column value &rest body)
   "Execute the forms in BODY with point on index line whose COLUMN is VALUE.
 The value returned is the value of the last form in BODY or nil,
 if VALUE cannot be found."
@@ -285,9 +290,9 @@ if VALUE cannot be found."
              ,foundvar
              ,retvar)
 
-         (set-buffer org-index--buffer)
+         (set-buffer oidx--buffer)
 
-         (setq ,foundvar (org-index--go ,column ,value))
+         (setq ,foundvar (oidx--go ,column ,value))
          (when ,foundvar
            (setq ,retvar (progn ,@body)))
          
@@ -418,7 +423,7 @@ interactive calls."
     (interactive "P")
 
     (catch 'new-index
-      (org-index--verify-id)
+      (oidx--verify-id)
       (let (char command (c-u-text (if arg " C-u " "")))
         (while (not char)
           (if (sit-for 1)
@@ -433,16 +438,16 @@ interactive calls."
             (setq arg (or arg '(4)))
             (setq c-u-text " C-u ")
             (setq char nil)))
-        (setq command (cdr (assoc char (org-index--get-shortcut-chars))))
+        (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
         (unless command
           (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
             (setq command 'short-help)))
 
-        (let ((org-index--skip-verify-id t))
-          (org-index--do command nil arg)))))
+        (let ((oidx--skip-verify-id t))
+          (oidx--do command nil arg)))))
 
 
-(defun org-index--do (&optional command search-ref arg)
+(defun oidx--do (&optional command search-ref arg)
   "Does the work for `org-index', for arguments COMMAND, SEARCH-REF and ARG see there."
   (interactive "i\ni\nP")
 
@@ -460,13 +465,13 @@ interactive calls."
       ;;
 
       ;; creates index table, if necessary
-      (org-index--verify-id)
+      (oidx--verify-id)
 
       ;; Get configuration of index table
-      (org-index--parse-table org-index--align-interactive t)
+      (oidx--parse-table oidx--align-interactive t)
 
       ;; store context information
-      (org-index--retrieve-context)
+      (oidx--retrieve-context)
 
 
       ;;
@@ -474,11 +479,11 @@ interactive calls."
       ;;
 
       ;; lets assume, that it has been sorted this way (we try hard to make sure)
-      (unless org-index--last-sort-assumed (setq org-index--last-sort-assumed org-index-sort-by))
+      (unless oidx--last-sort-assumed (setq oidx--last-sort-assumed org-index-sort-by))
       ;; rearrange for index beeing sorted into default sort order after 300 secs of idle time
-      (unless org-index--sort-timer
-        (setq org-index--sort-timer
-              (run-with-idle-timer org-index-idle-delay t 'org-index--sort-silent)))
+      (unless oidx--sort-timer
+        (setq oidx--sort-timer
+              (run-with-idle-timer org-index-idle-delay t 'oidx--sort-silent)))
 
 
       ;;
@@ -487,18 +492,18 @@ interactive calls."
 
       ;; Check or read command
       (if (and command (not (eq command 'short-help)))
-          (unless (memq command org-index--commands)
+          (unless (memq command oidx--commands)
             (error "Unknown command '%s' passed as argument, valid choices are any of these symbols: %s"
-                   command (mapconcat 'symbol-name org-index--commands ",")))
+                   command (mapconcat 'symbol-name oidx--commands ",")))
         
         ;; read command; if requested display help in read-loop
-        (setq org-index--short-help-wanted (eq command 'short-help))
-        (setq command (org-index--read-command))
-	(if org-index--prefix-arg (setq arg (or arg '(4))))
-        (setq org-index--short-help-wanted nil))
+        (setq oidx--short-help-wanted (eq command 'short-help))
+        (setq command (oidx--read-command))
+	(if oidx--prefix-arg (setq arg (or arg '(4))))
+        (setq oidx--short-help-wanted nil))
 
-      (setq org-index--last-command org-index--this-command)
-      (setq org-index--this-command command)
+      (setq oidx--last-command oidx--this-command)
+      (setq oidx--this-command command)
 
 
       ;;
@@ -509,32 +514,32 @@ interactive calls."
       ;; Try prefix, if no lisp argument given
       (if (and (not search-ref)
                (numberp arg))
-          (setq search-ref (format "%s%d%s" org-index--head arg org-index--tail)))
+          (setq search-ref (format "%s%d%s" oidx--head arg oidx--tail)))
       
       ;; These actions really need a search string and may even prompt for it
       (when (memq command '(index head find-ref))
 
         ;; search from surrounding text ?
         (unless search-ref
-          (if org-index--within-index-node
+          (if oidx--within-index-node
 
               (if (org-at-table-p)
-                  (setq search-ref (org-index--get-or-set-field 'ref)))
+                  (setq search-ref (oidx--get-or-set-field 'ref)))
             
-            (if (and org-index--below-cursor
-                     (string-match (concat "\\(" org-index--ref-regex "\\)")
-                                   org-index--below-cursor))
-                (setq search-ref (match-string 1 org-index--below-cursor)))))
+            (if (and oidx--below-cursor
+                     (string-match (concat "\\(" oidx--ref-regex "\\)")
+                                   oidx--below-cursor))
+                (setq search-ref (match-string 1 oidx--below-cursor)))))
         
         ;; If we still do not have a search string, ask user explicitly
         (unless search-ref
           (if (eq command 'index)
-              (let ((r (org-index--read-search-for-command-index)))
+              (let ((r (oidx--read-search-for-command-index)))
                 (setq search-ref (cl-first r))
                 (setq search-id (cl-second r))
                 (setq search-fingerprint (cl-third r)))
             (unless (and (eq command 'head)
-                         org-index--within-index-node
+                         oidx--within-index-node
                          (org-at-table-p))
               (setq search-ref (read-from-minibuffer "Search reference number: ")))))
 
@@ -542,13 +547,13 @@ interactive calls."
         (when search-ref
           (setq search-ref (org-trim search-ref))
           (if (string-match "^[0-9]+$" search-ref)
-              (setq search-ref (concat org-index--head search-ref org-index--tail)))
+              (setq search-ref (concat oidx--head search-ref oidx--tail)))
           (if (string= search-ref "") (setq search-ref nil)))
 
         (if (and (not search-ref)
                  (not (eq command 'index))
                  (not (and (eq command 'head)
-                           org-index--within-index-node
+                           oidx--within-index-node
                            (org-at-table-p))))
             (error "Command %s needs a reference number" command)))
 
@@ -558,7 +563,7 @@ interactive calls."
       ;;
       
       (when (eq command 'sort)
-        (setq sort-what (intern (org-index--completing-read "You may sort:\n  - index  : your index table by various columns\n  - region : the active region by contained reference\n  - buffer : the whole current buffer\nPlease choose what to sort: " (list "index" "region" "buffer")))))
+        (setq sort-what (intern (oidx--completing-read "You may sort:\n  - index  : your index table by various columns\n  - region : the active region by contained reference\n  - buffer : the whole current buffer\nPlease choose what to sort: " (list "index" "region" "buffer")))))
       
       
       ;;
@@ -567,7 +572,7 @@ interactive calls."
 
       ;; Arrange for beeing able to return
       (when (and (memq command '(occur head index example sort maintain focus))
-                 (not (string= (buffer-name) org-index--occur-buffer-name)))
+                 (not (string= (buffer-name) oidx--occur-buffer-name)))
         (org-mark-ring-push))
 
       ;; These commands will leave user in index table after they are finished
@@ -575,9 +580,9 @@ interactive calls."
                 (and (eq command 'sort)
                      (eq sort-what 'index)))
 
-        (pop-to-buffer-same-window org-index--buffer)
-        (goto-char org-index--point)
-        (org-index--unfold-buffer))
+        (pop-to-buffer-same-window oidx--buffer)
+        (goto-char oidx--point)
+        (oidx--unfold-buffer))
 
 
       ;;
@@ -594,12 +599,12 @@ interactive calls."
        
        ((eq command 'short-help)
 
-        (org-index--display-short-help))
+        (oidx--display-short-help))
 
        
        ((eq command 'news)
         (with-current-buffer-window
-         org-index--news-buffer-name nil nil
+         oidx--news-buffer-name nil nil
          (insert (format "News for Version %s of org-index:\n"
                          (progn
                            (string-match "\\([0-9]+\\.[0-9]+\\)\\." org-index-version)
@@ -614,7 +619,7 @@ interactive calls."
 ")
          (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.\n")
          (org-mode))
-        (shrink-window-if-larger-than-buffer (get-buffer-window org-index--news-buffer-name)))
+        (shrink-window-if-larger-than-buffer (get-buffer-window oidx--news-buffer-name)))
        
 
        ((eq command 'find-ref)
@@ -627,7 +632,7 @@ interactive calls."
                 (setq org-buffers (cons buff org-buffers))))
 
           ;; Do multi-occur
-          (multi-occur org-buffers (org-index--make-guarded-search search-ref))
+          (multi-occur org-buffers (oidx--make-guarded-search search-ref))
 
           ;; Present results
           (if (get-buffer "*Occur*")
@@ -640,57 +645,57 @@ interactive calls."
 
        ((eq command 'add)
 
-        (let ((r (org-index--do-add-or-update (if (equal arg '(4)) t nil)
+        (let ((r (oidx--do-add-or-update (if (equal arg '(4)) t nil)
                                               (if (numberp arg) arg nil))))
           (setq message-text (car r))
           (setq kill-new-text (cdr r))))
 
 
        ((eq command 'kill)
-        (setq message-text (org-index--do-kill)))
+        (setq message-text (oidx--do-kill)))
 
 
        ((eq command 'head)
 
-        (if (and org-index--within-index-node
+        (if (and oidx--within-index-node
                  (org-at-table-p))
-            (setq search-id (org-index--get-or-set-field 'id)))
+            (setq search-id (oidx--get-or-set-field 'id)))
         
         (if (and (not search-id) search-ref)
-            (setq search-id (org-index--id-from-ref search-ref)))
+            (setq search-id (oidx--id-from-ref search-ref)))
         
         (setq message-text
               (if search-id
-                  (org-index--find-id search-id)
+                  (oidx--find-id search-id)
                 "Current line has no id")))
 
 
        ((eq command 'index)
 
-        (goto-char org-index--below-hline)
+        (goto-char oidx--below-hline)
 
         (setq message-text
 
               (if search-ref
-                  (if (org-index--go 'ref search-ref)
+                  (if (oidx--go 'ref search-ref)
                       (progn
-                        (org-index--update-current-line)
-                        (org-table-goto-column (org-index--column-num 'ref))
+                        (oidx--update-current-line)
+                        (org-table-goto-column (oidx--column-num 'ref))
                         (format "Found index line '%s'" search-ref))
                     (format "Did not find index line with reference '%s'" search-ref))
 
                 (if search-id
-                    (if (org-index--go 'id search-id)
+                    (if (oidx--go 'id search-id)
                         (progn
-                          (org-index--update-current-line)
-                          (org-table-goto-column (org-index--column-num 'ref))
-                          (format "Found index line '%s'" (org-index--get-or-set-field 'ref)))
+                          (oidx--update-current-line)
+                          (org-table-goto-column (oidx--column-num 'ref))
+                          (format "Found index line '%s'" (oidx--get-or-set-field 'ref)))
                       (format "Did not find index line with id '%s'" search-id))
 
                   (if search-fingerprint
-                      (if (org-index--go 'fingerprint org-index--last-fingerprint)
+                      (if (oidx--go 'fingerprint oidx--last-fingerprint)
                           (progn
-                            (org-index--update-current-line)
+                            (oidx--update-current-line)
                             (beginning-of-line)
                             (format "Found latest index line"))
                         (format "Did not find index line"))
@@ -708,7 +713,7 @@ interactive calls."
           (unless (string= major-mode "org-mode") (error "Not in org-mode"))
           ;; take id from current node or reference
           (setq id (if search-ref
-                       (org-index--id-from-ref search-ref)
+                       (oidx--id-from-ref search-ref)
                      (org-id-get)))
 
           ;; move up until we find a node in index
@@ -716,8 +721,8 @@ interactive calls."
             (org-with-limited-levels (org-back-to-heading))
             (while (not done)
               (if id
-                  (setq info (org-index--on 'id id
-                                            (mapcar (lambda (x) (org-index--get-or-set-field x))
+                  (setq info (oidx--on 'id id
+                                            (mapcar (lambda (x) (oidx--get-or-set-field x))
                                                     (list 'keywords 'count 'created 'last-accessed 'category 'ref)))))
 
               (setq reached-top (= (org-outline-level) 1))
@@ -743,18 +748,18 @@ interactive calls."
 
        ((eq command 'occur)
 
-        (set-buffer org-index--buffer)
-        (org-index--do-occur (if (numberp arg) arg nil)))
+        (set-buffer oidx--buffer)
+        (oidx--do-occur (if (numberp arg) arg nil)))
 
 
        ((eq command 'ref)
 
         (let (args newref)
 
-          (setq args (org-index--collect-values-from-user org-index-edit-on-ref))
-          (setq newref (org-index--get-save-maxref))
+          (setq args (oidx--collect-values-from-user org-index-edit-on-ref))
+          (setq newref (oidx--get-save-maxref))
           (setq args (plist-put args 'ref newref))
-          (apply 'org-index--do-new-line args)
+          (apply 'oidx--do-new-line args)
 
           (setq kill-new-text newref)
 
@@ -765,25 +770,25 @@ interactive calls."
 
         (let (args)
 
-          (setq args (org-index--collect-values-from-user org-index-edit-on-yank))
+          (setq args (oidx--collect-values-from-user org-index-edit-on-yank))
           (if (plist-get args 'yank)
               (plist-put args 'yank (replace-regexp-in-string "|" "\\vert" (plist-get args 'yank) nil 'literal)))
           (setq args (plist-put args 'category "yank"))
-          (apply 'org-index--do-new-line args)
+          (apply 'oidx--do-new-line args)
           
           (setq message-text "Added new row with text to yank")))
 
 
        ((eq command 'column)
 
-        (if (and org-index--within-index-node
+        (if (and oidx--within-index-node
                  (org-at-table-p))
             (let (char col num)
               (setq char (read-char "Please specify, which column to go to (r=ref, k=keywords, c=category, y=yank): "))
               (unless (memq char (list ?r ?k ?c ?y))
                 (error (format "Invalid char '%c', cannot goto this column" char)))
               (setq col (cdr (assoc char '((?r . ref) (?k . keywords) (?c . category) (?y . yank)))))
-              (setq num (org-index--column-num col))
+              (setq num (oidx--column-num col))
               (if num
                   (progn
                     (org-table-goto-column num)
@@ -795,7 +800,7 @@ interactive calls."
 
        ((eq command 'edit)
 
-        (setq message-text (org-index--do-edit)))
+        (setq message-text (oidx--do-edit)))
        
 
        ((eq command 'sort)
@@ -807,16 +812,16 @@ interactive calls."
            ((eq sort-what 'index)
             (setq sort
                   (intern
-                   (org-index--completing-read
+                   (oidx--completing-read
                     "Please choose column to sort index table: "
                     (cl-copy-list sorts)
                     (symbol-name org-index-sort-by))))
 
-            (org-index--do-sort-index sort)
-            (org-table-goto-column (org-index--column-num (if (eq sort 'mixed) 'last-access sort)))
+            (oidx--do-sort-index sort)
+            (org-table-goto-column (oidx--column-num (if (eq sort 'mixed) 'last-access sort)))
             ;; When saving index, it should again be sorted correctly
-            (with-current-buffer org-index--buffer
-              (add-hook 'before-save-hook 'org-index--sort-silent t))
+            (with-current-buffer oidx--buffer
+              (add-hook 'before-save-hook 'oidx--sort-silent t))
             
             (setq message-text
                   (format
@@ -832,7 +837,7 @@ interactive calls."
                    (cl-third groups-and-counts))))
 
            ((memq sort-what '(region buffer))
-            (org-index--do-sort-lines sort-what)
+            (oidx--do-sort-lines sort-what)
             (setq message-text (format "Sorted %s by contained references" sort-what))))))
 
 
@@ -848,28 +853,28 @@ interactive calls."
 
               (if arg
                   (progn
-                    (unhighlight-regexp org-index--ref-regex)
+                    (unhighlight-regexp oidx--ref-regex)
                     (setq message-text (format "Removed highlights for references in %s" where)))
-                (highlight-regexp org-index--ref-regex 'isearch)
+                (highlight-regexp oidx--ref-regex 'isearch)
                 (setq message-text (format "Highlighted references in %s" where)))))))
 
 
        ((eq command 'focus)
         (let ((mt (if arg
-                      (org-index--more-focus-commands)
-                    (setq org-index--last-focus-message nil)
-                    (org-index--goto-focus))))
+                      (oidx--more-focus-commands)
+                    (setq oidx--last-focus-message nil)
+                    (oidx--goto-focus))))
           (setq message-text (concat (upcase (substring mt 0 1)) (substring mt 1)))))
 
 
        ((eq command 'maintain)
-        (setq message-text (org-index--do-maintain)))
+        (setq message-text (oidx--do-maintain)))
 
        
        ((eq command 'example)
 
         (if (y-or-n-p "This assistant will help you to create a temporary index with detailed comments.\nDo you want to proceed ? ")
-            (org-index--create-index t)))
+            (oidx--create-index t)))
 
 
        ((not command) (setq message-text "No command given"))
@@ -890,7 +895,7 @@ interactive calls."
                 (if kill-new-text (format "eady to yank '%s'." kill-new-text) (if message-text "." "")))))
         (unless (string= m "")
           (message m)
-          (setq org-index--message-text m)))
+          (setq oidx--message-text m)))
       (if kill-new-text (kill-new kill-new-text)))))
 
 
@@ -912,76 +917,76 @@ Example:
 Optional argument KEYS-VALUES specifies content of new line."
 
   (let ((ref (plist-get keys-values 'ref)))
-    (org-index--verify-id)
-    (org-index--parse-table)
+    (oidx--verify-id)
+    (oidx--parse-table)
     (if (not (memq ref  '(t nil)))
         (error "Column 'ref' accepts only 't' or 'nil'"))
     (when ref
-      (setq ref (org-index--get-save-maxref))
+      (setq ref (oidx--get-save-maxref))
       (setq keys-values (plist-put keys-values 'ref ref)))
 
-    (apply 'org-index--do-new-line keys-values)
+    (apply 'oidx--do-new-line keys-values)
     ref))
 
 
 
 ;; Reading user input
-(defun org-index--read-command ()
+(defun oidx--read-command ()
   "Read subcommand for ‘org-index’ from minibuffer."
   (let (minibuffer-scroll-window
         command)
-    (setq org-index--short-help-displayed nil)
-    (setq org-index--prefix-arg nil)
-    (add-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
-    (add-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
+    (setq oidx--short-help-displayed nil)
+    (setq oidx--prefix-arg nil)
+    (add-hook 'minibuffer-setup-hook 'oidx--minibuffer-setup-function)
+    (add-hook 'minibuffer-exit-hook 'oidx--minibuffer-exit-function)
     (unwind-protect
         (setq command
               (completing-read
                (concat
                 "Please choose"
-                (if org-index--short-help-wanted "" " (<space> or ? for short help)")
+                (if oidx--short-help-wanted "" " (<space> or ? for short help)")
                 ": ")
-               (append (mapcar 'symbol-name org-index--commands)
-                       (mapcar 'upcase-initials (mapcar 'symbol-name org-index--commands)))))
-      (remove-hook 'minibuffer-setup-hook 'org-index--minibuffer-setup-function)
-      (remove-hook 'minibuffer-exit-hook 'org-index--minibuffer-exit-function)
+               (append (mapcar 'symbol-name oidx--commands)
+                       (mapcar 'upcase-initials (mapcar 'symbol-name oidx--commands)))))
+      (remove-hook 'minibuffer-setup-hook 'oidx--minibuffer-setup-function)
+      (remove-hook 'minibuffer-exit-hook 'oidx--minibuffer-exit-function)
       (when command
         (unless (string= command (downcase command))
           (setq command (downcase command))
-          (setq org-index--prefix-arg '(4)))
+          (setq oidx--prefix-arg '(4)))
         (setq command (intern command)))
-      (when org-index--short-help-displayed
-        (quit-windows-on org-index--short-help-buffer-name)))
+      (when oidx--short-help-displayed
+        (quit-windows-on oidx--short-help-buffer-name)))
     command))
 
 
-(defun org-index--minibuffer-setup-function ()
-  "Prepare minibuffer for `org-index--read-command'."
-  (setq org-index--minibuffer-saved-key (local-key-binding (kbd "?")))
-  (local-set-key (kbd "?") 'org-index--display-short-help)
+(defun oidx--minibuffer-setup-function ()
+  "Prepare minibuffer for `oidx--read-command'."
+  (setq oidx--minibuffer-saved-key (local-key-binding (kbd "?")))
+  (local-set-key (kbd "?") 'oidx--display-short-help)
   (local-set-key (kbd "C-u") (lambda () (interactive)
-			       (setq org-index--prefix-arg t)
+			       (setq oidx--prefix-arg t)
 			       (message "C-u")))
-  (if org-index--short-help-wanted (org-index--display-short-help)))
+  (if oidx--short-help-wanted (oidx--display-short-help)))
 
 
-(defun org-index--minibuffer-exit-function ()
-  "Restore minibuffer after `org-index--read-command'."
-  (local-set-key (kbd "?") org-index--minibuffer-saved-key)
+(defun oidx--minibuffer-exit-function ()
+  "Restore minibuffer after `oidx--read-command'."
+  (local-set-key (kbd "?") oidx--minibuffer-saved-key)
   (local-set-key (kbd "C-u") 'universal-argument)
-  (setq org-index--minibuffer-saved-key nil))
+  (setq oidx--minibuffer-saved-key nil))
 
 
-(defun org-index--display-short-help (&optional prompt choices)
+(defun oidx--display-short-help (&optional prompt choices)
   "Helper function to show help for minibuffer and PROMPT for CHOICES."
   (interactive)
 
   (with-temp-buffer-window
-   org-index--short-help-buffer-name nil nil
-   (setq org-index--short-help-displayed t)
+   oidx--short-help-buffer-name nil nil
+   (setq oidx--short-help-displayed t)
    (princ (or prompt "Short help; shortcuts in []; capital letter acts like C-u.\n"))
-   (princ (or choices (org-index--get-short-help-text))))
-  (with-current-buffer org-index--short-help-buffer-name
+   (princ (or choices (oidx--get-short-help-text))))
+  (with-current-buffer oidx--short-help-buffer-name
     (let ((inhibit-read-only t))
       (fit-window-to-buffer (get-buffer-window))
       (setq window-size-fixed 'height)
@@ -989,16 +994,16 @@ Optional argument KEYS-VALUES specifies content of new line."
       (end-of-line))))
 
 
-(defun org-index--get-short-help-text ()
+(defun oidx--get-short-help-text ()
   "Extract text for short help message from long help."
-  (or org-index--short-help-text
+  (or oidx--short-help-text
       (with-temp-buffer
         (insert (documentation 'org-index))
         (goto-char (point-min))
-        (search-forward (concat "  " (symbol-name (cl-first org-index--commands)) ": "))
+        (search-forward (concat "  " (symbol-name (cl-first oidx--commands)) ": "))
         (forward-line 0)
         (kill-region (point-min) (point))
-        (search-forward (concat "  " (symbol-name (car (last org-index--commands))) ": "))
+        (search-forward (concat "  " (symbol-name (car (last oidx--commands))) ": "))
         (forward-line 1)
         (kill-region (point) (point-max))
         (keep-lines "^  [-a-z]+:" (point-min) (point-max))
@@ -1011,29 +1016,29 @@ Optional argument KEYS-VALUES specifies content of new line."
         (end-of-line)
         (insert " (this text)")
         (goto-char (point-min))
-        (unless (= (line-number-at-pos (point-max)) (1+ (length org-index--commands)))
+        (unless (= (line-number-at-pos (point-max)) (1+ (length oidx--commands)))
           (error "Internal error, unable to properly extract one-line descriptions of subcommands"))
-        (setq org-index--short-help-text (buffer-string)))))
+        (setq oidx--short-help-text (buffer-string)))))
 
 
-(defun org-index--get-shortcut-chars ()
+(defun oidx--get-shortcut-chars ()
   "Collect shortcut chars from short help message."
-  (or org-index--shortcut-chars
+  (or oidx--shortcut-chars
       (with-temp-buffer
-        (insert (org-index--get-short-help-text))
+        (insert (oidx--get-short-help-text))
         (goto-char (point-min))
         (while (< (point) (point-max))
           (when (looking-at "^  \\([-a-z]+\\)[ \t]+: +\\[\\([a-z?]\\)\\] ")
-            (setq org-index--shortcut-chars
+            (setq oidx--shortcut-chars
                   (cons (cons (match-string 2) (intern (match-string 1)))
-                        org-index--shortcut-chars)))
+                        oidx--shortcut-chars)))
           (forward-line 1))
-        (unless (> (length org-index--shortcut-chars) 0)
+        (unless (> (length oidx--shortcut-chars) 0)
           (error "Internal error, did not find shortcut chars"))
-        org-index--shortcut-chars)))
+        oidx--shortcut-chars)))
 
 
-(defun org-index--completing-read (prompt choices &optional default)
+(defun oidx--completing-read (prompt choices &optional default)
   "Completing read, that displays multiline PROMPT in a windows and then asks for CHOICES with DEFAULT."
   (interactive)
   (let ((bname "*org-index explanation for input prompt*")
@@ -1065,7 +1070,7 @@ Optional argument KEYS-VALUES specifies content of new line."
     result))
 
 
-(defun org-index--read-search-for-command-index ()
+(defun oidx--read-search-for-command-index ()
   "Special input routine for command index."
 
   ;; Accept single char commands or switch to reading a sequence of digits
@@ -1084,76 +1089,76 @@ Optional argument KEYS-VALUES specifies content of new line."
         (setq search-ref (read-from-minibuffer "Search reference number: " (char-to-string char))))
     ;; decode single chars
     (if (memq char '(?\r ?\n ?.)) (setq search-id (org-id-get)))
-    (if (memq char '(?\d ?\b)) (setq search-fingerprint org-index--last-fingerprint))
+    (if (memq char '(?\d ?\b)) (setq search-fingerprint oidx--last-fingerprint))
     
     (list search-ref search-id search-fingerprint)))
 
 
 
 ;; Parse index and refs
-(defun org-index--ref-from-id (id)
+(defun oidx--ref-from-id (id)
   "Get reference from line ID."
-  (org-index--on 'id id (org-index--get-or-set-field 'ref)))
+  (oidx--on 'id id (oidx--get-or-set-field 'ref)))
 
 
-(defun org-index--id-from-ref (ref)
+(defun oidx--id-from-ref (ref)
   "Get id from line REF."
-  (org-index--on 'ref ref (org-index--get-or-set-field 'id)))
+  (oidx--on 'ref ref (oidx--get-or-set-field 'id)))
 
 
-(defun org-index--get-fingerprint ()
+(defun oidx--get-fingerprint ()
   "Get fingerprint of current line."
   (replace-regexp-in-string
    "\\s " ""
-   (mapconcat (lambda (x) (org-index--get-or-set-field x)) '(id ref yank keywords created) "")))
+   (mapconcat (lambda (x) (oidx--get-or-set-field x)) '(id ref yank keywords created) "")))
 
 
-(defun org-index--verify-id ()
+(defun oidx--verify-id ()
   "Check, that we have a valid id."
 
-  (unless org-index--skip-verify-id
+  (unless oidx--skip-verify-id
     ;; Check id
     (unless org-index-id
-      (let ((answer (org-index--completing-read "Cannot find an index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") "read-help")))
+      (let ((answer (oidx--completing-read "Cannot find an index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") "read-help")))
         (if (string= answer "create-index")
-            (org-index--create-missing-index "Variable org-index-id is not set, so probably no index table has been created yet.")
+            (oidx--create-missing-index "Variable org-index-id is not set, so probably no index table has been created yet.")
           (describe-function 'org-index)
           (throw 'new-index nil))))
 
     ;; Find node
     (let (marker)
       (setq marker (org-id-find org-index-id 'marker))
-      (unless marker (org-index--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))
+      (unless marker (oidx--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))
                                                   ; Try again with new node
       (setq marker (org-id-find org-index-id 'marker))
       (unless marker (error "Could not create node"))
-      (setq org-index--buffer (marker-buffer marker)
-            org-index--point (marker-position marker))
+      (setq oidx--buffer (marker-buffer marker)
+            oidx--point (marker-position marker))
       (move-marker marker nil))))
 
 
-(defun org-index--retrieve-context ()
+(defun oidx--retrieve-context ()
   "Collect context information before starting with command."
 
   ;; Get the content of the active region or the word under cursor
-  (setq org-index--active-region
+  (setq oidx--active-region
         (if (and transient-mark-mode mark-active)
             (buffer-substring (region-beginning) (region-end))
           nil))
-  (setq org-index--below-cursor (thing-at-point 'symbol))
+  (setq oidx--below-cursor (thing-at-point 'symbol))
 
   ;; get category of current node
-  (setq org-index--category-before
+  (setq oidx--category-before
         (save-excursion ; workaround: org-get-category does not give category when at end of buffer
           (beginning-of-line)
           (org-get-category (point) t)))
 
   ;; Find out, if we are within index table or occur buffer
-  (setq org-index--within-index-node (string= (org-id-get) org-index-id))
-  (setq org-index--within-occur (string= (buffer-name) org-index--occur-buffer-name)))
+  (setq oidx--within-index-node (string= (org-id-get) org-index-id))
+  (setq oidx--within-occur (string= (buffer-name) oidx--occur-buffer-name)))
 
 
-(defun org-index--parse-table (&optional num-lines-to-format check-sort-mixed)
+(defun oidx--parse-table (&optional num-lines-to-format check-sort-mixed)
   "Parse content of index table.
 Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration.
 Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
@@ -1165,30 +1170,30 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
     (unless num-lines-to-format (setq num-lines-to-format 0))
 
-    (with-current-buffer org-index--buffer
+    (with-current-buffer oidx--buffer
 
       (setq initial-point (point))
 
-      (org-index--go-below-hline)
+      (oidx--go-below-hline)
       (org-reveal)
 
       ;; if table is sorted mixed and it was sorted correctly yesterday, it could still be wrong today; so check
       (when (and check-sort-mixed (eq org-index-sort-by 'mixed))
-        (goto-char org-index--below-hline)
+        (goto-char oidx--below-hline)
         (let (count-first-line count-second-line)
-          (setq count-first-line (string-to-number (concat (org-index--get-or-set-field 'count) " 0")))
+          (setq count-first-line (string-to-number (concat (oidx--get-or-set-field 'count) " 0")))
           (forward-line)
-          (setq count-second-line (string-to-number (concat (org-index--get-or-set-field 'count) " 0")))
+          (setq count-second-line (string-to-number (concat (oidx--get-or-set-field 'count) " 0")))
           (forward-line -1)
-          (if (and (string< (org-index--get-or-set-field 'last-accessed)
-                            (org-index--get-mixed-time))
+          (if (and (string< (oidx--get-or-set-field 'last-accessed)
+                            (oidx--get-mixed-time))
                    (< count-first-line count-second-line))
-              (org-index--do-sort-index org-index-sort-by)))
-        (org-index--go-below-hline))
+              (oidx--do-sort-index org-index-sort-by)))
+        (oidx--go-below-hline))
 
       ;; align and fontify table once for this emacs session
-      (when (> num-lines-to-format org-index--aligned)
-        (org-index--go-below-hline)
+      (when (> num-lines-to-format oidx--aligned)
+        (oidx--go-below-hline)
         (message "Aligning and fontifying %s lines of index table (once per emacs session)..."
                  (if (= num-lines-to-format most-positive-fixnum) "all" (format "%d" num-lines-to-format)))
         (save-restriction
@@ -1200,12 +1205,12 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
               (forward-line (+ 3 num-lines-to-format))
               (narrow-to-region from (point))
               (setq to (min (point) to)))
-            (goto-char org-index--below-hline)
+            (goto-char oidx--below-hline)
             (org-table-align)
             (setq to (min (point-max) to))
             (font-lock-fontify-region from to)))
-        (setq org-index--aligned num-lines-to-format)
-        (org-index--go-below-hline)
+        (setq oidx--aligned num-lines-to-format)
+        (oidx--go-below-hline)
         (message "Done."))
 
       (beginning-of-line)
@@ -1214,115 +1219,115 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
       (setq end-of-headings (point))
       (goto-char (org-table-begin))
       (setq start-of-headings (point))
-      (setq org-index--headings-visible (substring-no-properties (org-index--copy-visible start-of-headings end-of-headings)))
-      (setq org-index--headings (buffer-substring start-of-headings end-of-headings))
+      (setq oidx--headings-visible (substring-no-properties (oidx--copy-visible start-of-headings end-of-headings)))
+      (setq oidx--headings (buffer-substring start-of-headings end-of-headings))
       
       ;; count columns
       (org-table-goto-column 100)
-      (setq org-index--numcols (- (org-table-current-column) 1))
+      (setq oidx--numcols (- (org-table-current-column) 1))
       
       ;; go to top of table
       (goto-char (org-table-begin))
       
       ;; parse line of headings
-      (org-index--parse-headings)
+      (oidx--parse-headings)
 
       ;; read property or go through table to find maximum number
-      (goto-char org-index--below-hline)
-      (setq max-ref-field (or (org-entry-get org-index--point "max-ref")
-                              (org-index--migrate-maxref-to-property)))
+      (goto-char oidx--below-hline)
+      (setq max-ref-field (or (org-entry-get oidx--point "max-ref")
+                              (oidx--migrate-maxref-to-property)))
       
-      (unless org-index--head (org-index--get-decoration-from-ref-field max-ref-field))
+      (unless oidx--head (oidx--get-decoration-from-ref-field max-ref-field))
       
       ;; Get ids of focused node (if any)
-      (setq org-index--ids-focused-nodes (split-string (or (org-entry-get nil "ids-focused-nodes") "")))
+      (setq oidx--ids-focused-nodes (split-string (or (org-entry-get nil "ids-focused-nodes") "")))
       (org-entry-delete (point) "id-focused-node") ; migrate (kind of) from previous versions
 
       ;; save position below hline
-      (org-index--go-below-hline)
+      (oidx--go-below-hline)
       ;; go back to initial position
       (goto-char initial-point))))
 
 
-(defun org-index--get-decoration-from-ref-field (ref-field)
+(defun oidx--get-decoration-from-ref-field (ref-field)
   "Extract decoration from a REF-FIELD."
   (unless (string-match "^\\([^0-9]*\\)\\([0-9]+\\)\\([^0-9]*\\)$" ref-field)
-    (org-index--report-index-error
+    (oidx--report-index-error
      "Reference in index table ('%s') does not contain a number" ref-field))
   
   ;; These are the decorations used within the first ref of index
-  (setq org-index--head (match-string 1 ref-field))
-  (setq org-index--tail (match-string 3 ref-field))
-  (setq org-index--ref-regex (concat (regexp-quote org-index--head)
+  (setq oidx--head (match-string 1 ref-field))
+  (setq oidx--tail (match-string 3 ref-field))
+  (setq oidx--ref-regex (concat (regexp-quote oidx--head)
                                      "\\([0-9]+\\)"
-                                     (regexp-quote org-index--tail)))
-  (setq org-index--ref-format (concat org-index--head "%d" org-index--tail)))
+                                     (regexp-quote oidx--tail)))
+  (setq oidx--ref-format (concat oidx--head "%d" oidx--tail)))
 
 
-(defun org-index--extract-refnum (ref-field)
+(defun oidx--extract-refnum (ref-field)
   "Extract the number from a complete reference REF-FIELD like 'R102'."
-  (unless (string-match org-index--ref-regex ref-field)
-    (org-index--report-index-error
-     "Reference '%s' is not formatted properly (does not match '%s')" ref-field org-index--ref-regex))
+  (unless (string-match oidx--ref-regex ref-field)
+    (oidx--report-index-error
+     "Reference '%s' is not formatted properly (does not match '%s')" ref-field oidx--ref-regex))
   (string-to-number (match-string 1 ref-field)))
 
 
-(defun org-index--parse-headings ()
+(defun oidx--parse-headings ()
   "Parse headings of index table."
 
   (let (field         ;; field content
         field-symbol) ;; and as a symbol
 
-    (setq org-index--columns nil)
+    (setq oidx--columns nil)
 
     ;; For each column
-    (dotimes (col org-index--numcols)
+    (dotimes (col oidx--numcols)
 
       (setq field (substring-no-properties (downcase (org-trim (org-table-get-field (+ col 1))))))
 
       (if (string= field "")
           (error "Heading of column cannot be empty"))
       (if (and (not (string= (substring field 0 1) "."))
-               (not (member (intern field) org-index--valid-headings)))
+               (not (member (intern field) oidx--valid-headings)))
           (error "Column name '%s' is not a valid heading (custom headings may start with a dot, e.g. '.foo')" field))
 
       (setq field-symbol (intern field))
 
       ;; check if heading has already appeared
-      (if (assoc field-symbol org-index--columns)
-          (org-index--report-index-error
+      (if (assoc field-symbol oidx--columns)
+          (oidx--report-index-error
            "'%s' appears two times as column heading" (downcase field))
         ;; add it to list at front, reverse later
-        (setq org-index--columns (cons (cons field-symbol (+ col 1)) org-index--columns)))))
+        (setq oidx--columns (cons (cons field-symbol (+ col 1)) oidx--columns)))))
 
-  (setq org-index--columns (reverse org-index--columns))
+  (setq oidx--columns (reverse oidx--columns))
 
   ;; check if all necessary headings have appeared
   (mapc (lambda (head)
-          (unless (cdr (assoc head org-index--columns))
-            (org-index--report-index-error "No column has heading '%s'" head)))
-        org-index--valid-headings))
+          (unless (cdr (assoc head oidx--columns))
+            (oidx--report-index-error "No column has heading '%s'" head)))
+        oidx--valid-headings))
 
 
-(defun org-index--refresh-parse-table ()
+(defun oidx--refresh-parse-table ()
   "Fast refresh of selected results of parsing index table."
 
-  (setq org-index--point (marker-position (org-id-find org-index-id 'marker)))
-  (with-current-buffer org-index--buffer
+  (setq oidx--point (marker-position (org-id-find org-index-id 'marker)))
+  (with-current-buffer oidx--buffer
     (save-excursion
-      (org-index--go-below-hline))))
+      (oidx--go-below-hline))))
 
 
-(defun org-index--verify-ids ()
+(defun oidx--verify-ids ()
   "Check, that ids really point to a node."
   
   (let ((marker t) id)
     
-    (goto-char org-index--below-hline)
+    (goto-char oidx--below-hline)
     
     (while (and marker (org-at-table-p))
       
-      (when (setq id (org-index--get-or-set-field 'id))
+      (when (setq id (oidx--get-or-set-field 'id))
         
         ;; check, if id is valid
         (setq marker (org-id-find id t)))
@@ -1331,7 +1336,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
     
     (if marker
         (progn
-          (goto-char org-index--below-hline)
+          (goto-char oidx--below-hline)
           "All ids of index are valid")
       (org-table-goto-column 1)
       "The id of this row cannot be found; please fix and check again for rest of index")))
@@ -1339,35 +1344,35 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
 
 ; Edit, add or kill lines
-(defun org-index--do-edit ()
+(defun oidx--do-edit ()
   "Perform command edit."
   (let ((maxlen 0) cols-vals buffer-keymap field-keymap keywords-pos val)
 
-    (setq org-index--context-node nil)
-    (setq org-index--context-occur nil)
+    (setq oidx--context-node nil)
+    (setq oidx--context-occur nil)
     
     ;; change to index, if whithin occur
-    (if org-index--within-occur
+    (if oidx--within-occur
         (let ((pos (get-text-property (point) 'org-index-lbp)))
-          (org-index--occur-test-stale pos)
-          (setq org-index--context-occur (cons (point) (org-index--line-in-canonical-form)))
-          (set-buffer org-index--buffer)
+          (oidx--occur-test-stale pos)
+          (setq oidx--context-occur (cons (point) (oidx--line-in-canonical-form)))
+          (set-buffer oidx--buffer)
           (goto-char pos))
       
       ;; change to index, if still not within
-      (if (not org-index--within-index-node)
+      (if (not oidx--within-index-node)
           (let ((id (org-id-get)))
-            (setq org-index--context-node (cons (current-buffer) (point)))
-            (set-buffer org-index--buffer)
-            (unless (and id (org-index--go 'id id))
-              (setq org-index--context-node nil)
+            (setq oidx--context-node (cons (current-buffer) (point)))
+            (set-buffer oidx--buffer)
+            (unless (and id (oidx--go 'id id))
+              (setq oidx--context-node nil)
               (error "This node is not in index")))))
     
     ;; retrieve current content of index line
-    (dolist (col (mapcar 'car (reverse org-index--columns)))
+    (dolist (col (mapcar 'car (reverse oidx--columns)))
       (if (> (length (symbol-name col)) maxlen)
           (setq maxlen (length (symbol-name col))))
-      (setq val (org-index--get-or-set-field col))
+      (setq val (oidx--get-or-set-field col))
       (if (and val (eq col 'yank)) (setq val (replace-regexp-in-string (regexp-quote "\\vert") "|" val nil 'literal)))
       (setq cols-vals (cons (cons col val)
                             cols-vals)))
@@ -1375,122 +1380,122 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
     ;; we need two different keymaps
     (setq buffer-keymap (make-sparse-keymap))
     (set-keymap-parent buffer-keymap widget-keymap)
-    (define-key buffer-keymap (kbd "C-c C-c") 'org-index--edit-accept)
-    (define-key buffer-keymap (kbd "C-c C-k") 'org-index--edit-abort)
+    (define-key buffer-keymap (kbd "C-c C-c") 'oidx--edit-accept)
+    (define-key buffer-keymap (kbd "C-c C-k") 'oidx--edit-abort)
     
     (setq field-keymap (make-sparse-keymap))
     (set-keymap-parent field-keymap widget-field-keymap)
-    (define-key field-keymap (kbd "C-c C-c") 'org-index--edit-accept)
-    (define-key field-keymap (kbd "C-c C-k") 'org-index--edit-abort)
+    (define-key field-keymap (kbd "C-c C-c") 'oidx--edit-accept)
+    (define-key field-keymap (kbd "C-c C-k") 'oidx--edit-abort)
 
     ;; prepare buffer
-    (setq org-index--context-index (cons (point) (org-index--line-in-canonical-form)))
-    (if (get-buffer org-index--edit-buffer-name) (kill-buffer org-index--edit-buffer-name))
-    (switch-to-buffer (get-buffer-create org-index--edit-buffer-name))
+    (setq oidx--context-index (cons (point) (oidx--line-in-canonical-form)))
+    (if (get-buffer oidx--edit-buffer-name) (kill-buffer oidx--edit-buffer-name))
+    (switch-to-buffer (get-buffer-create oidx--edit-buffer-name))
 
     ;; create and fill widgets
-    (setq org-index--edit-widgets nil)
+    (setq oidx--edit-widgets nil)
     (widget-insert "Edit this line from index; type C-c C-c when done, C-c C-k to abort.\n\n")
     (dolist (col-val cols-vals)
       (if (eq (car col-val) 'keywords) (setq keywords-pos (point)))
-      (setq org-index--edit-widgets (cons
+      (setq oidx--edit-widgets (cons
                                      (cons (car col-val)
                                            (widget-create 'editable-field
                                                           :format (format  (format "%%%ds: %%%%v" maxlen) (symbol-name (car col-val)))
                                                           :keymap field-keymap
                                                           (or (cdr col-val) "")))
-                                     org-index--edit-widgets)))
+                                     oidx--edit-widgets)))
 
     (widget-setup)
     (goto-char keywords-pos)
     (beginning-of-line)
     (forward-char (+  maxlen 2))
     (use-local-map buffer-keymap)
-    (setq org-index--inhibit-sort-idle t)
+    (setq oidx--inhibit-sort-idle t)
     "Editing a single line from index"))
 
 
-(defun org-index--edit-accept ()
+(defun oidx--edit-accept ()
   "Function to accept editing in Edit buffer."
   (interactive)
 
-  (let ((obuf (get-buffer org-index--occur-buffer-name))
+  (let ((obuf (get-buffer oidx--occur-buffer-name))
         val line)
     
     ;; Time might have passed
-    (org-index--refresh-parse-table)
+    (oidx--refresh-parse-table)
 
-    (with-current-buffer org-index--buffer
+    (with-current-buffer oidx--buffer
       
       ;; check, if buffer has become stale
       (save-excursion
-        (goto-char (car org-index--context-index))
-        (unless (string= (cdr org-index--context-index)
-                         (org-index--line-in-canonical-form))
-          (switch-to-buffer org-index--edit-buffer-name)
+        (goto-char (car oidx--context-index))
+        (unless (string= (cdr oidx--context-index)
+                         (oidx--line-in-canonical-form))
+          (switch-to-buffer oidx--edit-buffer-name)
           (error "Index table has changed: Cannot find line, that this buffer is editing")))
 
-      (pop-to-buffer-same-window org-index--buffer)
-      (goto-char (car org-index--context-index))
+      (pop-to-buffer-same-window oidx--buffer)
+      (goto-char (car oidx--context-index))
 
       ;; write back line to index
-      (dolist (col-widget org-index--edit-widgets)
+      (dolist (col-widget oidx--edit-widgets)
         (setq val (widget-value (cdr col-widget)))
         (if (eq (car col-widget) 'yank) (setq val (replace-regexp-in-string "|" (regexp-quote "\\vert") val)))
-        (org-index--get-or-set-field (car col-widget) val))
+        (oidx--get-or-set-field (car col-widget) val))
 
-      (setq line (org-index--align-and-fontify-current-line))
+      (setq line (oidx--align-and-fontify-current-line))
       (beginning-of-line))
 
     ;; write line to occur if appropriate
-    (if org-index--context-occur
+    (if oidx--context-occur
         (if obuf
-            (if (string= (cdr org-index--context-index)
-                         (cdr org-index--context-occur))
+            (if (string= (cdr oidx--context-index)
+                         (cdr oidx--context-occur))
                 (progn
                   (pop-to-buffer-same-window obuf)
-                  (goto-char (car org-index--context-occur))
+                  (goto-char (car oidx--context-occur))
                   (beginning-of-line)
                   (let ((inhibit-read-only t))
                     (delete-region (line-beginning-position) (line-end-position))
                     (insert line)
                     (put-text-property (line-beginning-position) (line-end-position)
-                                       'org-index-lbp (car org-index--context-index))))
+                                       'org-index-lbp (car oidx--context-index))))
               (error "Occur buffer and index buffer do not match any longer"))
           (message "Occur buffer has gone, cannot switch back."))
-      (setq org-index--context-occur nil))
+      (setq oidx--context-occur nil))
 
     ;; return to node, if invoked from there
-    (when org-index--context-node
-      (pop-to-buffer-same-window (car org-index--context-node))
-      (goto-char (cdr org-index--context-node)))
+    (when oidx--context-node
+      (pop-to-buffer-same-window (car oidx--context-node))
+      (goto-char (cdr oidx--context-node)))
 
     ;; clean up
-    (kill-buffer org-index--edit-buffer-name)
-    (setq org-index--inhibit-sort-idle nil)
-    (setq org-index--context-index nil)
-    (setq org-index--edit-widgets nil)
+    (kill-buffer oidx--edit-buffer-name)
+    (setq oidx--inhibit-sort-idle nil)
+    (setq oidx--context-index nil)
+    (setq oidx--edit-widgets nil)
     (beginning-of-line)
     (message "Index line has been edited.")))
 
 
-(defun org-index--edit-abort ()
+(defun oidx--edit-abort ()
   "Function to abort editing in Edit buffer."
   (interactive)
-  (kill-buffer org-index--edit-buffer-name)
-  (setq org-index--context-index nil)
-  (setq org-index--edit-widgets nil)
+  (kill-buffer oidx--edit-buffer-name)
+  (setq oidx--context-index nil)
+  (setq oidx--edit-widgets nil)
   (beginning-of-line)
   (message "Edit aborted."))
 
 
-(defun org-index--do-new-line (&rest keys-values)
+(defun oidx--do-new-line (&rest keys-values)
   "Do the work for `org-index-new-line'.
 Optional argument KEYS-VALUES specifies content of new line."
 
-  (org-index--retrieve-context)
-  (with-current-buffer org-index--buffer
-    (goto-char org-index--point)
+  (oidx--retrieve-context)
+  (with-current-buffer oidx--buffer
+    (goto-char oidx--point)
 
     ;; check arguments early; they might come from userland
     (let ((kvs keys-values)
@@ -1501,13 +1506,13 @@ Optional argument KEYS-VALUES specifies content of new line."
         (if (or (not (symbolp k))
                 (and (symbolp v) (not (eq v t)) (not (eq v nil))))
             (error "Arguments must be alternation of key and value"))
-        (unless (org-index--column-num k)
+        (unless (oidx--column-num k)
           (error "Unknown column or column not defined in table: '%s'" (symbol-name k)))
         (setq kvs (cddr kvs))))
 
     (let (yank)
       ;; create new line
-      (org-index--create-new-line)
+      (oidx--create-new-line)
 
       ;; fill columns
       (let ((kvs keys-values)
@@ -1515,28 +1520,28 @@ Optional argument KEYS-VALUES specifies content of new line."
         (while kvs
           (setq k (car kvs))
           (setq v (cadr kvs))
-          (org-table-goto-column (org-index--column-num k))
+          (org-table-goto-column (oidx--column-num k))
           (insert (org-trim (or v "")))
           (setq kvs (cddr kvs))))
 
       ;; align and fontify line
-      (org-index--promote-current-line)
-      (org-index--align-and-fontify-current-line)
+      (oidx--promote-current-line)
+      (oidx--align-and-fontify-current-line)
 
       ;; remember fingerprint to be able to return
-      (setq org-index--last-fingerprint (org-index--get-or-set-field 'fingerprint))
+      (setq oidx--last-fingerprint (oidx--get-or-set-field 'fingerprint))
       
       ;; get column to yank
-      (setq yank (org-index--get-or-set-field org-index-yank-after-add))
+      (setq yank (oidx--get-or-set-field org-index-yank-after-add))
 
       yank)))
 
 
-(defun org-index--create-new-line ()
+(defun oidx--create-new-line ()
   "Do the common work for `org-index-new-line' and `org-index'."
 
   ;; insert ref or id as last or first line, depending on sort-column
-  (goto-char org-index--below-hline)
+  (goto-char oidx--below-hline)
   (if (eq org-index-sort-by 'count)
       (progn
         (goto-char (org-table-end))
@@ -1545,19 +1550,19 @@ Optional argument KEYS-VALUES specifies content of new line."
     (org-table-insert-row))
 
   ;; insert some of the standard values
-  (org-table-goto-column (org-index--column-num 'created))
+  (org-table-goto-column (oidx--column-num 'created))
   (org-insert-time-stamp nil nil t)
-  (org-table-goto-column (org-index--column-num 'count))
+  (org-table-goto-column (oidx--column-num 'count))
   (insert "1"))
 
 
-(defun org-index--collect-values-for-add-update (id &optional silent category)
+(defun oidx--collect-values-for-add-update (id &optional silent category)
   "Collect values for adding or updating line specified by ID, do not ask if SILENT, use CATEGORY, if given."
   
   (let ((args (list 'id id))
         content)
     
-    (dolist (col (mapcar 'car org-index--columns))
+    (dolist (col (mapcar 'car oidx--columns))
       
       (setq content "")
 
@@ -1569,12 +1574,12 @@ Optional argument KEYS-VALUES specifies content of new line."
         ;; Shift ref and timestamp ?
         (if org-index-strip-ref-and-date-from-heading
             (dotimes (_i 2)
-              (if (or (string-match (concat "^\\s-*" org-index--ref-regex) content)
+              (if (or (string-match (concat "^\\s-*" oidx--ref-regex) content)
                       (string-match (concat "^\\s-*" org-ts-regexp-both) content))
                   (setq content (substring content (match-end 0)))))))
        
        ((eq col 'category)
-        (setq content (or category org-index--category-before)))
+        (setq content (or category oidx--category-before)))
        
        ((eq col 'level)
         (setq content (number-to-string (org-outline-level))))
@@ -1586,14 +1591,14 @@ Optional argument KEYS-VALUES specifies content of new line."
         (setq args (plist-put args col content))))
 
     (if (not silent)
-        (let ((args-edited (org-index--collect-values-from-user org-index-edit-on-add args)))
+        (let ((args-edited (oidx--collect-values-from-user org-index-edit-on-add args)))
           (setq args (append args-edited args))))
 
     args))
 
 
-(defun org-index--collect-values-for-add-update-remote (id)
-  "Wrap `org-index--collect-values-for-add-update' by prior moving to remote node identified by ID."
+(defun oidx--collect-values-for-add-update-remote (id)
+  "Wrap `oidx--collect-values-for-add-update' by prior moving to remote node identified by ID."
   
   (let (marker point args)
 
@@ -1602,13 +1607,13 @@ Optional argument KEYS-VALUES specifies content of new line."
     (with-current-buffer (marker-buffer marker)
       (setq point (point))
       (goto-char marker)
-      (setq args (org-index--collect-values-for-add-update id t (org-get-category (point) t)))
+      (setq args (oidx--collect-values-for-add-update id t (org-get-category (point) t)))
       (goto-char point))
 
     args))
 
 
-(defun org-index--collect-values-from-user (cols &optional defaults)
+(defun oidx--collect-values-from-user (cols &optional defaults)
   "Collect values for adding a new line.
 Argument COLS gives list of columns to edit.
 Optional argument DEFAULTS gives default values."
@@ -1628,36 +1633,36 @@ Optional argument DEFAULTS gives default values."
     args))
 
 
-(defun org-index--write-fields (kvs)
+(defun oidx--write-fields (kvs)
   "Update current line with values from KVS (keys-values)."
   (while kvs
-    (org-index--get-or-set-field (car kvs) (org-trim (cadr kvs)))
+    (oidx--get-or-set-field (car kvs) (org-trim (cadr kvs)))
     (setq kvs (cddr kvs))))
 
 
-(defun org-index--do-add-or-update (&optional create-ref tag-with-ref)
+(defun oidx--do-add-or-update (&optional create-ref tag-with-ref)
   "For current node or current line in index, add or update in index table.
 CREATE-REF and TAG-WITH-REF if given."
 
   (let* (id id-from-index ref args yank ret)
 
-    (org-index--save-positions)
-    (unless (or org-index--within-index-node
-                org-index--within-occur)
+    (oidx--save-positions)
+    (unless (or oidx--within-index-node
+                oidx--within-occur)
       (org-with-limited-levels (org-back-to-heading)))
     
     ;; try to do the same things from within index and from outside
-    (if org-index--within-index-node
+    (if oidx--within-index-node
 
         (progn
           (unless (org-at-table-p)
             (error "Within index node but not on table"))
 
-          (setq id (org-index--get-or-set-field 'id))
-          (setq ref (org-index--get-or-set-field 'ref))
-          (setq args (org-index--collect-values-for-add-update-remote id))
-          (org-index--write-fields args)
-          (setq yank (org-index--get-or-set-field org-index-yank-after-add))
+          (setq id (oidx--get-or-set-field 'id))
+          (setq ref (oidx--get-or-set-field 'ref))
+          (setq args (oidx--collect-values-for-add-update-remote id))
+          (oidx--write-fields args)
+          (setq yank (oidx--get-or-set-field org-index-yank-after-add))
 
           (setq ret
                 (if ref
@@ -1665,17 +1670,17 @@ CREATE-REF and TAG-WITH-REF if given."
                   (cons "Updated index line" nil))))
 
       (setq id (org-id-get-create))
-      (org-index--refresh-parse-table)
-      (setq id-from-index (org-index--on 'id id id))
-      (setq ref (org-index--on 'id id (org-index--get-or-set-field 'ref)))
+      (oidx--refresh-parse-table)
+      (setq id-from-index (oidx--on 'id id id))
+      (setq ref (oidx--on 'id id (oidx--get-or-set-field 'ref)))
 
       (if tag-with-ref
-          (org-toggle-tag (format "%s%d%s" org-index--head tag-with-ref org-index--tail) 'on))
-      (setq args (org-index--collect-values-for-add-update id))
+          (org-toggle-tag (format "%s%d%s" oidx--head tag-with-ref oidx--tail) 'on))
+      (setq args (oidx--collect-values-for-add-update id))
 
       (when (and create-ref
                  (not ref))
-        (setq ref (org-index--get-save-maxref))
+        (setq ref (oidx--get-save-maxref))
         (setq args (plist-put args 'ref ref)))
 
       
@@ -1683,10 +1688,10 @@ CREATE-REF and TAG-WITH-REF if given."
           ;; already have an id in index, find it and update fields
           (progn
 
-            (org-index--on
+            (oidx--on
              'id id
-             (org-index--write-fields args)
-             (setq yank (org-index--get-or-set-field org-index-yank-after-add)))
+             (oidx--write-fields args)
+             (setq yank (oidx--get-or-set-field org-index-yank-after-add)))
 
             (setq ret
                   (if ref
@@ -1695,7 +1700,7 @@ CREATE-REF and TAG-WITH-REF if given."
 
         ;; no id here, create new line in index
         (if ref (setq args (plist-put args 'ref ref)))
-        (setq yank (apply 'org-index--do-new-line args))
+        (setq yank (apply 'oidx--do-new-line args))
 
         (setq ret
               (if ref
@@ -1706,42 +1711,42 @@ CREATE-REF and TAG-WITH-REF if given."
                  "Added new index line"
                  nil)))))
     
-    (org-index--restore-positions)
+    (oidx--restore-positions)
 
     ret))
 
 
-(defun org-index--do-kill ()
+(defun oidx--do-kill ()
   "Perform command kill from within occur, index or node."
 
   (let (id ref chars-deleted-index text-deleted-from pos-in-index)
 
-    (org-index--save-positions)
-    (unless (or org-index--within-index-node
-                org-index--within-occur)
+    (oidx--save-positions)
+    (unless (or oidx--within-index-node
+                oidx--within-occur)
       (org-with-limited-levels (org-back-to-heading)))
     
     ;; Collect information: What should be deleted ?
-    (if (or org-index--within-occur
-            org-index--within-index-node)
+    (if (or oidx--within-occur
+            oidx--within-index-node)
 
         (progn
-          (if org-index--within-index-node
+          (if oidx--within-index-node
               ;; In index
               (setq pos-in-index (point))
             ;; In occur
             (setq pos-in-index (get-text-property (point) 'org-index-lbp))
-            (org-index--occur-test-stale pos-in-index)
-            (set-buffer org-index--buffer)
+            (oidx--occur-test-stale pos-in-index)
+            (set-buffer oidx--buffer)
             (goto-char pos-in-index))
           ;; In Index (maybe moved there)
-          (setq id (org-index--get-or-set-field 'id))
-          (setq ref (org-index--get-or-set-field 'ref)))
+          (setq id (oidx--get-or-set-field 'id))
+          (setq ref (oidx--get-or-set-field 'ref)))
 
       ;; At a headline
       (setq id (org-entry-get (point) "ID"))
-      (setq ref (org-index--ref-from-id id))
-      (setq pos-in-index (org-index--on 'id id (point)))
+      (setq ref (oidx--ref-from-id id))
+      (setq pos-in-index (oidx--on 'id id (point)))
       (unless pos-in-index (error "This node is not in index")))
 
     ;; Remark: Current buffer is not certain here, but we have all the information to delete
@@ -1755,21 +1760,21 @@ CREATE-REF and TAG-WITH-REF if given."
         (unless (string= (org-id-get) id)
           (error "Could not find node with id %s" id)))
 
-      (org-index--delete-any-ref-from-tags)
-      (if ref (org-index--delete-ref-from-heading ref))
+      (oidx--delete-any-ref-from-tags)
+      (if ref (oidx--delete-ref-from-heading ref))
       (setq text-deleted-from (cons "node" text-deleted-from)))
 
     ;; Delete from index
-    (set-buffer org-index--buffer)
+    (set-buffer oidx--buffer)
     (unless pos-in-index "Internal error, pos-in-index should be defined here")
     (goto-char pos-in-index)
     (setq chars-deleted-index (length (delete-and-extract-region (line-beginning-position) (line-beginning-position 2))))
     (setq text-deleted-from (cons "index" text-deleted-from))
     
     ;; Delete from occur only if we started there, accept that it will be stale otherwise
-    (if org-index--within-occur
+    (if oidx--within-occur
         (let ((inhibit-read-only t))
-          (set-buffer org-index--occur-buffer-name)
+          (set-buffer oidx--occur-buffer-name)
           (delete-region (line-beginning-position) (line-beginning-position 2))
           ;; correct positions
           (while (org-at-table-p)
@@ -1778,20 +1783,20 @@ CREATE-REF and TAG-WITH-REF if given."
             (forward-line))
           (setq text-deleted-from (cons "occur" text-deleted-from))))
 
-    (org-index--restore-positions)
+    (oidx--restore-positions)
     (concat "Deleted from: " (mapconcat 'identity (sort text-deleted-from 'string<) ","))))
 
 
 
 ;; Sorting
-(defun org-index--get-mixed-time ()
+(defun oidx--get-mixed-time ()
   "Get timestamp for sorting order mixed."
   (format-time-string
    (org-time-stamp-format t t)
    (apply 'encode-time (append '(0 0 0) (nthcdr 3 (decode-time))))))
 
 
-(defun org-index--do-sort-index (sort)
+(defun oidx--do-sort-index (sort)
   "Sort index table according to SORT."
 
   (let ((is-modified (buffer-modified-p))
@@ -1808,10 +1813,10 @@ CREATE-REF and TAG-WITH-REF if given."
 
         ;; if needed for mixed sort
         (if (eq sort 'mixed)
-            (setq mixed-time (org-index--get-mixed-time)))
+            (setq mixed-time (oidx--get-mixed-time)))
 
         ;; get boundaries of table
-        (org-index--go-below-hline)
+        (oidx--go-below-hline)
         (forward-line 0)
         (setq top (point))
         (goto-char (org-table-end))
@@ -1821,9 +1826,9 @@ CREATE-REF and TAG-WITH-REF if given."
                  (forward-line -1)
                  (org-table-goto-column 1)
                  (and
-                  (not (org-index--get-or-set-field 'ref))
-                  (not (org-index--get-or-set-field 'id))
-                  (not (org-index--get-or-set-field 'yank))))
+                  (not (oidx--get-or-set-field 'ref))
+                  (not (oidx--get-or-set-field 'id))
+                  (not (oidx--get-or-set-field 'yank))))
           (org-table-kill-row))
         (forward-line 1)
         (setq bottom (point))
@@ -1836,7 +1841,7 @@ CREATE-REF and TAG-WITH-REF if given."
                      'forward-line
                      'end-of-line
                      (lambda ()
-                       (org-index--get-sort-key sort t mixed-time))
+                       (oidx--get-sort-key sort t mixed-time))
                      nil
                      'string<)
           (goto-char (point-min))
@@ -1844,10 +1849,10 @@ CREATE-REF and TAG-WITH-REF if given."
           ;; restore modification state
           (set-buffer-modified-p is-modified)))
 
-      (setq org-index--last-sort-assumed sort))))
+      (setq oidx--last-sort-assumed sort))))
 
 
-(defun org-index--do-sort-lines (what)
+(defun oidx--do-sort-lines (what)
   "Sort lines in WHAT according to contained reference."
   (save-restriction
     (cond
@@ -1864,27 +1869,27 @@ CREATE-REF and TAG-WITH-REF if given."
     (sort-subr nil 'forward-line 'end-of-line
                (lambda ()
                  (if (looking-at (concat ".*"
-                                         (org-index--make-guarded-search org-index--ref-regex 'dont-quote)))
+                                         (oidx--make-guarded-search oidx--ref-regex 'dont-quote)))
                      (string-to-number (match-string 1))
                    0)))))
 
 
-(defun org-index--get-sort-key (&optional sort with-ref mixed-time)
+(defun oidx--get-sort-key (&optional sort with-ref mixed-time)
   "Get value for sorting from column SORT, optional WITH-REF; if mixes use MIXED-TIME."
   (let (ref
         ref-field
         key)
 
-    (unless sort (setq sort org-index--last-sort-assumed)) ; use default value
+    (unless sort (setq sort oidx--last-sort-assumed)) ; use default value
 
     (when (or with-ref
               (eq sort 'ref))
       ;; get reference with leading zeroes, so it can be
       ;; sorted as text
-      (setq ref-field (org-index--get-or-set-field 'ref))
+      (setq ref-field (oidx--get-or-set-field 'ref))
       (if ref-field
           (progn
-            (string-match org-index--ref-regex ref-field)
+            (string-match oidx--ref-regex ref-field)
             (setq ref (format
                        "%06d"
                        (string-to-number
@@ -1894,17 +1899,17 @@ CREATE-REF and TAG-WITH-REF if given."
     (setq key
           (cond
            ((eq sort 'count)
-            (format "%08d" (string-to-number (or (org-index--get-or-set-field 'count) ""))))
+            (format "%08d" (string-to-number (or (oidx--get-or-set-field 'count) ""))))
            ((eq sort 'mixed)
-            (let ((last-accessed (org-index--get-or-set-field 'last-accessed)))
-              (unless mixed-time (setq mixed-time (org-index--get-mixed-time)))
+            (let ((last-accessed (oidx--get-or-set-field 'last-accessed)))
+              (unless mixed-time (setq mixed-time (oidx--get-mixed-time)))
               (concat
                (if (string< mixed-time last-accessed) last-accessed mixed-time)
-               (format "%08d" (string-to-number (or (org-index--get-or-set-field 'count) ""))))))
+               (format "%08d" (string-to-number (or (oidx--get-or-set-field 'count) ""))))))
            ((eq sort 'ref)
             ref)
            ((memq sort '(id last-accessed created))
-            (org-index--get-or-set-field sort))
+            (oidx--get-or-set-field sort))
            (t (error "This is a bug: unmatched case '%s'" sort))))
 
     (if with-ref (setq key (concat key ref)))
@@ -1937,68 +1942,68 @@ argument VALUE specifies the value to search for."
   (unless value
     (error "Need a value to search for"))
   
-  (org-index--verify-id)
-  (org-index--parse-table)
+  (oidx--verify-id)
+  (oidx--parse-table)
 
-  (org-index--get-line column value))
+  (oidx--get-line column value))
 
 
-(defun org-index--get-line (column value)
+(defun oidx--get-line (column value)
   "Find a line by ID, return its contents.
 Argument COLUMN and VALUE specify line to get."
   (let (content)
-    (org-index--on
+    (oidx--on
      column value
      (mapc (lambda (x)
              (if (and (numberp (cdr x))
                       (> (cdr x) 0))
-                 (setq content (cons (car x) (cons (or (org-index--get-or-set-field (car x)) "") content)))))
-           (reverse org-index--columns)))
+                 (setq content (cons (car x) (cons (or (oidx--get-or-set-field (car x)) "") content)))))
+           (reverse oidx--columns)))
     content))
 
 
-(defun org-index--update-line (&optional id-or-pos no-error)
+(defun oidx--update-line (&optional id-or-pos no-error)
   "Update columns count and last-accessed in line ID-OR-POS.
 Optional argument NO-ERROR suppresses error."
 
   (let (initial)
 
-    (with-current-buffer org-index--buffer
+    (with-current-buffer oidx--buffer
       (unless buffer-read-only
 
         (setq initial (point))
 
         (if (if (integerp id-or-pos)
                 (goto-char id-or-pos)
-              (org-index--go 'id id-or-pos))
-            (org-index--update-current-line)
+              (oidx--go 'id id-or-pos))
+            (oidx--update-current-line)
           (unless no-error (error "Did not find reference or id '%s'" (list id-or-pos))))
         
         (goto-char initial)))))
 
 
-(defun org-index--update-current-line ()
+(defun oidx--update-current-line ()
   "Update current lines columns count and last-accessed."
-  (let (newcount (count-field (org-index--get-or-set-field 'count)))
+  (let (newcount (count-field (oidx--get-or-set-field 'count)))
 
     ;; update count field only if number or empty
     (when (or (not count-field)
               (string-match "^[0-9]+$" count-field))
       (setq newcount (+ 1 (string-to-number (or count-field "0"))))
-      (org-index--get-or-set-field 'count
+      (oidx--get-or-set-field 'count
                                    (number-to-string newcount)))
 
     ;; update timestamp
-    (org-table-goto-column (org-index--column-num 'last-accessed))
+    (org-table-goto-column (oidx--column-num 'last-accessed))
     (org-table-blank-field)
     (org-insert-time-stamp nil t t)
 
     ;; move line according to new content
-    (org-index--promote-current-line)
-    (org-index--align-and-fontify-current-line)))
+    (oidx--promote-current-line)
+    (oidx--align-and-fontify-current-line)))
 
 
-(defun org-index--align-and-fontify-current-line (&optional num)
+(defun oidx--align-and-fontify-current-line (&optional num)
   "Make current line (or NUM lines) blend well among others."
   (let (lines lines-fontified)
     ;; get current content
@@ -2010,7 +2015,7 @@ Optional argument NO-ERROR suppresses error."
       lines-fontified
       (with-temp-buffer
         (org-set-font-lock-defaults)
-        (insert org-index--headings-visible)
+        (insert oidx--headings-visible)
         ;; fill columns, so that aligning cannot shrink them
         (goto-char (point-min))
         (search-forward "|")
@@ -2040,21 +2045,21 @@ Optional argument NO-ERROR suppresses error."
     lines-fontified))
 
 
-(defun org-index--promote-current-line ()
+(defun oidx--promote-current-line ()
   "Move current line up in table according to changed sort fields."
   (let (begin end key
               (to-skip 0))
 
     (forward-line 0) ; stay at beginning of line
 
-    (setq key (org-index--get-sort-key))
+    (setq key (oidx--get-sort-key))
     (setq begin (point))
     (setq end (line-beginning-position 2))
 
     (forward-line -1)
     (while (and (org-at-table-p)
                 (not (org-at-table-hline-p))
-                (string< (org-index--get-sort-key) key))
+                (string< (oidx--get-sort-key) key))
 
       (cl-incf to-skip)
       (forward-line -1))
@@ -2066,35 +2071,35 @@ Optional argument NO-ERROR suppresses error."
       (forward-line -1))))
 
 
-(defun org-index--get-or-set-field (key &optional value)
+(defun oidx--get-or-set-field (key &optional value)
   "Retrieve field KEY from index table or set it to VALUE."
   (let (field)
     (save-excursion
       (if (eq key 'fingerprint)
           (progn
             (if value (error "Internal error, pseudo-column fingerprint cannot be set"))
-            (setq field (org-index--get-fingerprint)))
-        (setq field (org-trim (org-table-get-field (cdr (assoc key org-index--columns)) value))))
+            (setq field (oidx--get-fingerprint)))
+        (setq field (org-trim (org-table-get-field (cdr (assoc key oidx--columns)) value))))
       (if (string= field "") (setq field nil))
 
       (org-no-properties field))))
 
 
-(defun org-index--column-num (key)
+(defun oidx--column-num (key)
   "Return number of column KEY."
   (if (numberp key)
       key
-    (cdr (assoc key org-index--columns))))
+    (cdr (assoc key oidx--columns))))
 
 
 
 ;; Navigation
-(defun org-index--go-below-hline ()
+(defun oidx--go-below-hline ()
   "Move below hline in index-table."
 
   (let ((errstring (format "index table within node %s" org-index-id)))
 
-    (goto-char org-index--point)
+    (goto-char oidx--point)
 
     ;; go to heading of node
     (while (not (org-at-heading-p)) (forward-line -1))
@@ -2108,7 +2113,7 @@ Optional argument NO-ERROR suppresses error."
 
     ;; check, if there really is a table
     (unless (org-at-table-p)
-      (org-index--create-missing-index "Cannot find %s." errstring))
+      (oidx--create-missing-index "Cannot find %s." errstring))
 
     ;; go just after hline
     (while (and (not (org-at-table-hline-p))
@@ -2118,59 +2123,59 @@ Optional argument NO-ERROR suppresses error."
 
     ;; and check
     (unless (org-at-table-p)
-      (org-index--report-index-error "Cannot find a hline within %s" errstring))
+      (oidx--report-index-error "Cannot find a hline within %s" errstring))
 
     (org-table-goto-column 1)
-    (setq org-index--below-hline (point))))
+    (setq oidx--below-hline (point))))
 
 
-(defun org-index--unfold-buffer ()
+(defun oidx--unfold-buffer ()
   "Helper function to unfold buffer."
   (org-show-context 'tree)
   (org-reveal '(4))
   (recenter 1))
 
 
-(defun org-index--make-guarded-search (ref &optional dont-quote)
+(defun oidx--make-guarded-search (ref &optional dont-quote)
   "Make robust search string from REF; DONT-QUOTE it, if requested."
   (concat "\\_<" (if dont-quote ref (regexp-quote ref)) "\\_>"))
 
 
-(defun org-index--save-positions ()
+(defun oidx--save-positions ()
   "Save current buffer and positions in index- and current buffer; not in occur-buffer."
 
   (let (cur-buf cur-mrk idx-pnt idx-mrk)
     (setq cur-buf (current-buffer))
     (setq cur-mrk (point-marker))
-    (set-buffer org-index--buffer)
+    (set-buffer oidx--buffer)
     (if (string= (org-id-get) org-index-id)
         (setq idx-pnt (point))
       (setq idx-mrk (point-marker)))
     (set-buffer cur-buf)
-    (setq org-index--saved-positions (list cur-buf cur-mrk idx-pnt idx-mrk))))
+    (setq oidx--saved-positions (list cur-buf cur-mrk idx-pnt idx-mrk))))
 
 
-(defun org-index--restore-positions ()
-  "Restore positions as saved by `org-index--save-positions'."
+(defun oidx--restore-positions ()
+  "Restore positions as saved by `oidx--save-positions'."
 
   (cl-multiple-value-bind
       (cur-buf cur-mrk idx-pnt idx-mrk buf)
-      org-index--saved-positions
+      oidx--saved-positions
     (setq buf (current-buffer))
     (set-buffer cur-buf)
     (goto-char cur-mrk)
-    (set-buffer org-index--buffer)
+    (set-buffer oidx--buffer)
     (goto-char (or idx-pnt idx-mrk))
     (set-buffer buf))
-  (setq org-index--saved-positions nil))
+  (setq oidx--saved-positions nil))
 
 
-(defun org-index--go (column value)
+(defun oidx--go (column value)
   "Position cursor on index line where COLUMN equals VALUE.
 Return t or nil, leave point on line or at top of table, needs to be in buffer initially."
   (let (found)
 
-    (unless (eq (current-buffer) org-index--buffer)
+    (unless (eq (current-buffer) oidx--buffer)
       (error "This is a bug: Not in index buffer"))
 
     (unless value
@@ -2182,22 +2187,22 @@ Return t or nil, leave point on line or at top of table, needs to be in buffer i
     (if (<= (length value) 2)
         (warn "Searching for short string '%s' will be slow" value))
 
-    (goto-char org-index--below-hline)
+    (goto-char oidx--below-hline)
     (forward-line 0)
     (save-restriction
       (narrow-to-region (point) (org-table-end))
       (while (and (not found)
                   (search-forward value nil t))
-        (setq found (string= value (org-index--get-or-set-field column)))))
+        (setq found (string= value (oidx--get-or-set-field column)))))
     
     ;; return value
     (if found
         t
-      (goto-char org-index--below-hline)
+      (goto-char oidx--below-hline)
       nil)))
 
 
-(defun org-index--find-id (id &optional other)
+(defun oidx--find-id (id &optional other)
   "Perform command head: Find node with ID and present it.
 If OTHER in separate window."
   
@@ -2207,7 +2212,7 @@ If OTHER in separate window."
 
     (if marker
         (progn
-          (org-index--update-line id)
+          (oidx--update-line id)
           (if other
               (progn
                 (pop-to-buffer (marker-buffer marker)))
@@ -2226,24 +2231,24 @@ If OTHER in separate window."
 
 
 ;; Some helper functions
-(defun org-index--get-save-maxref (&optional no-inc)
+(defun oidx--get-save-maxref (&optional no-inc)
   "Get next reference, increment number and store it in index.
 Optional argument NO-INC skips automatic increment on maxref."
   (let (ref-field)
-    (with-current-buffer org-index--buffer
-      (setq ref-field (org-entry-get org-index--point "max-ref"))
+    (with-current-buffer oidx--buffer
+      (setq ref-field (org-entry-get oidx--point "max-ref"))
       (unless no-inc
-        (setq ref-field (format org-index--ref-format (1+ (org-index--extract-refnum ref-field))))
-        (org-entry-put org-index--point "max-ref" ref-field)))
+        (setq ref-field (format oidx--ref-format (1+ (oidx--extract-refnum ref-field))))
+        (org-entry-put oidx--point "max-ref" ref-field)))
     ref-field))
 
 
-(defun org-index--line-in-canonical-form ()
+(defun oidx--line-in-canonical-form ()
   "Return current line in its canonical form."
   (org-trim (substring-no-properties (replace-regexp-in-string "\s +" " " (buffer-substring (line-beginning-position) (line-beginning-position 2))))))
 
 
-(defun org-index--wrap (text)
+(defun oidx--wrap (text)
   "Wrap TEXT at fill column."
   (with-temp-buffer
     (insert text)
@@ -2253,7 +2258,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 ;; Index maintainance
-(defun org-index--do-maintain ()
+(defun oidx--do-maintain ()
   "Choose among and perform some tasks to maintain index."
   (let (message-text choices choices-short check-what text)
     
@@ -2266,19 +2271,19 @@ Optional argument NO-INC skips automatic increment on maxref."
 
     (setq choices-short (mapcar (lambda (x) (car (split-string x))) choices))
     (setq text (concat "These checks and fixes are available:\n" (apply 'concat choices) "Please choose: "))
-    (setq check-what (intern (org-index--completing-read text choices-short (car choices-short))))
+    (setq check-what (intern (oidx--completing-read text choices-short (car choices-short))))
 
     (message nil)
     
     (cond
      ((eq check-what 'verify)
-      (setq message-text (org-index--verify-ids)))
+      (setq message-text (oidx--verify-ids)))
 
      ((eq check-what 'statistics)
-      (setq message-text (org-index--do-statistics)))
+      (setq message-text (oidx--do-statistics)))
 
      ((eq check-what 'duplicates)
-      (setq message-text (org-index--find-duplicates)))
+      (setq message-text (oidx--find-duplicates)))
 
      ((eq check-what 'clean)
       (let ((lines 0))
@@ -2292,21 +2297,21 @@ Optional argument NO-INC skips automatic increment on maxref."
      
      ((eq check-what 'update)
       (if (y-or-n-p "Updating your index will overwrite certain columns with content from the associated heading and category.  If unsure, you may try this for a single, already existing line of your index by invoking `add'.  Are you SURE to proceed for ALL INDEX LINES ? ")
-          (setq message-text (org-index--update-all-lines))
+          (setq message-text (oidx--update-all-lines))
         (setq message-text "Canceled")))
 
      ((eq check-what 'max)
-      (setq message-text (org-index--check-maximum))))
+      (setq message-text (oidx--check-maximum))))
     message-text))
 
 
-(defun org-index--find-duplicates ()
+(defun oidx--find-duplicates ()
   "Find duplicate references or ids in index table."
   (let (ref-duplicates id-duplicates)
 
-    (setq ref-duplicates (org-index--find-duplicates-helper 'ref))
-    (setq id-duplicates (org-index--find-duplicates-helper 'id))
-    (goto-char org-index--below-hline)
+    (setq ref-duplicates (oidx--find-duplicates-helper 'ref))
+    (setq id-duplicates (oidx--find-duplicates-helper 'id))
+    (goto-char oidx--below-hline)
     (if (or ref-duplicates id-duplicates)
         (progn
           (pop-to-buffer-same-window
@@ -2330,16 +2335,16 @@ Optional argument NO-INC skips automatic increment on maxref."
       "No duplicate references or ids found")))
 
 
-(defun org-index--find-duplicates-helper (column)
-  "Helper for `org-index--find-duplicates': Go through table and count given COLUMN."
+(defun oidx--find-duplicates-helper (column)
+  "Helper for `oidx--find-duplicates': Go through table and count given COLUMN."
   (let (counts duplicates field found)
 
     ;; go through table
-    (goto-char org-index--below-hline)
+    (goto-char oidx--below-hline)
     (while (org-at-table-p)
 
       ;; get column
-      (setq field (org-index--get-or-set-field column))
+      (setq field (oidx--get-or-set-field column))
 
       ;; and increment
       (setq found (assoc field counts))
@@ -2356,23 +2361,23 @@ Optional argument NO-INC skips automatic increment on maxref."
     duplicates))
 
 
-(defun org-index--check-maximum ()
+(defun oidx--check-maximum ()
   "Check maximum reference."
   (let (ref-field ref-num (max 0) (max-prop))
 
-    (goto-char org-index--below-hline)
-    (setq max-prop (org-index--extract-refnum (org-entry-get org-index--point "max-ref")))
+    (goto-char oidx--below-hline)
+    (setq max-prop (oidx--extract-refnum (org-entry-get oidx--point "max-ref")))
 
     (while (org-at-table-p)
 
-      (setq ref-field (org-index--get-or-set-field 'ref))
-      (setq ref-num (if ref-field (org-index--extract-refnum ref-field) 0))
+      (setq ref-field (oidx--get-or-set-field 'ref))
+      (setq ref-num (if ref-field (oidx--extract-refnum ref-field) 0))
 
       (if (> ref-num max) (setq max ref-num))
 
       (forward-line))
 
-    (goto-char org-index--below-hline)
+    (goto-char oidx--below-hline)
     
     (cond ((< max-prop max)
            (format "Maximum ref from property max-ref (%d) is smaller than maximum ref from table (%d); you should correct this" max-prop max))
@@ -2381,20 +2386,20 @@ Optional argument NO-INC skips automatic increment on maxref."
           (t (format "Maximum ref from property max-ref and maximum ref from table are equal (%d); as expected" max-prop)))))
 
 
-(defun org-index--do-statistics ()
+(defun oidx--do-statistics ()
   "Compute statistics about index table."
   (let ((total-lines 0) (total-refs 0)
         ref ref-field min max message)
 
     ;; go through table
-    (goto-char org-index--below-hline)
+    (goto-char oidx--below-hline)
     (while (org-at-table-p)
 
       ;; get ref
-      (setq ref-field (org-index--get-or-set-field 'ref))
+      (setq ref-field (oidx--get-or-set-field 'ref))
 
       (when ref-field
-        (string-match org-index--ref-regex ref-field)
+        (string-match oidx--ref-regex ref-field)
         (setq ref (string-to-number (match-string 1 ref-field)))
 
         ;; record min and max
@@ -2410,78 +2415,78 @@ Optional argument NO-INC skips automatic increment on maxref."
 
     (setq message (format "%d Lines in index table. First reference is %s, last %s; %d of them are used (%d percent)"
                           total-lines
-                          (format org-index--ref-format min)
-                          (format org-index--ref-format max)
+                          (format oidx--ref-format min)
+                          (format oidx--ref-format max)
                           total-refs
                           (truncate (* 100 (/ (float total-refs) (1+ (- max min)))))))
 
-    (goto-char org-index--below-hline)
+    (goto-char oidx--below-hline)
     message))
 
 
-(defun org-index--migrate-maxref-to-property ()
+(defun oidx--migrate-maxref-to-property ()
   "One-time migration: No property; need to go through whole table once to find max."
-  (org-index--go-below-hline)
+  (oidx--go-below-hline)
   (let ((max-ref-num 0)
         ref-field ref-num)
     (message "One-time migration to set index-property maxref...")
     (while (org-at-table-p)
-      (setq ref-field (org-index--get-or-set-field 'ref))
+      (setq ref-field (oidx--get-or-set-field 'ref))
       (when ref-field
-        (unless org-index--head (org-index--get-decoration-from-ref-field ref-field))
-        (setq ref-num (org-index--extract-refnum ref-field))
+        (unless oidx--head (oidx--get-decoration-from-ref-field ref-field))
+        (setq ref-num (oidx--extract-refnum ref-field))
         (if (> ref-num max-ref-num) (setq max-ref-num ref-num)))
       (forward-line))
     (unless (> max-ref-num 0)
-      (org-index--report-index-error "No reference found in property max-ref and none in index"))
-    (setq ref-field (format org-index--ref-format max-ref-num))
-    (org-index--go-below-hline)
-    (org-entry-put org-index--point "max-ref" ref-field)
+      (oidx--report-index-error "No reference found in property max-ref and none in index"))
+    (setq ref-field (format oidx--ref-format max-ref-num))
+    (oidx--go-below-hline)
+    (org-entry-put oidx--point "max-ref" ref-field)
     (message "Done.")
     ref-field))
 
 
-(defun org-index--sort-silent ()
+(defun oidx--sort-silent ()
   "Sort index for default column to remove any effects of temporary sorting."
-  (unless org-index--inhibit-sort-idle
+  (unless oidx--inhibit-sort-idle
     (save-excursion
-      (org-index--verify-id)
-      (org-index--parse-table)
-      (with-current-buffer org-index--buffer
+      (oidx--verify-id)
+      (oidx--parse-table)
+      (with-current-buffer oidx--buffer
         (save-excursion
-          (goto-char org-index--below-hline)
-          (org-index--do-sort-index org-index-sort-by)
-          (remove-hook 'before-save-hook 'org-index--sort-silent))))))
+          (goto-char oidx--below-hline)
+          (oidx--do-sort-index org-index-sort-by)
+          (remove-hook 'before-save-hook 'oidx--sort-silent))))))
 
 
-(defun org-index--idle-prepare ()
+(defun oidx--idle-prepare ()
   "For parsing table when idle."
-  (org-index--verify-id)
-  (org-index--parse-table most-positive-fixnum t))
+  (oidx--verify-id)
+  (oidx--parse-table most-positive-fixnum t))
 
 
-(defun org-index--update-all-lines ()
+(defun oidx--update-all-lines ()
   "Update all lines of index at once."
 
   (let ((lines 0)
         id kvs)
     
-    (goto-char org-index--below-hline)
+    (goto-char oidx--below-hline)
     (while (org-at-table-p)
       
       ;; update single line
-      (when (setq id (org-index--get-or-set-field 'id))
-	(setq kvs (org-index--collect-values-for-add-update-remote id))
-	(org-index--write-fields kvs)
+      (when (setq id (oidx--get-or-set-field 'id))
+	(setq kvs (oidx--collect-values-for-add-update-remote id))
+	(oidx--write-fields kvs)
 	(cl-incf lines))
       (forward-line))
 
-    (goto-char org-index--below-hline)
+    (goto-char oidx--below-hline)
     (org-table-align)
     (format "Updated %d lines" lines)))
 
 
-(defun org-index--delete-ref-from-heading (ref)
+(defun oidx--delete-ref-from-heading (ref)
   "Delete given REF from current heading."
   (save-excursion
     (end-of-line)
@@ -2492,11 +2497,11 @@ Optional argument NO-INC skips automatic increment on maxref."
         (just-one-space)))))
 
 
-(defun org-index--delete-any-ref-from-tags ()
+(defun oidx--delete-any-ref-from-tags ()
   "Delete any reference from list of tags."
   (let (new-tags)
     (mapc (lambda (tag)
-            (unless (or (string-match org-index--ref-regex tag)
+            (unless (or (string-match oidx--ref-regex tag)
 			(string= tag ""))
               (setq new-tags (cons tag new-tags))))
           (org-get-tags))
@@ -2505,29 +2510,29 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 ;; Creating a new Index
-(defun org-index--create-missing-index (&rest reasons)
+(defun oidx--create-missing-index (&rest reasons)
   "Create a new empty index table with detailed explanation.  Argument REASONS explains why."
 
-  (org-index--ask-before-create-index "Cannot find index table: "
+  (oidx--ask-before-create-index "Cannot find index table: "
                                       "new permanent" "."
                                       reasons)
-  (org-index--create-index))
+  (oidx--create-index))
 
 
-(defun org-index--report-index-error (&rest reasons)
+(defun oidx--report-index-error (&rest reasons)
   "Report an error (explained by REASONS) with the existing index and offer to create a valid one to compare with."
 
-  (when org-index--buffer
-    (pop-to-buffer-same-window org-index--buffer)
-    (goto-char org-index--below-hline)
+  (when oidx--buffer
+    (pop-to-buffer-same-window oidx--buffer)
+    (goto-char oidx--below-hline)
     (org-reveal t))
-  (org-index--ask-before-create-index "The existing index contains this error: "
+  (oidx--ask-before-create-index "The existing index contains this error: "
                                       "temporary" ", to compare with."
                                       reasons)
-  (org-index--create-index t t))
+  (oidx--create-index t t))
 
 
-(defun org-index--ask-before-create-index (explanation type for-what reasons)
+(defun oidx--ask-before-create-index (explanation type for-what reasons)
                                                   ; checkdoc-params: (explanation type for-what reasons)
   "Ask the user before creating an index or throw error.  Arguments specify bits of issued message."
   (let (reason prompt)
@@ -2544,7 +2549,7 @@ Optional argument NO-INC skips automatic increment on maxref."
       (error (concat explanation reason)))))
 
 
-(defun org-index--create-index (&optional temporary compare)
+(defun oidx--create-index (&optional temporary compare)
   "Create a new empty index table with detailed explanation.
 specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existing index."
   (let (buffer
@@ -2553,7 +2558,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
         id)
 
     (if temporary
-        (let ((file-name (concat temporary-file-directory "org-index--example-index.org"))
+        (let ((file-name (concat temporary-file-directory "oidx--example-index.org"))
               (buffer-name "*org-index-example-index*"))
           (setq buffer (get-buffer-create buffer-name))
           (with-current-buffer buffer
@@ -2565,7 +2570,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
             (erase-buffer)
             (org-mode)))
 
-      (setq buffer (get-buffer (org-index--completing-read "Please choose the buffer, where the new node for the index table should be created; the new node will be inserted at its end.\n\nBuffer: " (mapcar 'buffer-name (org-buffer-list))))))
+      (setq buffer (get-buffer (oidx--completing-read "Please choose the buffer, where the new node for the index table should be created; the new node will be inserted at its end.\n\nBuffer: " (mapcar 'buffer-name (org-buffer-list))))))
 
     (setq title (read-from-minibuffer "Please enter the title of the index node (leave empty for default 'index'): "))
     (if (string= title "") (setq title "index"))
@@ -2596,7 +2601,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
     (with-current-buffer buffer
       (goto-char (point-max))
       (insert (format "* %s %s\n" firstref title))
-      (org-entry-put org-index--point "max-ref" firstref)
+      (org-entry-put oidx--point "max-ref" firstref)
       (if temporary
           (insert "
   Below you find your temporary index table, which WILL NOT LAST LONGER
@@ -2650,7 +2655,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
       ;; read back some info about new index
       (let ((org-index-id id))
-	(org-index--verify-id))
+	(oidx--verify-id))
 
       ;; remember at least for this session
       (setq org-index-id id)
@@ -2660,15 +2665,15 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
           (progn
             ;; Present existing and temporary index together
             (when compare
-              (pop-to-buffer-same-window org-index--buffer)
-              (goto-char org-index--point)
-              (org-index--unfold-buffer)
+              (pop-to-buffer-same-window oidx--buffer)
+              (goto-char oidx--point)
+              (oidx--unfold-buffer)
               (delete-other-windows)
               (select-window (split-window-vertically)))
             ;; show new index
             (pop-to-buffer-same-window buffer)
             (org-id-goto id)
-            (org-index--unfold-buffer)
+            (oidx--unfold-buffer)
             (if compare
                 (progn
                   (message "Please compare your existing index (upper window) and a temporary new one (lower window) to fix your index")
@@ -2679,7 +2684,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
           (pop-to-buffer-same-window buffer)
           (delete-other-windows)
           (org-id-goto id)
-          (org-index--unfold-buffer)
+          (oidx--unfold-buffer)
           (if (y-or-n-p "This is your new index table.  It is already set for this Emacs session, so you may try it out.  Do you want to save it's id to make it available for future Emacs sessions too ? ")
               (progn
                 (customize-save-variable 'org-index-id id)
@@ -2712,67 +2717,67 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 
 ;; Functions for focus-feature
-(defun org-index--goto-focus ()
+(defun oidx--goto-focus ()
   "Goto focus node, one after the other."
-  (if org-index--ids-focused-nodes
+  (if oidx--ids-focused-nodes
       (let (again last-id following-id in-last-id target-id explain marker heading-is-clause head
                   (bottom-clause (if org-index-goto-bottom-after-focus "bottom of " ""))
                   (menu-clause ""))
         (setq again (and (eq this-command last-command)
-                         (eq org-index--this-command org-index--last-command)))
-        (setq last-id (or org-index--id-last-goto-focus
-                          (car (last org-index--ids-focused-nodes))))
+                         (eq oidx--this-command oidx--last-command)))
+        (setq last-id (or oidx--id-last-goto-focus
+                          (car (last oidx--ids-focused-nodes))))
         (setq following-id (car (or (cdr-safe (member last-id
-                                                      (append org-index--ids-focused-nodes
-                                                              org-index--ids-focused-nodes)))
-                                    org-index--ids-focused-nodes)))
+                                                      (append oidx--ids-focused-nodes
+                                                              oidx--ids-focused-nodes)))
+                                    oidx--ids-focused-nodes)))
         (setq in-last-id (string= (ignore-errors (org-id-get)) last-id))
 
         (setq target-id (if (or again in-last-id) following-id last-id))
 
         ;; bail out on inactivity
-        (if org-index--focus-cancel-timer (cancel-timer org-index--focus-cancel-timer))
-        (setq org-index--focus-cancel-timer
+        (if oidx--focus-cancel-timer (cancel-timer oidx--focus-cancel-timer))
+        (setq oidx--focus-cancel-timer
               (run-at-time 8 nil
-                           (lambda () (if org-index--cancel-focus-wait-function
-                                          (funcall org-index--cancel-focus-wait-function)))))
+                           (lambda () (if oidx--cancel-focus-wait-function
+                                          (funcall oidx--cancel-focus-wait-function)))))
         
-        (setq org-index--cancel-focus-wait-function
+        (setq oidx--cancel-focus-wait-function
               (set-transient-map (let ((map (make-sparse-keymap)))
                                    (define-key map (vector ?f)
                                      (lambda () (interactive)
                                        (setq this-command last-command)
-                                       (setq org-index--this-command org-index--last-command)
-                                       (org-index--focus-message (org-index--goto-focus))))
+                                       (setq oidx--this-command oidx--last-command)
+                                       (oidx--focus-message (oidx--goto-focus))))
                                    (define-key map (vector ?h)
                                      (lambda () (interactive)
                                        (org-with-limited-levels (org-back-to-heading))
                                        (recenter 1)
-                                       (org-index--focus-message "On heading of focused node")))
+                                       (oidx--focus-message "On heading of focused node")))
                                    (define-key map (vector ?b)
                                      (lambda () (interactive)
-                                       (org-index--end-of-focused-node)
+                                       (oidx--end-of-focused-node)
                                        (recenter -1)
-                                       (org-index--focus-message "At bottom of focused node")))
+                                       (oidx--focus-message "At bottom of focused node")))
                                    (define-key map (vector ??)
                                      (lambda () (interactive)
-                                       (setq org-index--short-help-wanted t)
-                                       (message (org-index--goto-focus))
-                                       (setq org-index--short-help-wanted nil)))
+                                       (setq oidx--short-help-wanted t)
+                                       (message (oidx--goto-focus))
+                                       (setq oidx--short-help-wanted nil)))
                                    (define-key map (vector ?d)
                                      (lambda () (interactive)
                                        (setq this-command last-command)
-                                       (org-index--delete-from-focus)
-                                       (org-index--persist-focused-nodes)
-                                       (org-index--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (org-index--goto-focus)))
-                                       (setq org-index--cancel-focus-wait-function nil)))
+                                       (oidx--delete-from-focus)
+                                       (oidx--persist-focused-nodes)
+                                       (oidx--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (oidx--goto-focus)))
+                                       (setq oidx--cancel-focus-wait-function nil)))
                                    map)
                                  t
 				 ;; this is run (in any case) on leaving the map
-                                 (lambda () (cancel-timer org-index--focus-cancel-timer)
+                                 (lambda () (cancel-timer oidx--focus-cancel-timer)
                                    ;; Clean up overlay
-                                   (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
-                                   (setq org-index--focus-overlay nil)
+                                   (if oidx--focus-overlay (delete-overlay oidx--focus-overlay))
+                                   (setq oidx--focus-overlay nil)
                                    (if org-index-clock-into-focus
                                        (let (keys)
                                          ;; save and repeat terminating key, because org-clock-in might read interactively
@@ -2780,39 +2785,39 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                                          (org-with-limited-levels (org-clock-in))
                                          (if keys (setq unread-command-events (listify-key-sequence keys)))))
 				   ;; ignore-errors saves during tear-down of some tests
-                                   (ignore-errors (org-index--update-line (org-id-get) t)))))
-        (setq menu-clause (if org-index--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
+                                   (ignore-errors (oidx--update-line (org-id-get) t)))))
+        (setq menu-clause (if oidx--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
 
-        (if (member target-id (org-index--ids-up-to-top))
+        (if (member target-id (oidx--ids-up-to-top))
             (setq explain (format "staying below %scurrent" bottom-clause))
           (unless (setq marker (org-id-find target-id 'marker))
-            (setq org-index--id-last-goto-focus nil)
+            (setq oidx--id-last-goto-focus nil)
             (error "Could not find focus-node with id %s" target-id))
           
           (pop-to-buffer-same-window (marker-buffer marker))
           (goto-char (marker-position marker))
-          (org-index--unfold-buffer)
+          (oidx--unfold-buffer)
           (move-marker marker nil)
           (when org-index-goto-bottom-after-focus
-            (org-index--end-of-focused-node)
+            (oidx--end-of-focused-node)
             (org-reveal)
             (recenter -2)))
 
         (setq head (org-with-limited-levels (org-get-heading t t t t)))
         (when org-index-show-focus-overlay
           ;; tooltip-overlay to show current heading
-          (if org-index--focus-overlay (delete-overlay org-index--focus-overlay))
-          (setq org-index--focus-overlay (make-overlay (point-at-bol) (point-at-bol)))
-          (overlay-put org-index--focus-overlay
+          (if oidx--focus-overlay (delete-overlay oidx--focus-overlay))
+          (setq oidx--focus-overlay (make-overlay (point-at-bol) (point-at-bol)))
+          (overlay-put oidx--focus-overlay
                        'after-string
                        (propertize
                         (format " %s (%d of %d) "
                                 head
-                                (1+ (- (length org-index--ids-focused-nodes)
-                                       (length (member target-id org-index--ids-focused-nodes))))
-                                (length org-index--ids-focused-nodes))
+                                (1+ (- (length oidx--ids-focused-nodes)
+                                       (length (member target-id oidx--ids-focused-nodes))))
+                                (length oidx--ids-focused-nodes))
                         'face 'highlight))
-          (overlay-put org-index--focus-overlay 'priority most-positive-fixnum))
+          (overlay-put oidx--focus-overlay 'priority most-positive-fixnum))
 
         (setq heading-is-clause (format "Focus %s, " (propertize head 'face 'org-todo)))
         
@@ -2821,26 +2826,26 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                               (format "at %snext" bottom-clause)
                             (format "back to %scurrent" bottom-clause))))
         
-        (setq org-index--id-last-goto-focus target-id)
+        (setq oidx--id-last-goto-focus target-id)
         (concat
          heading-is-clause
-         (if (cdr org-index--ids-focused-nodes)
+         (if (cdr oidx--ids-focused-nodes)
              (format "%s node (out of %d)"
                      explain
-                     (length org-index--ids-focused-nodes))
+                     (length oidx--ids-focused-nodes))
            (format "%s single node" explain))
          menu-clause))
     "No nodes in focus, use set-focus"))
 
 
-(defun org-index--focus-message (message)
+(defun oidx--focus-message (message)
   "Issue given MESSAGE and append string '(again)' if appropriate."
-  (let ((again (if (string= message org-index--last-focus-message) " (again)" "")))
-    (setq org-index--last-focus-message message)
+  (let ((again (if (string= message oidx--last-focus-message) " (again)" "")))
+    (setq oidx--last-focus-message message)
     (message (concat message again "."))))
 
 
-(defun org-index--end-of-focused-node ()
+(defun oidx--end-of-focused-node ()
   "Goto end of focused nodes, ignoring inline-tasks but stopping at first child."
   (let (level (pos (point)))
     (when (ignore-errors (org-with-limited-levels (org-back-to-heading)))
@@ -2859,92 +2864,92 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
       (beginning-of-line))))
 
 
-(defun org-index--more-focus-commands ()
+(defun oidx--more-focus-commands ()
   "More commands for handling focused nodes."
   (let (id text more-text char prompt ids-up-to-top)
 
-    (setq prompt (format "Please specify action on list of %d focused nodes (s,a,d,r or ? for short help) - " (length org-index--ids-focused-nodes)))
+    (setq prompt (format "Please specify action on list of %d focused nodes (s,a,d,r or ? for short help) - " (length oidx--ids-focused-nodes)))
     (while (not (memq char (list ?s ?a ?d ?r)))
       (setq char (read-char prompt))
-      (setq prompt (format "Actions on list of %d focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list,  r)estore previous list of focused nodes.  Please choose - " (length org-index--ids-focused-nodes))))
+      (setq prompt (format "Actions on list of %d focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list,  r)estore previous list of focused nodes.  Please choose - " (length oidx--ids-focused-nodes))))
     (setq text
           (cond
 
            ((eq char ?s)
             (setq id (org-id-get-create))
-            (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
-            (setq org-index--ids-focused-nodes (list id))
-            (setq org-index--id-last-goto-focus id)
-            (org-index--update-line id t)
+            (setq oidx--ids-focused-nodes-saved oidx--ids-focused-nodes)
+            (setq oidx--ids-focused-nodes (list id))
+            (setq oidx--id-last-goto-focus id)
+            (oidx--update-line id t)
             (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
             "focus has been set on current node (1 node in focus)")
 
            ((eq char ?a)
             (setq id (org-id-get-create))
-            (unless (member id org-index--ids-focused-nodes)
+            (unless (member id oidx--ids-focused-nodes)
               ;; remove any children, that are already in list of focused nodes
-              (setq org-index--ids-focused-nodes
+              (setq oidx--ids-focused-nodes
                     (delete nil (mapcar (lambda (x)
                                           (if (member id (org-with-point-at (org-id-find x t)
-                                                           (org-index--ids-up-to-top)))
+                                                           (oidx--ids-up-to-top)))
                                               (progn
                                                 (setq more-text ", removing its children")
                                                 nil)
                                             x))
-                                        org-index--ids-focused-nodes)))
-              (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
+                                        oidx--ids-focused-nodes)))
+              (setq oidx--ids-focused-nodes-saved oidx--ids-focused-nodes)
               ;; remove parent, if already in list of focused nodes
-              (setq ids-up-to-top (org-index--ids-up-to-top))
-              (when (seq-intersection ids-up-to-top org-index--ids-focused-nodes)
-                (setq org-index--ids-focused-nodes (seq-difference org-index--ids-focused-nodes ids-up-to-top))
+              (setq ids-up-to-top (oidx--ids-up-to-top))
+              (when (seq-intersection ids-up-to-top oidx--ids-focused-nodes)
+                (setq oidx--ids-focused-nodes (seq-difference oidx--ids-focused-nodes ids-up-to-top))
                 (setq more-text (concat more-text ", replacing its parent")))
-              (setq org-index--ids-focused-nodes (cons id org-index--ids-focused-nodes)))
-            (setq org-index--id-last-goto-focus id)
-            (org-index--update-line id t)
+              (setq oidx--ids-focused-nodes (cons id oidx--ids-focused-nodes)))
+            (setq oidx--id-last-goto-focus id)
+            (oidx--update-line id t)
             (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
             "current node has been appended to list of focused nodes%s (%d node%s in focus)")
 
            ((eq char ?d)
-            (org-index--delete-from-focus)
-            (concat "current node has been removed from list of focused nodes%s (%d node%s in focus), " (org-index--goto-focus) "."))
+            (oidx--delete-from-focus)
+            (concat "current node has been removed from list of focused nodes%s (%d node%s in focus), " (oidx--goto-focus) "."))
 
            ((eq char ?r)
-            (if org-index--ids-focused-nodes-saved
+            (if oidx--ids-focused-nodes-saved
                 (let (txt)
-                  (setq txt (format "discarded current list of focused %d focused node%s and restored previous list; now %%s%%d node%%s in focus" (length org-index--ids-focused-nodes-saved) (if (cdr org-index--ids-focused-nodes-saved) "s" "")))
-                  (setq org-index--ids-focused-nodes org-index--ids-focused-nodes-saved)
+                  (setq txt (format "discarded current list of focused %d focused node%s and restored previous list; now %%s%%d node%%s in focus" (length oidx--ids-focused-nodes-saved) (if (cdr oidx--ids-focused-nodes-saved) "s" "")))
+                  (setq oidx--ids-focused-nodes oidx--ids-focused-nodes-saved)
                   txt)
               "no saved list of focused nodes to restore, nothing to do"))))
 
-    (org-index--persist-focused-nodes)
+    (oidx--persist-focused-nodes)
     
-    (format text (or more-text "") (length org-index--ids-focused-nodes) (if (cdr org-index--ids-focused-nodes) "s" ""))))
+    (format text (or more-text "") (length oidx--ids-focused-nodes) (if (cdr oidx--ids-focused-nodes) "s" ""))))
 
 
-(defun org-index--persist-focused-nodes ()
+(defun oidx--persist-focused-nodes ()
   "Write list of focused nodes to property."
-  (with-current-buffer org-index--buffer
-    (org-entry-put org-index--point "ids-focused-nodes" (mapconcat 'identity org-index--ids-focused-nodes " "))))
+  (with-current-buffer oidx--buffer
+    (org-entry-put oidx--point "ids-focused-nodes" (mapconcat 'identity oidx--ids-focused-nodes " "))))
 
 
-(defun org-index--delete-from-focus ()
+(defun oidx--delete-from-focus ()
   "Delete current node from list of focused nodes."
   (let (id)
     (setq id (org-id-get))
-    (if (and id (member id org-index--ids-focused-nodes))
+    (if (and id (member id oidx--ids-focused-nodes))
         (progn
-          (setq org-index--id-last-goto-focus
-                (or (car-safe (cdr-safe (member id (reverse (append org-index--ids-focused-nodes
-                                                                    org-index--ids-focused-nodes)))))
-                    org-index--id-last-goto-focus))
-          (setq org-index--ids-focused-nodes-saved org-index--ids-focused-nodes)
-          (setq org-index--ids-focused-nodes (delete id org-index--ids-focused-nodes))
-          (setq org-index--id-last-goto-focus nil)
+          (setq oidx--id-last-goto-focus
+                (or (car-safe (cdr-safe (member id (reverse (append oidx--ids-focused-nodes
+                                                                    oidx--ids-focused-nodes)))))
+                    oidx--id-last-goto-focus))
+          (setq oidx--ids-focused-nodes-saved oidx--ids-focused-nodes)
+          (setq oidx--ids-focused-nodes (delete id oidx--ids-focused-nodes))
+          (setq oidx--id-last-goto-focus nil)
           "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
       "Current node has not been in list of focused nodes%s (%d node%s in focus)")))
 
 
-(defun org-index--ids-up-to-top ()
+(defun oidx--ids-up-to-top ()
   "Get list of all ids from current node up to top level."
   (when (string= major-mode "org-mode")
     (let (ids id)
@@ -2959,23 +2964,23 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 ;; Variable and Functions for occur; most of them share state between the
 ;; various functions of the occur-family of functions
-(defconst org-index--usage-note " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k') 
+(defconst oidx--usage-note " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k') 
 from within this buffer, the index is updated accordingly" "Note on usage in occur buffer")
-(defconst org-index--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
-(defvar org-index--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
-(defvar org-index--occur-help-overlay nil "Overlay for help in occur buffer.")
-(defvar org-index--occur-stack nil "Stack with overlays for hiding lines.")
-(defvar org-index--occur-tail-overlay nil "Overlay to cover invisible lines.")
-(defvar org-index--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
-(defvar org-index--occur-win-config nil "Window configuration stored away during occur")
-(defvar org-index--occur-point-begin nil "Point of first line of table contents")
-(defvar org-index--occur-buffer nil "Buffer, where occur takes place.")
-(defvar org-index--occur-search-text nil "Description of text to search for.")
-(defvar org-index--occur-words nil "Final list of match words.")
-(defvar org-index--occur-days-clause nil "Clause for help text, denoting the number of days searched back.")
+(defconst oidx--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
+(defvar oidx--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
+(defvar oidx--occur-help-overlay nil "Overlay for help in occur buffer.")
+(defvar oidx--occur-stack nil "Stack with overlays for hiding lines.")
+(defvar oidx--occur-tail-overlay nil "Overlay to cover invisible lines.")
+(defvar oidx--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
+(defvar oidx--occur-win-config nil "Window configuration stored away during occur")
+(defvar oidx--occur-point-begin nil "Point of first line of table contents")
+(defvar oidx--occur-buffer nil "Buffer, where occur takes place.")
+(defvar oidx--occur-search-text nil "Description of text to search for.")
+(defvar oidx--occur-words nil "Final list of match words.")
+(defvar oidx--occur-days-clause nil "Clause for help text, denoting the number of days searched back.")
 
 
-(defun org-index--do-occur (&optional days)
+(defun oidx--do-occur (&optional days)
   "Perform command occur; optional narrow to DAYS back."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
@@ -2989,17 +2994,17 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         key-sequence-raw)
 
 
-    (org-index--occur-prepare-buffer days)
+    (oidx--occur-prepare-buffer days)
 
     (setq initial-frame (selected-frame))
 
     ;; do not enter loop if number of days is requested
     (when days
-      (goto-char org-index--occur-point-begin)
-      (org-index--hide-with-overlays (cons word words) lines-wanted days)
-      (move-overlay org-index--occur-tail-overlay (org-index--occur-end-of-visible) (point-max))
+      (goto-char oidx--occur-point-begin)
+      (oidx--hide-with-overlays (cons word words) lines-wanted days)
+      (move-overlay oidx--occur-tail-overlay (oidx--occur-end-of-visible) (point-max))
       
-      (goto-char org-index--occur-point-begin)
+      (goto-char oidx--occur-point-begin)
       (setq done t))
 
     ;; main loop
@@ -3007,7 +3012,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
       (if in-c-backspace
           (setq key "<backspace>")
-        (setq org-index--occur-search-text (mapconcat 'identity (reverse (cons word words)) ","))
+        (setq oidx--occur-search-text (mapconcat 'identity (reverse (cons word words)) ","))
 
         ;; read key, if selected frame has not changed
         (if (eq initial-frame (selected-frame))
@@ -3016,8 +3021,8 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
                     (let ((echo-keystrokes 0)
                           (full-prompt (format "%s%s%s"
                                                prompt
-                                               org-index--occur-search-text
-                                               (if (string= org-index--occur-search-text "") "" " "))))
+                                               oidx--occur-search-text
+                                               (if (string= oidx--occur-search-text "") "" " "))))
                       (read-key-sequence full-prompt nil nil t t)))
               (setq key (key-description key-sequence))
               (setq key-sequence-raw (this-single-command-raw-keys)))
@@ -3052,13 +3057,13 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
             (setq in-c-backspace nil))
 
           ;; free top list of overlays and remove list
-          (org-index--unhide)
-          (move-overlay org-index--occur-tail-overlay
-                        (org-index--occur-end-of-visible)
+          (oidx--unhide)
+          (move-overlay oidx--occur-tail-overlay
+                        (oidx--occur-end-of-visible)
                         (point-max))
           
           ;; make sure, point is still visible
-          (goto-char org-index--occur-point-begin)))
+          (goto-char oidx--occur-point-begin)))
 
 
        ((member key (list "SPC" ",")) ; space or comma: enter an additional search word
@@ -3070,9 +3075,9 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
        ((string= key "?") ; question mark: toggle display of headlines and help
-        (setq org-index--occur-help-text (cons (cdr org-index--occur-help-text)
-                                               (car org-index--occur-help-text))) ; swap
-        (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text)))
+        (setq oidx--occur-help-text (cons (cdr oidx--occur-help-text)
+                                               (car oidx--occur-help-text))) ; swap
+        (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text)))
 
        ((and (= (length key) 1)
              (aref printable-chars (elt key 0))) ; any printable char: add to current search word
@@ -3081,13 +3086,13 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         (setq word (concat word key))
         
         ;; make overlays to hide lines, that do not match longer word any more
-        (goto-char org-index--occur-point-begin)
-        (org-index--hide-with-overlays (cons word words) lines-wanted days)
-        (move-overlay org-index--occur-tail-overlay
-                      (org-index--occur-end-of-visible)
+        (goto-char oidx--occur-point-begin)
+        (oidx--hide-with-overlays (cons word words) lines-wanted days)
+        (move-overlay oidx--occur-tail-overlay
+                      (oidx--occur-end-of-visible)
                       (point-max))
         
-        (goto-char org-index--occur-point-begin)
+        (goto-char oidx--occur-point-begin)
         
         ;; make sure, point is on a visible line
         (line-move -1 t)
@@ -3097,70 +3102,70 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
        (t (setq done t))))
 
     ;; remember list of words
-    (setq org-index--occur-words (cons word words))
+    (setq oidx--occur-words (cons word words))
 
     ;; put back input event, that caused the loop to end
     (if (string= key "C-g")
-        (progn (if org-index--occur-win-config (set-window-configuration org-index--occur-win-config))
+        (progn (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
                (keyboard-quit))
       (setq unread-command-events (listify-key-sequence key-sequence-raw))
       (message key))
     
 
-    (org-index--occur-make-permanent lines-wanted)
+    (oidx--occur-make-permanent lines-wanted)
 
-    (org-index--occur-install-keyboard-shortcuts)))
+    (oidx--occur-install-keyboard-shortcuts)))
 
 
-(defun org-index--occur-prepare-buffer (days)
-  "Prepare buffer for 'org-index--do-occur´"
+(defun oidx--occur-prepare-buffer (days)
+  "Prepare buffer for 'oidx--do-occur´"
 
   ;; make and show buffer
-  (if (get-buffer org-index--occur-buffer-name)
-      (kill-buffer org-index--occur-buffer-name))
-  (setq org-index--occur-buffer (make-indirect-buffer org-index--buffer org-index--occur-buffer-name))
-  (setq org-index--occur-win-config (current-window-configuration))
-  (pop-to-buffer-same-window org-index--occur-buffer)
+  (if (get-buffer oidx--occur-buffer-name)
+      (kill-buffer oidx--occur-buffer-name))
+  (setq oidx--occur-buffer (make-indirect-buffer oidx--buffer oidx--occur-buffer-name))
+  (setq oidx--occur-win-config (current-window-configuration))
+  (pop-to-buffer-same-window oidx--occur-buffer)
 
   ;; avoid modifying direct buffer
   (setq buffer-read-only t)
   (toggle-truncate-lines 1)
 
   ;; reset stack and overlays
-  (setq org-index--occur-stack nil)
-  (setq org-index--occur-tail-overlay nil)
+  (setq oidx--occur-stack nil)
+  (setq oidx--occur-tail-overlay nil)
   
   ;; narrow to table rows and one line before
-  (goto-char org-index--below-hline)
+  (goto-char oidx--below-hline)
   (forward-line 0)
-  (setq org-index--occur-point-begin (point))
+  (setq oidx--occur-point-begin (point))
   (forward-line -1)
   (narrow-to-region (point) (org-table-end))
   (forward-line)
 
   ;; initialize help text
-  (setq org-index--occur-days-clause (if days (format " (%d days back)" days) ""))
-  (setq org-index--occur-help-text
+  (setq oidx--occur-days-clause (if days (format " (%d days back)" days) ""))
+  (setq oidx--occur-help-text
         (cons
          (concat
-          (propertize (format "Incremental occur%s" org-index--occur-days-clause) 'face 'org-todo)
+          (propertize (format "Incremental occur%s" oidx--occur-days-clause) 'face 'org-todo)
           (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
          (concat
           (propertize
-           (org-index--wrap
+           (oidx--wrap
             (concat
-             "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word; <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index; all other keys end search." org-index--usage-note "\n"))
+             "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word; <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index; all other keys end search." oidx--usage-note "\n"))
            'face 'org-agenda-dimmed-todo-face)
-          org-index--headings)))
+          oidx--headings)))
   
   ;; insert overlays for help text and to cover unsearched lines
-  (setq org-index--occur-help-overlay (make-overlay (point-min) org-index--occur-point-begin))
-  (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text))
-  (setq org-index--occur-tail-overlay (make-overlay (point-max) (point-max)))
-  (overlay-put org-index--occur-tail-overlay 'invisible t))
+  (setq oidx--occur-help-overlay (make-overlay (point-min) oidx--occur-point-begin))
+  (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
+  (setq oidx--occur-tail-overlay (make-overlay (point-max) (point-max)))
+  (overlay-put oidx--occur-tail-overlay 'invisible t))
 
 
-(defun org-index--occur-make-permanent (lines-wanted)
+(defun oidx--occur-make-permanent (lines-wanted)
   "Make permanent copy of current view into index"
 
   ;; copy visible lines
@@ -3168,9 +3173,9 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         line all-lines all-lines-lbp header-lines lbp)
 
       (setq cursor-type t)
-      (goto-char org-index--occur-point-begin)
+      (goto-char oidx--occur-point-begin)
       (let ((inhibit-read-only t))
-        (put-text-property org-index--occur-point-begin (org-table-end) 'face nil))
+        (put-text-property oidx--occur-point-begin (org-table-end) 'face nil))
 
       ;; collect all visible lines
       (while (and (not (eobp))
@@ -3189,12 +3194,12 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
           (setq all-lines-lbp (cons lbp all-lines-lbp)))
         (forward-line 1))
       
-      (kill-buffer org-index--occur-buffer-name) ; cannot keep this buffer; might become stale soon
+      (kill-buffer oidx--occur-buffer-name) ; cannot keep this buffer; might become stale soon
 
       ;; create new buffer
-      (setq org-index--occur-buffer (get-buffer-create org-index--occur-buffer-name))
-      (pop-to-buffer-same-window org-index--occur-buffer)
-      (insert org-index--headings)
+      (setq oidx--occur-buffer (get-buffer-create oidx--occur-buffer-name))
+      (pop-to-buffer-same-window oidx--occur-buffer)
+      (insert oidx--headings)
       (setq header-lines (line-number-at-pos))
 
       ;; insert into new buffer
@@ -3202,11 +3207,11 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         (apply 'insert (reverse all-lines))
         (if (= lines-collected lines-wanted)
             (insert "\n(more lines omitted)\n")))
-      (setq org-index--occur-lines-collected lines-collected)
+      (setq oidx--occur-lines-collected lines-collected)
       
       (org-mode)
       (setq truncate-lines t)
-      (if all-lines (org-index--align-and-fontify-current-line (length all-lines)))
+      (if all-lines (oidx--align-and-fontify-current-line (length all-lines)))
       (when (fboundp 'font-lock-ensure)
         (font-lock-ensure))
       (when all-lines-lbp
@@ -3220,26 +3225,26 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
       ;; prepare help text
       (goto-char (point-min))
       (forward-line (1- header-lines))
-      (setq org-index--occur-help-overlay (make-overlay (point-min) (point)))
-      (setq org-index--occur-help-text
+      (setq oidx--occur-help-overlay (make-overlay (point-min) (point)))
+      (setq oidx--occur-help-text
             (cons
-             (org-index--wrap
-              (propertize (format "Search is done%s;    ? toggles help and headlines.\n" org-index--occur-days-clause) 'face 'org-agenda-dimmed-todo-face))
+             (oidx--wrap
+              (propertize (format "Search is done%s;    ? toggles help and headlines.\n" oidx--occur-days-clause) 'face 'org-agenda-dimmed-todo-face))
              (concat
-              (org-index--wrap
+              (oidx--wrap
                (propertize
                 (format
-                 (concat (format "Search is done%s." org-index--occur-days-clause)
+                 (concat (format "Search is done%s." oidx--occur-days-clause)
                          (if (< lines-collected lines-wanted)
                              " Showing all %d matches for "
                            " Showing one window of matches for ")
-                         "\"" org-index--occur-search-text
-                         "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count.\n" org-index--usage-note "\n")
+                         "\"" oidx--occur-search-text
+                         "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count.\n" oidx--usage-note "\n")
                  (length all-lines))
                 'face 'org-agenda-dimmed-todo-face))
-              org-index--headings)))
+              oidx--headings)))
       
-      (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text))
+      (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
 
       ;; highlight words
       (mapc (lambda (w) (unless (or (not w) (string= w ""))
@@ -3250,12 +3255,12 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
                                                                     (char-to-string c)))
                                                       (regexp-quote w)))
                              (regexp-quote w)) 'isearch)))
-            org-index--occur-words)
+            oidx--occur-words)
       
       (setq buffer-read-only t)))
 
 
-(defun org-index--occur-install-keyboard-shortcuts ()
+(defun oidx--occur-install-keyboard-shortcuts ()
   "Install keyboard-shortcuts for result of occur buffer."
 
   (let (keymap)
@@ -3264,88 +3269,88 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
     
     (mapc (lambda (x) (define-key keymap (kbd x)
                    (lambda () (interactive)
-                     (message "%s" (org-index--occur-action)))))
+                     (message "%s" (oidx--occur-action)))))
           (list "<return>" "RET"))
     
     (define-key keymap (kbd "<tab>")
       (lambda () (interactive)
-        (message (org-index--occur-action t))))
+        (message (oidx--occur-action t))))
     
     (define-key keymap (kbd "e")
       (lambda () (interactive)
-        (message (org-index--do 'edit))))
+        (message (oidx--do 'edit))))
     
     (define-key keymap (kbd "SPC")
       (lambda () (interactive)
-        (org-index--refresh-parse-table)
+        (oidx--refresh-parse-table)
         ;; increment in index
-        (let ((ref (org-index--get-or-set-field 'ref))
+        (let ((ref (oidx--get-or-set-field 'ref))
               count)
-          (org-index--on
+          (oidx--on
               'ref ref
-            (setq count (+ 1 (string-to-number (org-index--get-or-set-field 'count))))
-            (org-index--get-or-set-field 'count (number-to-string count))
-            (org-index--promote-current-line)
-            (org-index--align-and-fontify-current-line))
+            (setq count (+ 1 (string-to-number (oidx--get-or-set-field 'count))))
+            (oidx--get-or-set-field 'count (number-to-string count))
+            (oidx--promote-current-line)
+            (oidx--align-and-fontify-current-line))
           ;; increment in this buffer
           (let ((inhibit-read-only t))
-            (org-index--get-or-set-field 'count (number-to-string count)))
+            (oidx--get-or-set-field 'count (number-to-string count)))
           (message "Incremented count to %d" count))))
     
     (define-key keymap (kbd "<S-return>")
       (lambda () (interactive)
         (let ((pos (get-text-property (point) 'org-index-lbp)))
-          (org-index--refresh-parse-table)
-          (org-index--occur-test-stale pos)
-          (pop-to-buffer org-index--buffer)
+          (oidx--refresh-parse-table)
+          (oidx--occur-test-stale pos)
+          (pop-to-buffer oidx--buffer)
           (goto-char pos)
           (org-reveal t)
-          (org-index--update-current-line)
+          (oidx--update-current-line)
           (beginning-of-line))))
 
     (define-key keymap (kbd "?")
       (lambda () (interactive)
-        (org-index--refresh-parse-table)
-        (setq-local org-index--occur-help-text (cons (cdr org-index--occur-help-text) (car org-index--occur-help-text)))
-        (overlay-put org-index--occur-help-overlay 'display (car org-index--occur-help-text))))
+        (oidx--refresh-parse-table)
+        (setq-local oidx--occur-help-text (cons (cdr oidx--occur-help-text) (car oidx--occur-help-text)))
+        (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))))
     
     (use-local-map keymap)))
 
 
-(defun org-index--occur-end-of-visible ()
+(defun oidx--occur-end-of-visible ()
   "End of visible stretch during occur."
-  (if org-index--occur-stack
-      (cdr (assoc :end-of-visible (car org-index--occur-stack)))
+  (if oidx--occur-stack
+      (cdr (assoc :end-of-visible (car oidx--occur-stack)))
     (point-max)))
 
 
-(defun org-index--occur-test-stale (pos)
+(defun oidx--occur-test-stale (pos)
   "Test, if current line in occur buffer has become stale at POS."
   (let (here there)
-    (org-index--refresh-parse-table)
-    (setq here (org-index--line-in-canonical-form))
-    (with-current-buffer org-index--buffer
+    (oidx--refresh-parse-table)
+    (setq here (oidx--line-in-canonical-form))
+    (with-current-buffer oidx--buffer
       (goto-char pos)
-      (setq there (org-index--line-in-canonical-form)))
+      (setq there (oidx--line-in-canonical-form)))
     (unless (string= here there)
       (error "Occur buffer has become stale; please repeat search"))))
 
 
-(defun org-index--occur-action (&optional other)
-  "Helper for `org-index--occur', find heading with ref or id; if OTHER, in other window; or copy yank column."
+(defun oidx--occur-action (&optional other)
+  "Helper for `oidx--occur', find heading with ref or id; if OTHER, in other window; or copy yank column."
   (if (org-at-table-p)
-      (let ((id (org-index--get-or-set-field 'id))
-            (ref (org-index--get-or-set-field 'ref))
-            (yank (org-index--get-or-set-field 'yank)))
+      (let ((id (oidx--get-or-set-field 'id))
+            (ref (oidx--get-or-set-field 'ref))
+            (yank (oidx--get-or-set-field 'yank)))
         (if id
-            (org-index--find-id id other)
+            (oidx--find-id id other)
           (if ref
               (progn
                 (org-mark-ring-goto)
                 (format "Found reference %s (no node is associated)" ref))
             (if yank
                 (progn
-                  (org-index--update-line (get-text-property (point) 'org-index-lbp))
+                  (oidx--update-line (get-text-property (point) 'org-index-lbp))
                   (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
                   (kill-new yank)
                   (org-mark-ring-goto)
@@ -3358,7 +3363,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
     (message "Not at table")))
 
 
-(defun org-index--hide-with-overlays (words lines-wanted days)
+(defun oidx--hide-with-overlays (words lines-wanted days)
   "Hide lines that are currently visible and do not match WORDS; 
 leave LINES-WANTED lines visible.
 Argument DAYS hides older lines."
@@ -3374,7 +3379,7 @@ Argument DAYS hides older lines."
       (while (and (not (eobp))
                   (and
                    (invisible-p (point))
-                   (< (point) (overlay-start org-index--occur-tail-overlay))))
+                   (< (point) (overlay-start oidx--occur-tail-overlay))))
         (goto-char (overlay-end (car (overlays-at (point))))))
 
       ;; find stretch of lines, that are currently visible but should be invisible now
@@ -3384,10 +3389,10 @@ Argument DAYS hides older lines."
       (while (and (not (eobp))
                   (not (and
                         (invisible-p (point))
-                        (< (point) (overlay-start org-index--occur-tail-overlay))))
+                        (< (point) (overlay-start oidx--occur-tail-overlay))))
                   ;; either regard words or days, but not both
                   (if days
-                      (let ((last-accessed (org-index--get-or-set-field 'last-accessed)))
+                      (let ((last-accessed (oidx--get-or-set-field 'last-accessed)))
                         (if last-accessed
                             (not (and
                                   (<= (- (time-to-days (current-time))
@@ -3395,7 +3400,7 @@ Argument DAYS hides older lines."
                                       days)
                                   (setq matched t))) ; for its side effect
                           t))
-                    (not (and (setq places (org-index--test-words words))
+                    (not (and (setq places (oidx--test-words words))
                               (setq matched t))))) ; for its side effect
         (forward-line 1))
 
@@ -3419,41 +3424,41 @@ Argument DAYS hides older lines."
         (cl-incf lines-found)))
     
     ;; put new list on top of stack
-    (setq org-index--occur-stack
+    (setq oidx--occur-stack
           (cons (list (cons :overlays overlays)
                       (cons :end-of-visible end-of-visible)
                       (cons :lines lines-found)
 		      (cons :places all-places))
-                org-index--occur-stack))
+                oidx--occur-stack))
 
     lines-found))
 
 
-(defun org-index--unhide ()
-  "Unhide text that does has been hidden by `org-index--hide-with-overlays'."
+(defun oidx--unhide ()
+  "Unhide text that does has been hidden by `oidx--hide-with-overlays'."
   (let (places)
-    (when org-index--occur-stack
+    (when oidx--occur-stack
       ;; delete overlays and make visible again
       (mapc (lambda (y)
               (delete-overlay y))
-            (cdr (assoc :overlays (car org-index--occur-stack))))
+            (cdr (assoc :overlays (car oidx--occur-stack))))
       ;; remove latest highlights
-      (setq places (cdr (assoc :places (car org-index--occur-stack))))
+      (setq places (cdr (assoc :places (car oidx--occur-stack))))
       (while places
         (let ((inhibit-read-only t))
           (put-text-property (caar places) (+ (caar places) (cdar places)) 'face nil))
         (setq places (cdr places)))
       ;; remove top of stack
-      (setq org-index--occur-stack (cdr org-index--occur-stack))
+      (setq oidx--occur-stack (cdr oidx--occur-stack))
       ;; redo older highlights
-      (setq places (cdr (assoc :places (car org-index--occur-stack))))
+      (setq places (cdr (assoc :places (car oidx--occur-stack))))
       (while places
         (let ((inhibit-read-only t))
           (put-text-property (caar places) (+ (caar places) (cdar places)) 'face 'isearch))
         (setq places (cdr places))))))
 
 
-(defun org-index--test-words (words)
+(defun oidx--test-words (words)
   "Test current line for match against WORDS."
   (let ((lbp (line-beginning-position))
         line dc-line places index)
@@ -3467,7 +3472,7 @@ Argument DAYS hides older lines."
       places)))
 
 
-(defun org-index--copy-visible (beg end)
+(defun oidx--copy-visible (beg end)
   "Copy the visible parts of the region between BEG and END without adding it to `kill-ring'; copy of `org-copy-visible'."
   (let (snippets s)
     (save-excursion
