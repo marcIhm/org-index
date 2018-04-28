@@ -47,12 +47,10 @@
     - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table;
       see the comments within the file for instructions	 
 
-
 ** Testing a new Release
 
    - ert
-   - Byte Compile
-   - Alle neuen Funktionen
+   - (byte-compile-file "org-index.el")
    - elint-current-buffer
    - checkdoc
-   - Package lint
+   - package-lint ;; ignore messages about oidx-prefix

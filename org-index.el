@@ -83,7 +83,7 @@
 
 ;;
 ;;  Please note, that this package uses two prefixes, `org-index' for user
-;;  visible symbols and `oidx' for internal stuff.
+;;  visible symbols and `oidx' (which is shorter) for internal stuff.
 ;; 
 
 (require 'org-table)
@@ -243,8 +243,8 @@ those pieces."
 (defvar oidx--category-before nil "Category of node before.")
 (defvar oidx--active-region nil "Active region, initially.  I.e. what has been marked.")
 (defvar oidx--below-cursor nil "Word below cursor.")
-(defvar oidx--within-index-node nil "True, if we are within node of the index table.")
-(defvar oidx--within-occur nil "True, if we are within the occur-buffer.")
+(defvar oidx--within-index-node nil "Non-nil, if we are within node of the index table.")
+(defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
 (defvar oidx--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar oidx--sort-timer nil "Timer to sort index in correct order.")
@@ -257,9 +257,9 @@ those pieces."
 (defvar oidx--context-node nil "Buffer and position for node in edit buffer.")
 (defvar oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defvar oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
-(defvar oidx--short-help-wanted nil "True, if short help should be displayed.")
-(defvar oidx--short-help-displayed nil "True, if short help message has been displayed.")
-(defvar oidx--prefix-arg nil "True, if prefix argument has been received during input.")
+(defvar oidx--short-help-wanted nil "Non-nil, if short help should be displayed.")
+(defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
+(defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
 (defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 (defvar oidx--this-command nil "Subcommand, that is currently excecuted.")
 (defvar oidx--last-command nil "Subcommand, that hast been excecuted last.")
@@ -302,7 +302,7 @@ if VALUE cannot be found."
 
 
 (defun org-index (&optional arg)
-    "Fast search-index for selected org nodes and things outside.
+  "Fast search-index for selected org nodes and things outside.
 
 This function creates and updates an index table with keywords;
 each line either points to a heading in org, references something
@@ -420,31 +420,31 @@ Use from elisp: Optional argument COMMAND is a symbol naming the
 command to execute.  SEARCH-REF specifies a reference to search
 for, if needed.  ARG allows passing in a prefix argument as in
 interactive calls."
-    (interactive "P")
+  (interactive "P")
 
-    (catch 'new-index
-      (oidx--verify-id)
-      (let (char command (c-u-text (if arg " C-u " "")))
-        (while (not char)
-          (if (sit-for 1)
-              (message (concat "org-index (type a shortcut char or <space> or ? for a detailed prompt) -" c-u-text)))
-          (setq char (key-description (read-key-sequence nil)))
-          (if (string= char "C-g") (keyboard-quit))
-          (if (string= char "SPC") (setq char "?"))
-          (when (string= char (upcase char))
-            (setq char (downcase char))
-            (setq arg (or arg '(4))))
-          (when (string= char "C-u")
-            (setq arg (or arg '(4)))
-            (setq c-u-text " C-u ")
-            (setq char nil)))
-        (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
-        (unless command
-          (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
-            (setq command 'short-help)))
+  (catch 'new-index
+    (oidx--verify-id)
+    (let (char command (c-u-text (if arg " C-u " "")))
+      (while (not char)
+        (if (sit-for 1)
+            (message (concat "org-index (type a shortcut char or <space> or ? for a detailed prompt) -" c-u-text)))
+        (setq char (key-description (read-key-sequence nil)))
+        (if (string= char "C-g") (keyboard-quit))
+        (if (string= char "SPC") (setq char "?"))
+        (when (string= char (upcase char))
+          (setq char (downcase char))
+          (setq arg (or arg '(4))))
+        (when (string= char "C-u")
+          (setq arg (or arg '(4)))
+          (setq c-u-text " C-u ")
+          (setq char nil)))
+      (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
+      (unless command
+        (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
+          (setq command 'short-help)))
 
-        (let ((oidx--skip-verify-id t))
-          (oidx--do command nil arg)))))
+      (let ((oidx--skip-verify-id t))
+        (oidx--do command nil arg)))))
 
 
 (defun oidx--do (&optional command search-ref arg)
@@ -646,7 +646,7 @@ interactive calls."
        ((eq command 'add)
 
         (let ((r (oidx--do-add-or-update (if (equal arg '(4)) t nil)
-                                              (if (numberp arg) arg nil))))
+                                         (if (numberp arg) arg nil))))
           (setq message-text (car r))
           (setq kill-new-text (cdr r))))
 
@@ -722,8 +722,8 @@ interactive calls."
             (while (not done)
               (if id
                   (setq info (oidx--on 'id id
-                                            (mapcar (lambda (x) (oidx--get-or-set-field x))
-                                                    (list 'keywords 'count 'created 'last-accessed 'category 'ref)))))
+                               (mapcar (lambda (x) (oidx--get-or-set-field x))
+                                       (list 'keywords 'count 'created 'last-accessed 'category 'ref)))))
 
               (setq reached-top (= (org-outline-level) 1))
 
@@ -1259,8 +1259,8 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
   (setq oidx--head (match-string 1 ref-field))
   (setq oidx--tail (match-string 3 ref-field))
   (setq oidx--ref-regex (concat (regexp-quote oidx--head)
-                                     "\\([0-9]+\\)"
-                                     (regexp-quote oidx--tail)))
+                                "\\([0-9]+\\)"
+                                (regexp-quote oidx--tail)))
   (setq oidx--ref-format (concat oidx--head "%d" oidx--tail)))
 
 
@@ -1343,7 +1343,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
 
 
-; Edit, add or kill lines
+                                                  ; Edit, add or kill lines
 (defun oidx--do-edit ()
   "Perform command edit."
   (let ((maxlen 0) cols-vals buffer-keymap field-keymap keywords-pos val)
@@ -1399,12 +1399,12 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
     (dolist (col-val cols-vals)
       (if (eq (car col-val) 'keywords) (setq keywords-pos (point)))
       (setq oidx--edit-widgets (cons
-                                     (cons (car col-val)
-                                           (widget-create 'editable-field
-                                                          :format (format  (format "%%%ds: %%%%v" maxlen) (symbol-name (car col-val)))
-                                                          :keymap field-keymap
-                                                          (or (cdr col-val) "")))
-                                     oidx--edit-widgets)))
+                                (cons (car col-val)
+                                      (widget-create 'editable-field
+                                                     :format (format  (format "%%%ds: %%%%v" maxlen) (symbol-name (car col-val)))
+                                                     :keymap field-keymap
+                                                     (or (cdr col-val) "")))
+                                oidx--edit-widgets)))
 
     (widget-setup)
     (goto-char keywords-pos)
@@ -1689,9 +1689,9 @@ CREATE-REF and TAG-WITH-REF if given."
           (progn
 
             (oidx--on
-             'id id
-             (oidx--write-fields args)
-             (setq yank (oidx--get-or-set-field org-index-yank-after-add)))
+                'id id
+              (oidx--write-fields args)
+              (setq yank (oidx--get-or-set-field org-index-yank-after-add)))
 
             (setq ret
                   (if ref
@@ -1953,12 +1953,12 @@ argument VALUE specifies the value to search for."
 Argument COLUMN and VALUE specify line to get."
   (let (content)
     (oidx--on
-     column value
-     (mapc (lambda (x)
-             (if (and (numberp (cdr x))
-                      (> (cdr x) 0))
-                 (setq content (cons (car x) (cons (or (oidx--get-or-set-field (car x)) "") content)))))
-           (reverse oidx--columns)))
+        column value
+      (mapc (lambda (x)
+              (if (and (numberp (cdr x))
+                       (> (cdr x) 0))
+                  (setq content (cons (car x) (cons (or (oidx--get-or-set-field (car x)) "") content)))))
+            (reverse oidx--columns)))
     content))
 
 
@@ -1991,7 +1991,7 @@ Optional argument NO-ERROR suppresses error."
               (string-match "^[0-9]+$" count-field))
       (setq newcount (+ 1 (string-to-number (or count-field "0"))))
       (oidx--get-or-set-field 'count
-                                   (number-to-string newcount)))
+                              (number-to-string newcount)))
 
     ;; update timestamp
     (org-table-goto-column (oidx--column-num 'last-accessed))
@@ -2514,8 +2514,8 @@ Optional argument NO-INC skips automatic increment on maxref."
   "Create a new empty index table with detailed explanation.  Argument REASONS explains why."
 
   (oidx--ask-before-create-index "Cannot find index table: "
-                                      "new permanent" "."
-                                      reasons)
+                                 "new permanent" "."
+                                 reasons)
   (oidx--create-index))
 
 
@@ -2527,8 +2527,8 @@ Optional argument NO-INC skips automatic increment on maxref."
     (goto-char oidx--below-hline)
     (org-reveal t))
   (oidx--ask-before-create-index "The existing index contains this error: "
-                                      "temporary" ", to compare with."
-                                      reasons)
+                                 "temporary" ", to compare with."
+                                 reasons)
   (oidx--create-index t t))
 
 
@@ -2707,7 +2707,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 	      (unless (string= (kbd key) (kbd "^g"))
 		(global-set-key key 'org-index)
 		(let ((saved ""))
-		  (when (y-or-n-p "Do you want to save this for future Emacs sessions ?")
+		  (when (y-or-n-p "Do you want to save this for future Emacs sessions ? ")
 		    (customize-save-variable 'org-index-key key)
 		    (setq saved "and saved "))
 		  (message "Set %sorg-index-key '%s' to %s." saved (kbd key) (or custom-file user-init-file)))))
@@ -2964,16 +2964,16 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 ;; Variable and Functions for occur; most of them share state between the
 ;; various functions of the occur-family of functions
-(defconst oidx--usage-note " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k') 
-from within this buffer, the index is updated accordingly" "Note on usage in occur buffer")
+(defconst oidx--usage-note " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k')
+from within this buffer, the index is updated accordingly" "Note on usage in occur buffer.")
 (defconst oidx--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defvar oidx--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
 (defvar oidx--occur-help-overlay nil "Overlay for help in occur buffer.")
 (defvar oidx--occur-stack nil "Stack with overlays for hiding lines.")
 (defvar oidx--occur-tail-overlay nil "Overlay to cover invisible lines.")
 (defvar oidx--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
-(defvar oidx--occur-win-config nil "Window configuration stored away during occur")
-(defvar oidx--occur-point-begin nil "Point of first line of table contents")
+(defvar oidx--occur-win-config nil "Window configuration stored away during occur.")
+(defvar oidx--occur-point-begin nil "Point of first line of table contents.")
 (defvar oidx--occur-buffer nil "Buffer, where occur takes place.")
 (defvar oidx--occur-search-text nil "Description of text to search for.")
 (defvar oidx--occur-words nil "Final list of match words.")
@@ -3076,7 +3076,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
        ((string= key "?") ; question mark: toggle display of headlines and help
         (setq oidx--occur-help-text (cons (cdr oidx--occur-help-text)
-                                               (car oidx--occur-help-text))) ; swap
+                                          (car oidx--occur-help-text))) ; swap
         (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text)))
 
        ((and (= (length key) 1)
@@ -3118,7 +3118,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
 (defun oidx--occur-prepare-buffer (days)
-  "Prepare buffer for 'oidx--do-occur´"
+  "Prepare buffer for 'oidx--do-occur; optional narrow to DAYS back."
 
   ;; make and show buffer
   (if (get-buffer oidx--occur-buffer-name)
@@ -3166,98 +3166,99 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
 (defun oidx--occur-make-permanent (lines-wanted)
-  "Make permanent copy of current view into index"
+  "Make permanent copy of current view into index.
+Argument LINES-WANTED specifies number of lines to display."
 
   ;; copy visible lines
   (let ((lines-collected 0)
         line all-lines all-lines-lbp header-lines lbp)
 
-      (setq cursor-type t)
-      (goto-char oidx--occur-point-begin)
-      (let ((inhibit-read-only t))
-        (put-text-property oidx--occur-point-begin (org-table-end) 'face nil))
+    (setq cursor-type t)
+    (goto-char oidx--occur-point-begin)
+    (let ((inhibit-read-only t))
+      (put-text-property oidx--occur-point-begin (org-table-end) 'face nil))
 
-      ;; collect all visible lines
-      (while (and (not (eobp))
-                  (< lines-collected lines-wanted))
-        ;; skip over invisible lines
-        (while (and (invisible-p (point))
-                    (not (eobp)))
-          (goto-char (1+ (overlay-end (car (overlays-at (point)))))))
-        (setq lbp (line-beginning-position))
-        (setq line (buffer-substring-no-properties lbp (line-end-position)))
-        (unless (string= line "")
-          (cl-incf lines-collected)
-          (setq all-lines (cons (concat line
-                                        "\n")
-                                all-lines))
-          (setq all-lines-lbp (cons lbp all-lines-lbp)))
-        (forward-line 1))
-      
-      (kill-buffer oidx--occur-buffer-name) ; cannot keep this buffer; might become stale soon
+    ;; collect all visible lines
+    (while (and (not (eobp))
+                (< lines-collected lines-wanted))
+      ;; skip over invisible lines
+      (while (and (invisible-p (point))
+                  (not (eobp)))
+        (goto-char (1+ (overlay-end (car (overlays-at (point)))))))
+      (setq lbp (line-beginning-position))
+      (setq line (buffer-substring-no-properties lbp (line-end-position)))
+      (unless (string= line "")
+        (cl-incf lines-collected)
+        (setq all-lines (cons (concat line
+                                      "\n")
+                              all-lines))
+        (setq all-lines-lbp (cons lbp all-lines-lbp)))
+      (forward-line 1))
+    
+    (kill-buffer oidx--occur-buffer-name) ; cannot keep this buffer; might become stale soon
 
-      ;; create new buffer
-      (setq oidx--occur-buffer (get-buffer-create oidx--occur-buffer-name))
-      (pop-to-buffer-same-window oidx--occur-buffer)
-      (insert oidx--headings)
-      (setq header-lines (line-number-at-pos))
+    ;; create new buffer
+    (setq oidx--occur-buffer (get-buffer-create oidx--occur-buffer-name))
+    (pop-to-buffer-same-window oidx--occur-buffer)
+    (insert oidx--headings)
+    (setq header-lines (line-number-at-pos))
 
-      ;; insert into new buffer
-      (save-excursion
-        (apply 'insert (reverse all-lines))
-        (if (= lines-collected lines-wanted)
-            (insert "\n(more lines omitted)\n")))
-      (setq oidx--occur-lines-collected lines-collected)
-      
-      (org-mode)
-      (setq truncate-lines t)
-      (if all-lines (oidx--align-and-fontify-current-line (length all-lines)))
-      (when (fboundp 'font-lock-ensure)
-        (font-lock-ensure))
-      (when all-lines-lbp
-        (while (not (org-at-table-p))
-          (forward-line -1))
-        (while all-lines-lbp
-          (put-text-property (line-beginning-position) (line-end-position) 'org-index-lbp (car all-lines-lbp))
-          (setq all-lines-lbp (cdr all-lines-lbp))
-          (forward-line -1)))
+    ;; insert into new buffer
+    (save-excursion
+      (apply 'insert (reverse all-lines))
+      (if (= lines-collected lines-wanted)
+          (insert "\n(more lines omitted)\n")))
+    (setq oidx--occur-lines-collected lines-collected)
+    
+    (org-mode)
+    (setq truncate-lines t)
+    (if all-lines (oidx--align-and-fontify-current-line (length all-lines)))
+    (when (fboundp 'font-lock-ensure)
+      (font-lock-ensure))
+    (when all-lines-lbp
+      (while (not (org-at-table-p))
+        (forward-line -1))
+      (while all-lines-lbp
+        (put-text-property (line-beginning-position) (line-end-position) 'org-index-lbp (car all-lines-lbp))
+        (setq all-lines-lbp (cdr all-lines-lbp))
+        (forward-line -1)))
 
-      ;; prepare help text
-      (goto-char (point-min))
-      (forward-line (1- header-lines))
-      (setq oidx--occur-help-overlay (make-overlay (point-min) (point)))
-      (setq oidx--occur-help-text
-            (cons
-             (oidx--wrap
-              (propertize (format "Search is done%s;    ? toggles help and headlines.\n" oidx--occur-days-clause) 'face 'org-agenda-dimmed-todo-face))
-             (concat
-              (oidx--wrap
-               (propertize
-                (format
-                 (concat (format "Search is done%s." oidx--occur-days-clause)
-                         (if (< lines-collected lines-wanted)
-                             " Showing all %d matches for "
-                           " Showing one window of matches for ")
-                         "\"" oidx--occur-search-text
-                         "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count.\n" oidx--usage-note "\n")
-                 (length all-lines))
-                'face 'org-agenda-dimmed-todo-face))
-              oidx--headings)))
-      
-      (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
+    ;; prepare help text
+    (goto-char (point-min))
+    (forward-line (1- header-lines))
+    (setq oidx--occur-help-overlay (make-overlay (point-min) (point)))
+    (setq oidx--occur-help-text
+          (cons
+           (oidx--wrap
+            (propertize (format "Search is done%s;    ? toggles help and headlines.\n" oidx--occur-days-clause) 'face 'org-agenda-dimmed-todo-face))
+           (concat
+            (oidx--wrap
+             (propertize
+              (format
+               (concat (format "Search is done%s." oidx--occur-days-clause)
+                       (if (< lines-collected lines-wanted)
+                           " Showing all %d matches for "
+                         " Showing one window of matches for ")
+                       "\"" oidx--occur-search-text
+                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count.\n" oidx--usage-note "\n")
+               (length all-lines))
+              'face 'org-agenda-dimmed-todo-face))
+            oidx--headings)))
+    
+    (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
 
-      ;; highlight words
-      (mapc (lambda (w) (unless (or (not w) (string= w ""))
-                          (highlight-regexp
-                           (if (string= w (downcase w))
-                               (apply 'concat (mapcar (lambda (c) (if (string-match "[[:alpha:]]" (char-to-string c))
-                                                                      (format "[%c%c]" (downcase c) (upcase c))
-                                                                    (char-to-string c)))
-                                                      (regexp-quote w)))
-                             (regexp-quote w)) 'isearch)))
-            oidx--occur-words)
-      
-      (setq buffer-read-only t)))
+    ;; highlight words
+    (mapc (lambda (w) (unless (or (not w) (string= w ""))
+                        (highlight-regexp
+                         (if (string= w (downcase w))
+                             (apply 'concat (mapcar (lambda (c) (if (string-match "[[:alpha:]]" (char-to-string c))
+                                                                    (format "[%c%c]" (downcase c) (upcase c))
+                                                                  (char-to-string c)))
+                                                    (regexp-quote w)))
+                           (regexp-quote w)) 'isearch)))
+          oidx--occur-words)
+    
+    (setq buffer-read-only t)))
 
 
 (defun oidx--occur-install-keyboard-shortcuts ()
@@ -3268,8 +3269,8 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
     (set-keymap-parent keymap org-mode-map)
     
     (mapc (lambda (x) (define-key keymap (kbd x)
-                   (lambda () (interactive)
-                     (message "%s" (oidx--occur-action)))))
+                        (lambda () (interactive)
+                          (message "%s" (oidx--occur-action)))))
           (list "<return>" "RET"))
     
     (define-key keymap (kbd "<tab>")
