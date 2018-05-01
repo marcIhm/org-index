@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.8.8
+;; Version: 5.8.9
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -93,7 +93,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.8.8" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.8.9" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -324,7 +324,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 entries and 'occur' to find them.
 
-This is version 5.8.8 of org-index.el.
+This is version 5.8.9 of org-index.el.
 
 The function `org-index' is the only interactive function of this
 package and its main entry point; it will present you with a list
@@ -609,13 +609,17 @@ interactive calls."
                          (progn
                            (string-match "\\([0-9]+\\.[0-9]+\\)\\." org-index-version)
                            (match-string 1 org-index-version))))
+         ;; Copy the text from ChangeLog.org unchanged into the following string
          (insert "
   - Timeout in prompt for additional focus-command
   - Popup to show current node during after focus change
   - Various changes to become ready for melpa
-  - Renamed org-index-dispatch to org-index, org-index to org-index-1 and
-    org-index-dispatch-key to org-index-key
-  
+  - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
+  - Restructured source code, grouping related functions together; groups are separated as usual by 
+  - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'. Functions and
+    variables starting with 'org-index-Ä are left untouched.
+  - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable org-index-dispatch-key
+    to org-index-key
 ")
          (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.\n")
          (org-mode))

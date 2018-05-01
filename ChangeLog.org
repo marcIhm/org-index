@@ -3,8 +3,12 @@
   - Timeout in prompt for additional focus-command
   - Popup to show current node during after focus change
   - Various changes to become ready for melpa
-  - Renamed org-index-dispatch to org-index, org-index to org-index-1 and
-    org-index-dispatch-key to org-index-key
+  - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
+  - Restructured source code, grouping related functions together; groups are separated as usual by 
+  - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'. Functions and
+    variables starting with 'org-index-Ä are left untouched.
+  - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable org-index-dispatch-key
+    to org-index-key
   
 * 5.7 -- [2017-10-21 Sa]
 
