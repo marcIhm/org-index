@@ -84,6 +84,8 @@
 ;;
 ;;  Please note, that this package uses two prefixes, `org-index' for user
 ;;  visible symbols and `oidx' (which is shorter) for internal stuff.
+;;
+;;  Code can be folded and browsed with `hs-minor-mode'.
 ;; 
 
 (require 'org-table)
@@ -377,7 +379,7 @@ of subcommands to choose from:
   help: Show complete help text of `org-index'.
     I.e. this text.
 
-  short-help: [?] Show this one-line description of each subcommand.
+  short-help: [?] Show one-line descriptions of each subcommand.
     I.e. from the complete help, show only the first line for each
     subcommand.
 
@@ -617,7 +619,7 @@ interactive calls."
   - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
   - Restructured source code, grouping related functions together; groups are separated as usual by 
   - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'. Functions and
-    variables starting with 'org-index-Ä are left untouched.
+    variables starting with 'org-index-' are left untouched.
   - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable org-index-dispatch-key
     to org-index-key
 ")
@@ -992,6 +994,8 @@ Optional argument KEYS-VALUES specifies content of new line."
    (princ (or choices (oidx--get-short-help-text))))
   (with-current-buffer oidx--short-help-buffer-name
     (let ((inhibit-read-only t))
+      (setq mode-line-format nil)
+      (setq cursor-type nil)
       (fit-window-to-buffer (get-buffer-window))
       (setq window-size-fixed 'height)
       (goto-char (point-min))
@@ -1019,6 +1023,7 @@ Optional argument KEYS-VALUES specifies content of new line."
         (re-search-forward "short-help")
         (end-of-line)
         (insert " (this text)")
+        (delete-blank-lines)
         (goto-char (point-min))
         (unless (= (line-number-at-pos (point-max)) (1+ (length oidx--commands)))
           (error "Internal error, unable to properly extract one-line descriptions of subcommands"))
@@ -1063,6 +1068,7 @@ Optional argument KEYS-VALUES specifies content of new line."
             (with-current-buffer bname
               (let ((inhibit-read-only t))
                 (setq mode-line-format nil)
+                (setq cursor-type nil)
                 (fit-window-to-buffer (get-buffer-window))
                 (setq window-size-fixed 'height)
                 (add-text-properties (point-min) (point-at-eol) '(face org-level-3))
@@ -1347,7 +1353,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
 
 
-                                                  ; Edit, add or kill lines
+;; Edit, add or kill lines
 (defun oidx--do-edit ()
   "Perform command edit."
   (let ((maxlen 0) cols-vals buffer-keymap field-keymap keywords-pos val)
@@ -2966,8 +2972,8 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 
 
-;; Variable and Functions for occur; most of them share state between the
-;; various functions of the occur-family of functions
+;; Variable and Functions for occur; most of them share state
+;; between the functions of the occur-family of functions
 (defconst oidx--usage-note " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k')
 from within this buffer, the index is updated accordingly" "Note on usage in occur buffer.")
 (defconst oidx--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
