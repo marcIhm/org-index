@@ -40,6 +40,12 @@ OptionParser.new do |opts|
     options[:emacs] = bin
   end
 
+  options[:pref_props_other] = FALSE
+  opts.on("--prefer_properties_from_other",
+          "Prefer the table properties (especially the set of focused nodes) from the other branch, overriding the current ones") do
+    options[:pref_props_other] = TRUE
+  end
+
   opts.on("-h","-?","--help","show this text") do
     puts opts
     exit
@@ -200,23 +206,29 @@ edit_hint = "  This editor is invoked to let you merge changes in your index;
 
 "
 
-# Remark, this does not conform with the git documentation ?!
+# Remark, the sequence of arguments (%O, %A and %B) is determined in .git/config
 ancestor = OrgTable.new(ARGV[0],"ancestor")
-current = OrgTable.new(ARGV[2],"current")
 other = OrgTable.new(ARGV[1],"other")
+current = OrgTable.new(ARGV[2],"current")
 
 [:before_heading, :heading, :before_table, :table_caption, :table_hline, :after_table].each do |part|
   warn "Part #{part.to_s} does not match in current and other" unless current[part] == other[part]
 end
 
+puts edit_hint
+
 File.open(ARGV[1],'w') do |file|
 
-  [:before_heading, :heading, :before_table].each do |part|
+  [:before_heading, :heading].each do |part|
     file.write current[part]
   end
 
-  puts edit_hint
-
+  if (options[:pref_props_other]) then
+    file.write other[:before_table]
+  else
+    file.write current[:before_table]
+  end
+  
   [:table_caption, :table_hline].each do |part|
     file.write current[part]
   end
