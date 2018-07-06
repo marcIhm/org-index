@@ -257,8 +257,6 @@ those pieces."
 (defvar oidx--context-index nil "Position and line used for index in edit buffer.")
 (defvar oidx--context-occur nil "Position and line used for occur in edit buffer.")
 (defvar oidx--context-node nil "Buffer and position for node in edit buffer.")
-(defvar oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
-(defvar oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
 (defvar oidx--short-help-wanted nil "Non-nil, if short help should be displayed.")
 (defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
 (defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
@@ -269,12 +267,16 @@ those pieces."
 (defvar oidx--cancel-focus-wait-function nil "Function to call on timeout for focus commands.")
 (defvar oidx--focus-cancel-timer nil "Timer to cancel waiting for key.")
 (defvar oidx--focus-overlay nil "Overlay to display name of focus node.")
+(defvar oidx--goto-focus-show-menu-eff nil "Effective state of ‘org-index-goto-focus-show-menu’.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
 (defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
 (defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
+(defconst oidx--focus-menu-buffer-name "*org-index list of focused nodes*" "Name of buffer with menu of focused nodes.")
+(defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
+(defconst oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
@@ -617,7 +619,7 @@ interactive calls."
   - Popup to show current node during after focus change
   - Various changes to become ready for melpa
   - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
-  - Restructured source code, grouping related functions together; groups are separated as usual by 
+  - Restructured source code, grouping related functions together; groups are separated as usual by 
   - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'. Functions and
     variables starting with 'org-index-' are left untouched.
   - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable org-index-dispatch-key
@@ -2730,11 +2732,14 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 (defun oidx--goto-focus ()
   "Goto focus node, one after the other."
   (if oidx--ids-focused-nodes
-      (let (again last-id following-id in-last-id target-id explain marker heading-is-clause head
+      (let (again last-id target-id following-id in-last-id
+                  explain marker heading-is-clause head
                   (bottom-clause (if org-index-goto-bottom-after-focus "bottom of " ""))
                   (menu-clause ""))
         (setq again (and (eq this-command last-command)
                          (eq oidx--this-command oidx--last-command)))
+        (unless again (setq oidx--goto-focus-show-menu-eff org-index-goto-focus-show-menu))
+
         (setq last-id (or oidx--id-last-goto-focus
                           (car (last oidx--ids-focused-nodes))))
         (setq following-id (car (or (cdr-safe (member last-id
@@ -2750,7 +2755,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
         (setq oidx--focus-cancel-timer
               (run-at-time 8 nil
                            (lambda () (if oidx--cancel-focus-wait-function
-                                          (funcall oidx--cancel-focus-wait-function)))))
+                                     (funcall oidx--cancel-focus-wait-function)))))
         
         (setq oidx--cancel-focus-wait-function
               (set-transient-map (let ((map (make-sparse-keymap)))
@@ -2779,11 +2784,11 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                                        (setq this-command last-command)
                                        (oidx--delete-from-focus)
                                        (oidx--persist-focused-nodes)
-                                       (oidx--focus-message (concat  "Current node has been removed from list of focused nodes (undo available), " (oidx--goto-focus)))
+                                       (oidx--focus-message (concat "Current node has been removed from list of focused nodes (undo available), " (oidx--goto-focus)))
                                        (setq oidx--cancel-focus-wait-function nil)))
                                    map)
                                  t
-				 ;; this is run (in any case) on leaving the map
+                                 ;; this is run (in any case) on leaving the map
                                  (lambda () (cancel-timer oidx--focus-cancel-timer)
                                    ;; Clean up overlay
                                    (if oidx--focus-overlay (delete-overlay oidx--focus-overlay))
@@ -2794,24 +2799,16 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                                          (if (input-pending-p) (setq keys (read-key-sequence nil)))
                                          (org-with-limited-levels (org-clock-in))
                                          (if keys (setq unread-command-events (listify-key-sequence keys)))))
-				   ;; ignore-errors saves during tear-down of some tests
+                                   ;; ignore-errors saves during tear-down of some tests
                                    (ignore-errors (oidx--update-line (org-id-get) t)))))
         (setq menu-clause (if oidx--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
-
+        
+        (setq target-id (if oidx--goto-focus-show-menu-eff
+                            (oidx--goto-focus-immediate)
+                          (oidx--goto-focus-menu)))
         (if (member target-id (oidx--ids-up-to-top))
             (setq explain (format "staying below %scurrent" bottom-clause))
-          (unless (setq marker (org-id-find target-id 'marker))
-            (setq oidx--id-last-goto-focus nil)
-            (error "Could not find focus-node with id %s" target-id))
-          
-          (pop-to-buffer-same-window (marker-buffer marker))
-          (goto-char (marker-position marker))
-          (oidx--unfold-buffer)
-          (move-marker marker nil)
-          (when org-index-goto-bottom-after-focus
-            (oidx--end-of-focused-node)
-            (org-reveal)
-            (recenter -2)))
+          (oidx--focus-goto-id target-id))
 
         (setq head (org-with-limited-levels (org-get-heading t t t t)))
         (when org-index-show-focus-overlay
@@ -2846,6 +2843,92 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
            (format "%s single node" explain))
          menu-clause))
     "No nodes in focus, use set-focus"))
+
+
+(defun oidx--focus-goto-id (id)
+  "Goto node with given id and unfold"
+  (unless (setq marker (org-id-find target-id 'marker))
+    (setq oidx--id-last-goto-focus nil)
+    (error "Could not find focus-node with id %s" target-id))
+  
+  (pop-to-buffer-same-window (marker-buffer marker))
+  (goto-char (marker-position marker))
+  (oidx--unfold-buffer)
+  (move-marker marker nil)
+  (when org-index-goto-bottom-after-focus
+    (oidx--end-of-focused-node)
+    (org-reveal)
+    (recenter -2)))
+
+
+(defun oidx--focus-menu ()
+  "Show menu to let user choose among focused nodes."
+
+  (display-buffer (get-buffer-create oidx--focus-menu-buffer-name))
+  (switch-to-buffer oidx--focus-menu-buffer-name)
+  (oidx--focus-menu-rebuild t)
+
+  (oidx--focus-menu-install-keyboard-shortcuts))
+
+
+(defun oidx--focus-menu-install-keyboard-shortcuts ()
+  "Install keyboard shortcuts for focus menu."
+  (let (id keymap)
+    (setq keymap (make-sparse-keymap))
+    (set-keymap-parent keymap org-mode-map)
+    
+    (mapc (lambda (x) (define-key keymap (kbd x)
+                   (lambda () (interactive)
+                     (oidx--focus-menu-get-id)
+                     (setq id (funcall 'getidf))
+                     (delete-window)
+                     (oidx--focus-goto-id id))))
+          (list "<return>" "RET"))
+    
+    (define-key keymap (kbd "<tab>")
+      (lambda () (interactive)
+        (oidx--focus-menu-get-id)))
+    
+    (define-key keymap (kbd "d")
+      (lambda () (interactive)
+          (oidx--focus-menu-rebuild)))
+
+    (define-key keymap (kbd "u")
+      (lambda () (interactive)))
+
+    (define-key keymap (kbd "p")
+      (lambda () (interactive)))
+
+    (define-key keymap (kbd "q")
+      (lambda () (interactive)))
+
+    (use-local-map keymap)))
+
+
+(defun oidx--focus-menu-get-id ()
+  "Extract id from current line in focus menu."
+  (or (get-text-property (point) 'org-index-id)
+      (error "This line is not a focused node")))
+
+
+(defun oidx--focus-menu-rebuild (&optional resize)
+  "Rebuild content of focus menu-buffer."
+  (with-current-buffer oidx--focus-menu-buffer-name
+    (erase-buffer)
+    (insert (oidx--wrap "List of focused nodes. Pressing <return> on a list element jumps to node in other window and deletes this one, <tab> does the same but keeps this window, 'p' peeks into current line, 'd' deletes it from list immediately, 'u' undoes last 'd', 'q' deletes this buffer."))
+    (if oidx--ids-focused-nodes
+        (mapconcat (lambda (id)
+                     (let (head)
+                       (save-excursion
+                         (org-id-goto id)
+                         (setq head (org-get-heading)))
+                       (insert (format "  %s" head)))
+                     (put-text-property (line-beginning-position) (line-end-position) 'org-index-id id)
+                     (outline-up-heading 1 t))
+                   oidx--ids-focused-nodes
+                   "\n")
+      (insert "\nNo nodes in focus."))
+    (if resize (fit-window-to-buffer (get-buffer-window)))))
 
 
 (defun oidx--focus-message (message)
@@ -2942,21 +3025,20 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
     (org-entry-put oidx--point "ids-focused-nodes" (mapconcat 'identity oidx--ids-focused-nodes " "))))
 
 
-(defun oidx--delete-from-focus ()
+(defun oidx--delete-from-focus (&optional id)
   "Delete current node from list of focused nodes."
-  (let (id)
-    (setq id (org-id-get))
-    (if (and id (member id oidx--ids-focused-nodes))
-        (progn
-          (setq oidx--id-last-goto-focus
-                (or (car-safe (cdr-safe (member id (reverse (append oidx--ids-focused-nodes
-                                                                    oidx--ids-focused-nodes)))))
-                    oidx--id-last-goto-focus))
-          (setq oidx--ids-focused-nodes-saved oidx--ids-focused-nodes)
-          (setq oidx--ids-focused-nodes (delete id oidx--ids-focused-nodes))
-          (setq oidx--id-last-goto-focus nil)
-          "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
-      "Current node has not been in list of focused nodes%s (%d node%s in focus)")))
+  (setq id (or id (org-id-get)))
+  (if (and id (member id oidx--ids-focused-nodes))
+      (progn
+        (setq oidx--id-last-goto-focus
+              (or (car-safe (cdr-safe (member id (reverse (append oidx--ids-focused-nodes
+                                                                  oidx--ids-focused-nodes)))))
+                  oidx--id-last-goto-focus))
+        (setq oidx--ids-focused-nodes-saved oidx--ids-focused-nodes)
+        (setq oidx--ids-focused-nodes (delete id oidx--ids-focused-nodes))
+        (setq oidx--id-last-goto-focus nil)
+        "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
+    "Current node has not been in list of focused nodes%s (%d node%s in focus)"))
 
 
 (defun oidx--ids-up-to-top ()
@@ -3272,7 +3354,7 @@ Argument LINES-WANTED specifies number of lines to display."
 
 
 (defun oidx--occur-install-keyboard-shortcuts ()
-  "Install keyboard-shortcuts for result of occur buffer."
+  "Install keyboard shortcuts for result of occur buffer."
 
   (let (keymap)
     (setq keymap (make-sparse-keymap))
