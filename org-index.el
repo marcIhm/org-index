@@ -39,11 +39,11 @@
 ;;
 ;;  In addition, org-index introduces these supplemental concepts:
 ;;
-;;  - References are decorated numbers (e.g. 'R237' or '--455--'); they are
-;;    well suited to be used outside of org, e.g. in folder names,
-;;    ticket systems or on printed documents.
-;;  - Focus is a small set of nodes for your daily work; it can be managed
-;;    and traversed easily.
+;;  - 'References' are decorated numbers (e.g. 'R237' or '--455--'); they are
+;;     well suited to be used outside of org, e.g. in folder names,
+;;     ticket systems or on printed documents.
+;;  - 'Working set' (short: ws) is a small set of nodes for your daily work;
+;;     it can be managed easily and traversed especially fast.
 ;;
 ;;  On first invocation org-index will assist you in creating the index
 ;;  table.
@@ -206,18 +206,18 @@ those pieces."
                   (const category)
                   (const keywords))))
 
-(defcustom org-index-clock-into-focus nil
-  "Clock into focused node ?"
+(defcustom org-index-clock-into-working-set nil
+  "Clock into nodes of working-set ?"
   :group 'org-index
   :type 'boolean)
 
-(defcustom org-index-show-focus-overlay t
-  "Show overlay text when changing focus."
+(defcustom org-index-show-working-set-overlay t
+  "Show overlay text when traversing the working-set."
   :group 'org-index
   :type 'boolean)
 
-(defcustom org-index-goto-bottom-after-focus nil
-  "After visiting a focused nodes; position cursor at bottom of node (as opposed to heading) ?"
+(defcustom org-index-goto-bottom-in-working-set nil
+  "After visiting a node from the working-set; position cursor at bottom of node (as opposed to heading) ?"
   :group 'org-index
   :type 'boolean)
 
@@ -234,9 +234,9 @@ those pieces."
 (defvar oidx--saved-positions nil "Saved positions within current buffer and index buffer; filled by ‘oidx--save-positions’.")
 (defvar oidx--headings nil "Headlines of index-table as a string.")
 (defvar oidx--headings-visible nil "Visible part of headlines of index-table as a string.")
-(defvar oidx--ids-focused-nodes nil "Ids of focused node (if any).")
-(defvar oidx--ids-focused-nodes-saved nil "Backup for ‘oidx--ids-focused-nodes’.")
-(defvar oidx--id-last-goto-focus nil "Id of last node, that has been focused to.")
+(defvar oidx--ids-ws-nodes nil "Ids of working-set nodes (if any).")
+(defvar oidx--ids-ws-nodes-saved nil "Backup for ‘oidx--ids-ws-nodes’.")
+(defvar oidx--id-last-goto-ws nil "Id of last node from working-set, that has been visited.")
 
 ;; Variables to hold context and state
 ;; Variables for occur, see the respective section
@@ -263,18 +263,17 @@ those pieces."
 (defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 (defvar oidx--this-command nil "Subcommand, that is currently excecuted.")
 (defvar oidx--last-command nil "Subcommand, that hast been excecuted last.")
-(defvar oidx--last-focus-message nil "Last message issued by focus-command.")
-(defvar oidx--cancel-focus-wait-function nil "Function to call on timeout for focus commands.")
-(defvar oidx--focus-cancel-timer nil "Timer to cancel waiting for key.")
-(defvar oidx--focus-overlay nil "Overlay to display name of focus node.")
-(defvar oidx--goto-focus-show-menu-eff nil "Effective state of ‘org-index-goto-focus-show-menu’.")
+(defvar oidx--last-ws-message nil "Last message issued by working-set commands.")
+(defvar oidx--cancel-ws-wait-function nil "Function to call on timeout for working-set commands.")
+(defvar oidx--ws-cancel-timer nil "Timer to cancel waiting for key.")
+(defvar oidx--ws-overlay nil "Overlay to display name of current working-set node.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
-(defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news focus example sort find-ref highlight maintain) "List of commands available.")
+(defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news working-set example sort find-ref highlight maintain) "List of commands available.")
 (defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
-(defconst oidx--focus-menu-buffer-name "*org-index list of focused nodes*" "Name of buffer with menu of focused nodes.")
+(defconst oidx--ws-menu-buffer-name "*org-index working-set of nodes*" "Name of buffer with list of working-set nodes.")
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defconst oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
@@ -316,11 +315,11 @@ results are sorted by usage count and date, so that frequently
 used entries appear first in the list of results.
 
 In addition, org-index introduces these supplemental concepts:
-- References are decorated numbers (e.g. 'R237' or '--455--'); they are
-  well suited to be used outside of org, e.g. in folder names,
-  ticket systems or on printed documents.
-- Focus is a small set of nodes for your daily work; it can be managed
-  and traversed easily.
+- 'References' are decorated numbers (e.g. 'R237' or '--455--'); they are
+   well suited to be used outside of org, e.g. in folder names,
+   ticket systems or on printed documents.
+- 'Working set' (short: ws) is a small set of nodes for your daily work;
+   it can be managed easily and traversed especially fast.
 
 On first invocation org-index will assist you in creating the index
 table.
@@ -373,10 +372,10 @@ of subcommands to choose from:
   edit: [e] Present current line in edit buffer.
     Can be invoked from index, from occur or from a headline.
 
-  focus: [f] Return to first focused node; repeat to see them all.
-    The focused nodes are kept in a short list; they need not be
+  working-set: [w] Go to first node in working-set; repeat to see all.
+    The Working-set of nodes is a manually managed; it need not be
     part of the index though.  With a prefix argument, this
-    command offers more options, e.g. to set focus initially.
+    command offers more options, e.g. to add nodes to the working-set.
 
   help: Show complete help text of `org-index'.
     I.e. this text.
@@ -575,7 +574,7 @@ interactive calls."
       ;;
 
       ;; Arrange for beeing able to return
-      (when (and (memq command '(occur head index example sort maintain focus))
+      (when (and (memq command '(occur head index example sort maintain working-set))
                  (not (string= (buffer-name) oidx--occur-buffer-name)))
         (org-mark-ring-push))
 
@@ -615,6 +614,13 @@ interactive calls."
                            (match-string 1 org-index-version))))
          ;; Copy the text from ChangeLog.org unchanged into the following string
          (insert "
+* Version 5.9
+
+  - Renamed 'focus' to 'working-set', changed commands and help texts accordingly
+  - Added special buffer to manage the working-set
+
+* Version 5.8
+
   - Timeout in prompt for additional focus-command
   - Popup to show current node during after focus change
   - Various changes to become ready for melpa
@@ -867,11 +873,11 @@ interactive calls."
                 (setq message-text (format "Highlighted references in %s" where)))))))
 
 
-       ((eq command 'focus)
+       ((eq command 'working-set)
         (let ((mt (if arg
-                      (oidx--more-focus-commands)
-                    (setq oidx--last-focus-message nil)
-                    (oidx--goto-focus))))
+                      (oidx--more-ws-commands)
+                    (setq oidx--last-ws-message nil)
+                    (oidx--goto-ws))))
           (setq message-text (concat (upcase (substring mt 0 1)) (substring mt 1)))))
 
 
@@ -1251,9 +1257,9 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
       
       (unless oidx--head (oidx--get-decoration-from-ref-field max-ref-field))
       
-      ;; Get ids of focused node (if any)
-      (setq oidx--ids-focused-nodes (split-string (or (org-entry-get nil "ids-focused-nodes") "")))
-      (org-entry-delete (point) "id-focused-node") ; migrate (kind of) from previous versions
+      ;; Get ids of working-set nodes (if any)
+      (setq oidx--ids-ws-nodes (split-string (or (org-entry-get nil "working-set-nodes") "")))
+      (org-entry-delete (point) "ids-working-set-nodes") ; migrate (kind of) from previous versions
 
       ;; save position below hline
       (oidx--go-below-hline)
@@ -2728,72 +2734,70 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 
 
-;; Functions for focus-feature
-(defun oidx--goto-focus ()
-  "Goto focus node, one after the other."
-  (if oidx--ids-focused-nodes
+;; Functions for working-set
+(defun oidx--goto-ws ()
+  "Go through working-set, one node after the other."
+  (if oidx--ids-ws-nodes
       (let (again last-id target-id following-id in-last-id
                   explain marker heading-is-clause head
-                  (bottom-clause (if org-index-goto-bottom-after-focus "bottom of " ""))
+                  (bottom-clause (if org-index-goto-bottom-in-working-set "bottom of " ""))
                   (menu-clause ""))
         (setq again (and (eq this-command last-command)
                          (eq oidx--this-command oidx--last-command)))
-        (unless again (setq oidx--goto-focus-show-menu-eff org-index-goto-focus-show-menu))
-
-        (setq last-id (or oidx--id-last-goto-focus
-                          (car (last oidx--ids-focused-nodes))))
+        (setq last-id (or oidx--id-last-goto-ws
+                          (car (last oidx--ids-ws-nodes))))
         (setq following-id (car (or (cdr-safe (member last-id
-                                                      (append oidx--ids-focused-nodes
-                                                              oidx--ids-focused-nodes)))
-                                    oidx--ids-focused-nodes)))
+                                                      (append oidx--ids-ws-nodes
+                                                              oidx--ids-ws-nodes)))
+                                    oidx--ids-ws-nodes)))
         (setq in-last-id (string= (ignore-errors (org-id-get)) last-id))
 
         (setq target-id (if (or again in-last-id) following-id last-id))
 
         ;; bail out on inactivity
-        (if oidx--focus-cancel-timer (cancel-timer oidx--focus-cancel-timer))
-        (setq oidx--focus-cancel-timer
+        (if oidx--ws-cancel-timer (cancel-timer oidx--ws-cancel-timer))
+        (setq oidx--ws-cancel-timer
               (run-at-time 8 nil
-                           (lambda () (if oidx--cancel-focus-wait-function
-                                     (funcall oidx--cancel-focus-wait-function)))))
+                           (lambda () (if oidx--cancel-ws-wait-function
+                                     (funcall oidx--cancel-ws-wait-function)))))
         
-        (setq oidx--cancel-focus-wait-function
+        (setq oidx--cancel-ws-wait-function
               (set-transient-map (let ((map (make-sparse-keymap)))
                                    (define-key map (vector ?f)
                                      (lambda () (interactive)
                                        (setq this-command last-command)
                                        (setq oidx--this-command oidx--last-command)
-                                       (oidx--focus-message (oidx--goto-focus))))
+                                       (oidx--ws-message (oidx--goto-ws))))
                                    (define-key map (vector ?h)
                                      (lambda () (interactive)
                                        (org-with-limited-levels (org-back-to-heading))
                                        (recenter 1)
-                                       (oidx--focus-message "On heading of focused node")))
+                                       (oidx--ws-message "On heading of node from working-set")))
                                    (define-key map (vector ?b)
                                      (lambda () (interactive)
-                                       (oidx--end-of-focused-node)
+                                       (oidx--end-of-ws-node)
                                        (recenter -1)
-                                       (oidx--focus-message "At bottom of focused node")))
+                                       (oidx--ws-message "At bottom of node from working-set")))
                                    (define-key map (vector ??)
                                      (lambda () (interactive)
                                        (setq oidx--short-help-wanted t)
-                                       (message (oidx--goto-focus))
+                                       (message (oidx--goto-ws))
                                        (setq oidx--short-help-wanted nil)))
                                    (define-key map (vector ?d)
                                      (lambda () (interactive)
                                        (setq this-command last-command)
-                                       (oidx--delete-from-focus)
-                                       (oidx--persist-focused-nodes)
-                                       (oidx--focus-message (concat "Current node has been removed from list of focused nodes (undo available), " (oidx--goto-focus)))
-                                       (setq oidx--cancel-focus-wait-function nil)))
+                                       (oidx--delete-from-ws)
+                                       (oidx--persist-ws-nodes)
+                                       (oidx--ws-message (concat "Current node has been removed from working-set (undo available), " (oidx--goto-ws)))
+                                       (setq oidx--cancel-ws-wait-function nil)))
                                    map)
                                  t
                                  ;; this is run (in any case) on leaving the map
-                                 (lambda () (cancel-timer oidx--focus-cancel-timer)
+                                 (lambda () (cancel-timer oidx--ws-cancel-timer)
                                    ;; Clean up overlay
-                                   (if oidx--focus-overlay (delete-overlay oidx--focus-overlay))
-                                   (setq oidx--focus-overlay nil)
-                                   (if org-index-clock-into-focus
+                                   (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
+                                   (setq oidx--ws-overlay nil)
+                                   (if org-index-clock-into-working-set
                                        (let (keys)
                                          ;; save and repeat terminating key, because org-clock-in might read interactively
                                          (if (input-pending-p) (setq keys (read-key-sequence nil)))
@@ -2803,95 +2807,92 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                                    (ignore-errors (oidx--update-line (org-id-get) t)))))
         (setq menu-clause (if oidx--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
         
-        (setq target-id (if oidx--goto-focus-show-menu-eff
-                            (oidx--goto-focus-immediate)
-                          (oidx--goto-focus-menu)))
         (if (member target-id (oidx--ids-up-to-top))
             (setq explain (format "staying below %scurrent" bottom-clause))
-          (oidx--focus-goto-id target-id))
+          (oidx--ws-goto-id target-id))
 
         (setq head (org-with-limited-levels (org-get-heading t t t t)))
-        (when org-index-show-focus-overlay
+        (when org-index-show-ws-overlay
           ;; tooltip-overlay to show current heading
-          (if oidx--focus-overlay (delete-overlay oidx--focus-overlay))
-          (setq oidx--focus-overlay (make-overlay (point-at-bol) (point-at-bol)))
-          (overlay-put oidx--focus-overlay
+          (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
+          (setq oidx--ws-overlay (make-overlay (point-at-bol) (point-at-bol)))
+          (overlay-put oidx--ws-overlay
                        'after-string
                        (propertize
                         (format " %s (%d of %d) "
                                 head
-                                (1+ (- (length oidx--ids-focused-nodes)
-                                       (length (member target-id oidx--ids-focused-nodes))))
-                                (length oidx--ids-focused-nodes))
+                                (1+ (- (length oidx--ids-ws-nodes)
+                                       (length (member target-id oidx--ids-ws-nodes))))
+                                (length oidx--ids-ws-nodes))
                         'face 'highlight))
-          (overlay-put oidx--focus-overlay 'priority most-positive-fixnum))
+          (overlay-put oidx--ws-overlay 'priority most-positive-fixnum))
 
-        (setq heading-is-clause (format "Focus %s, " (propertize head 'face 'org-todo)))
+        (setq heading-is-clause (format "Working-set %s, " (propertize head 'face 'org-todo)))
         
         (setq explain (or explain
                           (if (or again in-last-id)
                               (format "at %snext" bottom-clause)
                             (format "back to %scurrent" bottom-clause))))
         
-        (setq oidx--id-last-goto-focus target-id)
+        (setq oidx--id-last-goto-ws target-id)
         (concat
          heading-is-clause
-         (if (cdr oidx--ids-focused-nodes)
+         (if (cdr oidx--ids-ws-nodes)
              (format "%s node (out of %d)"
                      explain
-                     (length oidx--ids-focused-nodes))
+                     (length oidx--ids-ws-nodes))
            (format "%s single node" explain))
          menu-clause))
-    "No nodes in focus, use set-focus"))
+    "No nodes in working-set, invoke again with capital letter to add."))
 
 
-(defun oidx--focus-goto-id (id)
+(defun oidx--ws-goto-id (id)
   "Goto node with given id and unfold"
   (unless (setq marker (org-id-find target-id 'marker))
-    (setq oidx--id-last-goto-focus nil)
-    (error "Could not find focus-node with id %s" target-id))
+    (setq oidx--id-last-goto-ws nil)
+    (error "Could not find working-set node with id %s" target-id))
   
   (pop-to-buffer-same-window (marker-buffer marker))
   (goto-char (marker-position marker))
   (oidx--unfold-buffer)
   (move-marker marker nil)
-  (when org-index-goto-bottom-after-focus
-    (oidx--end-of-focused-node)
+  (when org-index-goto-bottom-in-working-set
+    (oidx--end-of-ws-node)
     (org-reveal)
     (recenter -2)))
 
 
-(defun oidx--focus-menu ()
-  "Show menu to let user choose among focused nodes."
+(defun oidx--ws-menu ()
+  "Show menu to let user choose among working-set nodes."
 
-  (display-buffer (get-buffer-create oidx--focus-menu-buffer-name))
-  (switch-to-buffer oidx--focus-menu-buffer-name)
-  (oidx--focus-menu-rebuild t)
+  (display-buffer (get-buffer-create oidx--ws-menu-buffer-name))
+  (switch-to-buffer oidx--ws-menu-buffer-name)
+  (oidx--ws-menu-rebuild t)
 
-  (oidx--focus-menu-install-keyboard-shortcuts))
+  (oidx--ws-menu-install-keyboard-shortcuts))
 
 
-(defun oidx--focus-menu-install-keyboard-shortcuts ()
-  "Install keyboard shortcuts for focus menu."
+(defun oidx--ws-menu-install-keyboard-shortcuts ()
+  "Install keyboard shortcuts for working-set menu."
   (let (id keymap)
     (setq keymap (make-sparse-keymap))
     (set-keymap-parent keymap org-mode-map)
     
     (mapc (lambda (x) (define-key keymap (kbd x)
                    (lambda () (interactive)
-                     (oidx--focus-menu-get-id)
+                     (oidx--ws-menu-get-id)
                      (setq id (funcall 'getidf))
                      (delete-window)
-                     (oidx--focus-goto-id id))))
+                     (oidx--ws-goto-id id))))
           (list "<return>" "RET"))
     
     (define-key keymap (kbd "<tab>")
       (lambda () (interactive)
-        (oidx--focus-menu-get-id)))
+        (oidx--ws-menu-get-id)))
     
     (define-key keymap (kbd "d")
       (lambda () (interactive)
-          (oidx--focus-menu-rebuild)))
+          (oidx--ws-menu-rebuild)))
 
     (define-key keymap (kbd "u")
       (lambda () (interactive)))
@@ -2905,18 +2906,18 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
     (use-local-map keymap)))
 
 
-(defun oidx--focus-menu-get-id ()
-  "Extract id from current line in focus menu."
+(defun oidx--ws-menu-get-id ()
+  "Extract id from current line in working-set menu."
   (or (get-text-property (point) 'org-index-id)
-      (error "This line is not a focused node")))
+      (error "This line does not point to a node from working-set")))
 
 
-(defun oidx--focus-menu-rebuild (&optional resize)
-  "Rebuild content of focus menu-buffer."
-  (with-current-buffer oidx--focus-menu-buffer-name
+(defun oidx--ws-menu-rebuild (&optional resize)
+  "Rebuild content of working-set menu-buffer."
+  (with-current-buffer oidx--ws-menu-buffer-name
     (erase-buffer)
-    (insert (oidx--wrap "List of focused nodes. Pressing <return> on a list element jumps to node in other window and deletes this one, <tab> does the same but keeps this window, 'p' peeks into current line, 'd' deletes it from list immediately, 'u' undoes last 'd', 'q' deletes this buffer."))
-    (if oidx--ids-focused-nodes
+    (insert (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer."))
+    (if oidx--ids-ws-nodes
         (mapconcat (lambda (id)
                      (let (head)
                        (save-excursion
@@ -2925,21 +2926,21 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                        (insert (format "  %s" head)))
                      (put-text-property (line-beginning-position) (line-end-position) 'org-index-id id)
                      (outline-up-heading 1 t))
-                   oidx--ids-focused-nodes
+                   oidx--ids-ws-nodes
                    "\n")
-      (insert "\nNo nodes in focus."))
+      (insert "\nNo nodes in working-set."))
     (if resize (fit-window-to-buffer (get-buffer-window)))))
 
 
-(defun oidx--focus-message (message)
+(defun oidx--ws-message (message)
   "Issue given MESSAGE and append string '(again)' if appropriate."
-  (let ((again (if (string= message oidx--last-focus-message) " (again)" "")))
-    (setq oidx--last-focus-message message)
+  (let ((again (if (string= message oidx--last-ws-message) " (again)" "")))
+    (setq oidx--last-ws-message message)
     (message (concat message again "."))))
 
 
-(defun oidx--end-of-focused-node ()
-  "Goto end of focused nodes, ignoring inline-tasks but stopping at first child."
+(defun oidx--end-of-ws-node ()
+  "Goto end of current node, ignore inline-tasks but stop at first child."
   (let (level (pos (point)))
     (when (ignore-errors (org-with-limited-levels (org-back-to-heading)))
       (setq level (outline-level))
@@ -2957,31 +2958,31 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
       (beginning-of-line))))
 
 
-(defun oidx--more-focus-commands ()
-  "More commands for handling focused nodes."
+(defun oidx--more-ws-commands ()
+  "More commands for handling working-set."
   (let (id text more-text char prompt ids-up-to-top)
 
-    (setq prompt (format "Please specify action on list of %d focused nodes (s,a,d,r or ? for short help) - " (length oidx--ids-focused-nodes)))
+    (setq prompt (format "Please specify action on working-set, %d nodes (s,a,d,r or ? for short help) - " (length oidx--ids-ws-nodes)))
     (while (not (memq char (list ?s ?a ?d ?r)))
       (setq char (read-char prompt))
-      (setq prompt (format "Actions on list of %d focused nodes:  s)et single focus on this node,  a)ppend this node to list,  d)elete this node from list,  r)estore previous list of focused nodes.  Please choose - " (length oidx--ids-focused-nodes))))
+      (setq prompt (format "Actions on working-set, %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  r)estore previous list of working nodes.  Please choose - " (length oidx--ids-ws-nodes))))
     (setq text
           (cond
 
            ((eq char ?s)
             (setq id (org-id-get-create))
-            (setq oidx--ids-focused-nodes-saved oidx--ids-focused-nodes)
-            (setq oidx--ids-focused-nodes (list id))
-            (setq oidx--id-last-goto-focus id)
+            (setq oidx--ids-ws-nodes-saved oidx--ids-ws-nodes)
+            (setq oidx--ids-ws-nodes (list id))
+            (setq oidx--id-last-goto-ws id)
             (oidx--update-line id t)
-            (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
-            "focus has been set on current node (1 node in focus)")
+            (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))
+            "working-set has been set to current node (1 node)")
 
            ((eq char ?a)
             (setq id (org-id-get-create))
-            (unless (member id oidx--ids-focused-nodes)
-              ;; remove any children, that are already in list of focused nodes
-              (setq oidx--ids-focused-nodes
+            (unless (member id oidx--ids-ws-nodes)
+              ;; remove any children, that are already in working-set
+              (setq oidx--ids-ws-nodes
                     (delete nil (mapcar (lambda (x)
                                           (if (member id (org-with-point-at (org-id-find x t)
                                                            (oidx--ids-up-to-top)))
@@ -2989,56 +2990,56 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                                                 (setq more-text ", removing its children")
                                                 nil)
                                             x))
-                                        oidx--ids-focused-nodes)))
-              (setq oidx--ids-focused-nodes-saved oidx--ids-focused-nodes)
-              ;; remove parent, if already in list of focused nodes
+                                        oidx--ids-ws-nodes)))
+              (setq oidx--ids-ws-nodes-saved oidx--ids-ws-nodes)
+              ;; remove parent, if already in working-set
               (setq ids-up-to-top (oidx--ids-up-to-top))
-              (when (seq-intersection ids-up-to-top oidx--ids-focused-nodes)
-                (setq oidx--ids-focused-nodes (seq-difference oidx--ids-focused-nodes ids-up-to-top))
+              (when (seq-intersection ids-up-to-top oidx--ids-ws-nodes)
+                (setq oidx--ids-ws-nodes (seq-difference oidx--ids-ws-nodes ids-up-to-top))
                 (setq more-text (concat more-text ", replacing its parent")))
-              (setq oidx--ids-focused-nodes (cons id oidx--ids-focused-nodes)))
-            (setq oidx--id-last-goto-focus id)
+              (setq oidx--ids-ws-nodes (cons id oidx--ids-ws-nodes)))
+            (setq oidx--id-last-goto-ws id)
             (oidx--update-line id t)
-            (if org-index-clock-into-focus (org-with-limited-levels (org-clock-in)))
-            "current node has been appended to list of focused nodes%s (%d node%s in focus)")
+            (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))
+            "current node has been appended to working-set%s (%d node%s)")
 
            ((eq char ?d)
-            (oidx--delete-from-focus)
-            (concat "current node has been removed from list of focused nodes%s (%d node%s in focus), " (oidx--goto-focus) "."))
+            (oidx--delete-from-ws)
+            (concat "current node has been removed from working-set%s (%d node%s), " (oidx--goto-ws) "."))
 
            ((eq char ?r)
-            (if oidx--ids-focused-nodes-saved
+            (if oidx--ids-ws-nodes-saved
                 (let (txt)
-                  (setq txt (format "discarded current list of focused %d focused node%s and restored previous list; now %%s%%d node%%s in focus" (length oidx--ids-focused-nodes-saved) (if (cdr oidx--ids-focused-nodes-saved) "s" "")))
-                  (setq oidx--ids-focused-nodes oidx--ids-focused-nodes-saved)
+                  (setq txt (format "discarded current working set of %d node%s and restored previous set; now %%s%%d node%%s in working-set" (length oidx--ids-ws-nodes-saved) (if (cdr oidx--ids-ws-nodes-saved) "s" "")))
+                  (setq oidx--ids-ws-nodes oidx--ids-ws-nodes-saved)
                   txt)
-              "no saved list of focused nodes to restore, nothing to do"))))
+              "no saved working-set nodes to restore, nothing to do"))))
 
-    (oidx--persist-focused-nodes)
+    (oidx--persist-ws-nodes)
     
-    (format text (or more-text "") (length oidx--ids-focused-nodes) (if (cdr oidx--ids-focused-nodes) "s" ""))))
+    (format text (or more-text "") (length oidx--ids-ws-nodes) (if (cdr oidx--ids-ws-nodes) "s" ""))))
 
 
-(defun oidx--persist-focused-nodes ()
-  "Write list of focused nodes to property."
+(defun oidx--persist-ws-nodes ()
+  "Write working-set to property."
   (with-current-buffer oidx--buffer
-    (org-entry-put oidx--point "ids-focused-nodes" (mapconcat 'identity oidx--ids-focused-nodes " "))))
+    (org-entry-put oidx--point "working-set-nodes" (mapconcat 'identity oidx--ids-ws-nodes " "))))
 
 
-(defun oidx--delete-from-focus (&optional id)
-  "Delete current node from list of focused nodes."
+(defun oidx--delete-from-ws (&optional id)
+  "Delete current node from working-set."
   (setq id (or id (org-id-get)))
-  (if (and id (member id oidx--ids-focused-nodes))
+  (if (and id (member id oidx--ids-ws-nodes))
       (progn
-        (setq oidx--id-last-goto-focus
-              (or (car-safe (cdr-safe (member id (reverse (append oidx--ids-focused-nodes
-                                                                  oidx--ids-focused-nodes)))))
-                  oidx--id-last-goto-focus))
-        (setq oidx--ids-focused-nodes-saved oidx--ids-focused-nodes)
-        (setq oidx--ids-focused-nodes (delete id oidx--ids-focused-nodes))
-        (setq oidx--id-last-goto-focus nil)
-        "Current node has been removed from list of focused nodes%s (%d node%s in focus)")
-    "Current node has not been in list of focused nodes%s (%d node%s in focus)"))
+        (setq oidx--id-last-goto-ws
+              (or (car-safe (cdr-safe (member id (reverse (append oidx--ids-ws-nodes
+                                                                  oidx--ids-ws-nodes)))))
+                  oidx--id-last-goto-ws))
+        (setq oidx--ids-ws-nodes-saved oidx--ids-ws-nodes)
+        (setq oidx--ids-ws-nodes (delete id oidx--ids-ws-nodes))
+        (setq oidx--id-last-goto-ws nil)
+        "Current node has been removed from working-set%s (%d node%s)")
+    "Current node has not been in working-set%s (%d node%s)"))
 
 
 (defun oidx--ids-up-to-top ()
