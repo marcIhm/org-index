@@ -2790,6 +2790,12 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                                        (oidx--persist-ws-nodes)
                                        (oidx--ws-message (concat "Current node has been removed from working-set (undo available), " (oidx--goto-ws)))
                                        (setq oidx--cancel-ws-wait-function nil)))
+                                   (define-key map (vector ?m)
+                                     (lambda () (interactive)
+                                       (setq this-command last-command)
+                                       (oidx--ws-message "Switching to extended menu")
+                                       (oidx--ws-menu)
+                                       (setq oidx--cancel-ws-wait-function nil)))
                                    map)
                                  t
                                  ;; this is run (in any case) on leaving the map
@@ -2805,14 +2811,14 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
                                          (if keys (setq unread-command-events (listify-key-sequence keys)))))
                                    ;; ignore-errors saves during tear-down of some tests
                                    (ignore-errors (oidx--update-line (org-id-get) t)))))
-        (setq menu-clause (if oidx--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list" "; type f,h,b,d or ? for short help"))
+        (setq menu-clause (if oidx--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; 'm' gives an extended menu" "; type f,h,b,d,m or ? for short help"))
         
         (if (member target-id (oidx--ids-up-to-top))
             (setq explain (format "staying below %scurrent" bottom-clause))
           (oidx--ws-goto-id target-id))
 
         (setq head (org-with-limited-levels (org-get-heading t t t t)))
-        (when org-index-show-ws-overlay
+        (when org-index-show-working-set-overlay
           ;; tooltip-overlay to show current heading
           (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
           (setq oidx--ws-overlay (make-overlay (point-at-bol) (point-at-bol)))
@@ -2848,42 +2854,40 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 (defun oidx--ws-goto-id (id)
   "Goto node with given id and unfold"
-  (unless (setq marker (org-id-find target-id 'marker))
-    (setq oidx--id-last-goto-ws nil)
-    (error "Could not find working-set node with id %s" target-id))
-  
-  (pop-to-buffer-same-window (marker-buffer marker))
-  (goto-char (marker-position marker))
-  (oidx--unfold-buffer)
-  (move-marker marker nil)
-  (when org-index-goto-bottom-in-working-set
-    (oidx--end-of-ws-node)
-    (org-reveal)
-    (recenter -2)))
+  (let (marker)
+    (unless (setq marker (org-id-find id 'marker))
+      (setq oidx--id-last-goto-ws nil)
+      (error "Could not find working-set node with id %s" target-id))
+    
+    (pop-to-buffer-same-window (marker-buffer marker))
+    (goto-char (marker-position marker))
+    (oidx--unfold-buffer)
+    (move-marker marker nil)
+    (when org-index-goto-bottom-in-working-set
+      (oidx--end-of-ws-node)
+      (org-reveal)
+      (recenter -2))))
 
 
 (defun oidx--ws-menu ()
   "Show menu to let user choose among working-set nodes."
 
-  (display-buffer (get-buffer-create oidx--ws-menu-buffer-name))
-  (switch-to-buffer oidx--ws-menu-buffer-name)
-  (oidx--ws-menu-rebuild t)
+  (oidx--ws-menu-rebuild)
+  (pop-to-buffer oidx--ws-menu-buffer-name '((display-buffer-at-bottom)))
+  (fit-window-to-buffer (get-buffer-window))
 
   (oidx--ws-menu-install-keyboard-shortcuts))
 
 
 (defun oidx--ws-menu-install-keyboard-shortcuts ()
   "Install keyboard shortcuts for working-set menu."
-  (let (id keymap)
+  (let (keymap)
     (setq keymap (make-sparse-keymap))
     (set-keymap-parent keymap org-mode-map)
     
     (mapc (lambda (x) (define-key keymap (kbd x)
                    (lambda () (interactive)
-                     (oidx--ws-menu-get-id)
-                     (setq id (funcall 'getidf))
-                     (delete-window)
-                     (oidx--ws-goto-id id))))
+                     (oidx--ws-menu-action x))))
           (list "<return>" "RET"))
     
     (define-key keymap (kbd "<tab>")
@@ -2901,9 +2905,24 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
       (lambda () (interactive)))
 
     (define-key keymap (kbd "q")
-      (lambda () (interactive)))
+      (lambda () (interactive)
+        (quit-windows-on oidx--ws-menu-buffer-name)))
 
     (use-local-map keymap)))
+
+
+(defun oidx--ws-menu-action (key)
+  "Perform some actions for working-set menu"
+  (setq key (intern key))
+  (let (id)
+    (setq id (oidx--ws-menu-get-id))
+    (cond
+     ((member key '(<return> RET))
+      (delete-window)
+      (oidx--ws-goto-id id))
+     ((equal key '<tab>)
+       (other-window 1)
+       (oidx--ws-goto-id id)))))
 
 
 (defun oidx--ws-menu-get-id ()
@@ -2912,24 +2931,29 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
       (error "This line does not point to a node from working-set")))
 
 
-(defun oidx--ws-menu-rebuild (&optional resize)
+(defun oidx--ws-menu-rebuild ()
   "Rebuild content of working-set menu-buffer."
-  (with-current-buffer oidx--ws-menu-buffer-name
-    (erase-buffer)
-    (insert (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer."))
-    (if oidx--ids-ws-nodes
-        (mapconcat (lambda (id)
-                     (let (head)
-                       (save-excursion
-                         (org-id-goto id)
-                         (setq head (org-get-heading)))
-                       (insert (format "  %s" head)))
-                     (put-text-property (line-beginning-position) (line-end-position) 'org-index-id id)
-                     (outline-up-heading 1 t))
-                   oidx--ids-ws-nodes
-                   "\n")
-      (insert "\nNo nodes in working-set."))
-    (if resize (fit-window-to-buffer (get-buffer-window)))))
+  (let (first-line)
+    (with-current-buffer (get-buffer-create oidx--ws-menu-buffer-name)
+      (setq buffer-read-only nil)
+      (erase-buffer)
+      (insert (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer."))
+      (insert "\n\n")
+      (setq first-line (point))
+      (if oidx--ids-ws-nodes
+          (mapconcat (lambda (id)
+                       (let (head)
+                         (save-excursion
+                           (org-id-goto id)
+                           (setq head (substring-no-properties (org-get-heading))))
+                         (insert (format "  %s" head))
+                         (put-text-property (line-beginning-position) (line-end-position) 'org-index-id id)
+                         (insert "\n")))
+                     oidx--ids-ws-nodes
+                     "\n")
+        (insert "\nNo nodes in working-set.\n"))
+      (goto-char first-line)
+      (setq buffer-read-only t))))
 
 
 (defun oidx--ws-message (message)
@@ -2962,10 +2986,10 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
   "More commands for handling working-set."
   (let (id text more-text char prompt ids-up-to-top)
 
-    (setq prompt (format "Please specify action on working-set, %d nodes (s,a,d,r or ? for short help) - " (length oidx--ids-ws-nodes)))
-    (while (not (memq char (list ?s ?a ?d ?r)))
-      (setq char (read-char prompt))
-      (setq prompt (format "Actions on working-set, %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  r)estore previous list of working nodes.  Please choose - " (length oidx--ids-ws-nodes))))
+    (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,r,m,w or ? for short help) - " (length oidx--ids-ws-nodes)))
+    (while (not (memq char (list ?s ?a ?d ?r ?m ?w ?W)))
+      (setq char (read-char-exclusive prompt))
+      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  r)estore previous list of working nodes, m)enu with alternate interface ('w' does the same for convenience).  Please choose - " (length oidx--ids-ws-nodes))))
     (setq text
           (cond
 
@@ -3006,6 +3030,10 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
            ((eq char ?d)
             (oidx--delete-from-ws)
             (concat "current node has been removed from working-set%s (%d node%s), " (oidx--goto-ws) "."))
+
+           ((memq char '(?m ?w ?W))
+            (oidx--ws-menu)
+            "Switching to extended menu")
 
            ((eq char ?r)
             (if oidx--ids-ws-nodes-saved

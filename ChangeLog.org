@@ -1,3 +1,8 @@
+* 5.9 -- [2018-07-07 Sa]
+
+  - Renamed 'focus' to 'working-set', changed all commands and help text accordingly
+  - Added a special buffer to manage the working-set
+
 * 5.8 -- [2018-03-07 Mi] 
 
   - Timeout in prompt for additional focus-command
