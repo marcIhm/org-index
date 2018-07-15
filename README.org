@@ -2,24 +2,72 @@
 
   A personal adaptive index for org.
   
+  org-index is a package for org-mode within emacs.
 
-  - See the commentary in org-index.el for a complete description.
+  Read below for a description.
 
-  - Visit http://2484.de/org-index.html for a Screencast.
+  The current version is 5.9.0.
 
-** Table of Content						      :TOC_3:
- - [[#org-index][org-index]]
-   - [[#files][Files]]
-     - [[#implementation][Implementation]]
-     - [[#tests][Tests]]
-     - [[#screencasts][Screencasts]]
-     - [[#custom-merge-driver-for-git][Custom merge-driver for git]]
+  Visit http://2484.de/org-index.html for a Screencast.
+
+** Table of Contents
+
+   - [[About this Package]]
+   - [[Files]]
+   - [[Making a new Release]]
+   - [[Latest Change Log]]
+
+** About this Package
+
+*** Purpose
+
+    Fast search for selected org-nodes and things outside.
+    
+    org-index creates and updates an index table with keywords; each line
+    either points to a heading in org, references something outside or
+    carries a snippet of text to yank.  When searching the index, the set
+    of matching lines is updated with every keystroke; results are sorted
+    by usage count and date, so that recently or frequently used entries
+    appear first in the list of results.
+    
+    In addition, org-index introduces these supplemental concepts:
+    
+    - 'References' are decorated numbers (e.g. 'R237' or '--455--'); they are
+       well suited to be used outside of org, e.g. in folder names,
+       ticket systems or on printed documents.
+    - 'Working set' (short: ws) is a small set of nodes for your daily work;
+       it can be managed easily and traversed very fast.
+    
+    On first invocation org-index will assist you in creating the index
+    table.
+    
+    To start using your index, invoke the subcommand 'add' to create
+    index entries and 'occur' to find them.
+
+*** Setup
+
+    - org-index can be installed with package.el
+    - Invoke `org-index'; on first run it will assist in creating your
+      index table.
+    
+    - Optionally invoke `M-x org-customize', group 'Org Index', to tune
+      its settings.
+
+*** Further Information
+
+    - Watch the screencast at http://2484.de/org-index.html.
+    - See the documentation of `org-index', which can also be read by
+      invoking `org-index' and typing '?'.
 
 ** Files
 
 *** Implementation
 
     - org-index.el :: The complete lisp source
+
+*** Building
+
+    - Rakefile :: Helpful Ruby-Tasks for building
 
 *** Tests
     
@@ -47,8 +95,9 @@
     - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table;
       see the comments within the file for instructions	 
 
-** Making new Release
-*** Testing
+** Making a new Release
+
+*** Testing and checking
 
     - ert
     - (byte-compile-file "org-index.el")
@@ -59,5 +108,31 @@
 *** Preparing
 
     - Update Version number in org-index.el
-    - Update ChangeLog.org
-    - Copy to org-index.el (search for "News for Version")
+    - Update Change Log in org-index.el
+    - Check and Update Commentary in org-index.el
+    - Run rake to copy those pieces of information into 
+      README.org and ChangeLog.org
+
+** Latest Change Log
+
+   See ChangeLog.org for older notes.
+
+*** 5.9
+
+    - Renamed 'focus' to 'working-set', changed commands and help texts accordingly
+    - Added special buffer to manage the working-set
+  
+*** 5.8
+
+    - Timeout in prompt for additional focus-command
+    - Popup to show current node during after focus change
+    - Various changes to become ready for melpa
+    - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
+    - Restructured source code, grouping related functions together; groups are separated as
+      usual by ^L
+    - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'.
+      Functions and variables starting with 'org-index-' are left untouched.
+    - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable
+      org-index-dispatch-key to org-index-key
+  
+

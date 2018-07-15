@@ -1,20 +1,21 @@
-* 5.9 -- [2018-07-07 Sa]
+* 5.9 -- [07-15-2018 Su]
 
-  - Renamed 'focus' to 'working-set', changed all commands and help text accordingly
-  - Added a special buffer to manage the working-set
+  - Renamed 'focus' to 'working-set', changed commands and help texts accordingly
+  - Added special buffer to manage the working-set
 
-* 5.8 -- [2018-03-07 Mi] 
+* 5.8 -- [2018-03-07 We]
 
   - Timeout in prompt for additional focus-command
   - Popup to show current node during after focus change
   - Various changes to become ready for melpa
   - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
-  - Restructured source code, grouping related functions together; groups are separated as usual by 
-  - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'. Functions and
-    variables starting with 'org-index-Ä are left untouched.
-  - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable org-index-dispatch-key
-    to org-index-key
-  
+  - Restructured source code, grouping related functions together; groups are separated as
+    usual by ^L
+  - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'.
+    Functions and variables starting with 'org-index-' are left untouched.
+  - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable
+    org-index-dispatch-key to org-index-key
+
 * 5.7 -- [2017-10-21 Sa]
 
   - Option to move to bottom of node after focus
@@ -27,7 +28,7 @@
   - New command 'news'
   - Bugfixes
 
-* 5.5 -- [2017-09-03 So]
+* 5.5 -- [2017-09-03 Su]
 
   - Standard case-folding in occur
   - Better handling of nested focus nodes
@@ -47,7 +48,7 @@
   - Focused can now be on a list of nodes (instead of a single one)
   - Cleaned up undeclared dependencies
 
-* 5.2 -- [2017-02-18 Sa]
+* 5.2 -- [2017-02-18 Su]
 
   - New command 'focus'
   - Speeded up org-index--parse-table with the stored property "max-ref"
