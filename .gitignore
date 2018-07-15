@@ -3,3 +3,6 @@ org-index.elc
 \#*#
 .#*
 *~
+org-index.el.backup
+ChangeLog.org.backup
+README.org.backup

@@ -23,19 +23,22 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
+;;
 
 ;;; Commentary:
 
+;; / This Commentary will be copied to help-text and README.org by Rake /
+;;
 ;; Purpose:
 ;;
-;;  Fast search for selected org nodes and things outside of org.
+;;  Fast search for selected org-nodes and things outside.
 ;;
 ;;  org-index creates and updates an index table with keywords; each line
 ;;  either points to a heading in org, references something outside or
 ;;  carries a snippet of text to yank.  When searching the index, the set
 ;;  of matching lines is updated with every keystroke; results are sorted
-;;  by usage count and date, so that frequently used entries appear first
-;;  in the list of results.
+;;  by usage count and date, so that recently or frequently used entries
+;;  appear first in the list of results.
 ;;
 ;;  In addition, org-index introduces these supplemental concepts:
 ;;
@@ -43,13 +46,13 @@
 ;;     well suited to be used outside of org, e.g. in folder names,
 ;;     ticket systems or on printed documents.
 ;;  - 'Working set' (short: ws) is a small set of nodes for your daily work;
-;;     it can be managed easily and traversed especially fast.
+;;     it can be managed easily and traversed very fast.
 ;;
 ;;  On first invocation org-index will assist you in creating the index
 ;;  table.
 ;;
 ;;  To start using your index, invoke the subcommand 'add' to create
-;;  entries and 'occur' to find them.
+;;  index entries and 'occur' to find them.
 ;;
 ;;
 ;; Setup:
@@ -62,21 +65,36 @@
 ;;    its settings.
 ;;
 ;;
-;; Further information:
+;; Further Information:
 ;;
 ;;  - Watch the screencast at http://2484.de/org-index.html.
 ;;  - See the documentation of `org-index', which can also be read by
 ;;    invoking `org-index' and typing '?'.
 ;;
-;;
 
 ;;; Change Log:
 
+;; / This Change Log will be copied to command 'news' and ChangeLog.org by Rake /
 ;; 
-;;  - See the command 'news' for recent changes, or
-;;  - https://github.com/marcIhm/org-index/ChangeLog.org    for older news
-;;  - https://github.com/marcIhm/org-index/commits/master   for a complete list of changes
-;;
+;;   Version 5.9
+;; 
+;;   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly
+;;   - Added special buffer to manage the working-set
+;; 
+;;   Version 5.8
+;; 
+;;   - Timeout in prompt for additional focus-command
+;;   - Popup to show current node during after focus change
+;;   - Various changes to become ready for melpa
+;;   - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
+;;   - Restructured source code, grouping related functions together; groups are separated as
+;;     usual by ^L
+;;   - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'.
+;;     Functions and variables starting with 'org-index-' are left untouched.
+;;   - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable
+;;     org-index-dispatch-key to org-index-key
+;; 
+;;  See https://github.com/marcIhm/org-index/ChangeLog.org for older news
 ;;
 
 ;;; Code:
@@ -86,7 +104,7 @@
 ;;  visible symbols and `oidx' (which is shorter) for internal stuff.
 ;;
 ;;  Code can be folded and browsed with `hs-minor-mode'.
-;; 
+;;
 
 (require 'org-table)
 (require 'org-id)
@@ -305,27 +323,33 @@ if VALUE cannot be found."
 
 
 (defun org-index (&optional arg)
-  "Fast search-index for selected org nodes and things outside.
+  ;; Do NOT edit the part of this help-text before version number. It will
+  ;; be overwritten with Commentary-section from beginning of this file.
+  ;; Editing after version number is fine.
+  ;;
+  ;; For Rake: Insert purpose here
+  "Fast search for selected org-nodes and things outside.
 
-This function creates and updates an index table with keywords;
-each line either points to a heading in org, references something
-outside or carries a snippet of text to yank.  When searching the
-index, the set of matching lines is updated with every keystroke;
-results are sorted by usage count and date, so that frequently
-used entries appear first in the list of results.
+org-index creates and updates an index table with keywords; each line
+either points to a heading in org, references something outside or
+carries a snippet of text to yank.  When searching the index, the set
+of matching lines is updated with every keystroke; results are sorted
+by usage count and date, so that recently or frequently used entries
+appear first in the list of results.
 
 In addition, org-index introduces these supplemental concepts:
+
 - 'References' are decorated numbers (e.g. 'R237' or '--455--'); they are
    well suited to be used outside of org, e.g. in folder names,
    ticket systems or on printed documents.
 - 'Working set' (short: ws) is a small set of nodes for your daily work;
-   it can be managed easily and traversed especially fast.
+   it can be managed easily and traversed very fast.
 
 On first invocation org-index will assist you in creating the index
 table.
 
 To start using your index, invoke the subcommand 'add' to create
-entries and 'occur' to find them.
+index entries and 'occur' to find them.
 
 This is version 5.8.9 of org-index.el.
 
@@ -612,24 +636,26 @@ interactive calls."
                          (progn
                            (string-match "\\([0-9]+\\.[0-9]+\\)\\." org-index-version)
                            (match-string 1 org-index-version))))
-         ;; Copy the text from ChangeLog.org unchanged into the following string
+         ;; For Rake: Insert Change Log here
          (insert "
-* Version 5.9
+* 5.9
 
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly
   - Added special buffer to manage the working-set
 
-* Version 5.8
+* 5.8
 
   - Timeout in prompt for additional focus-command
   - Popup to show current node during after focus change
   - Various changes to become ready for melpa
   - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
-  - Restructured source code, grouping related functions together; groups are separated as usual by 
-  - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'. Functions and
-    variables starting with 'org-index-' are left untouched.
-  - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable org-index-dispatch-key
-    to org-index-key
+  - Restructured source code, grouping related functions together; groups are separated as
+    usual by ^L
+  - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'.
+    Functions and variables starting with 'org-index-' are left untouched.
+  - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable
+    org-index-dispatch-key to org-index-key
+
 ")
          (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.\n")
          (org-mode))
