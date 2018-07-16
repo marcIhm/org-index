@@ -4,12 +4,22 @@ require 'pp'
 require 'fileutils'
 include FileUtils
 
+def compare_semver one,two
+  vers = [one, two].map do |x|
+    md = x.match(/(\d+)\.(\d+)/)
+    fail "Argument '#{x}' does not contain a semantic version number" unless md
+    [md[1],md[2]]
+  end.transpose
+
+  vers.inject(0) {|s,x| 2*s+(x[0]<=>x[1])} <=> 0
+end
+
 def accept fname,nname
   oname = fname + ".backup"
   puts "\n"
   system "diff #{fname} #{nname}"
   if $? == 0
-    puts "No differences."
+    puts "No differences between #{fname} and #{nname}."
     rm nname
   else
     puts "\n\n"
@@ -123,23 +133,27 @@ task :copy_info_pieces do
   nname = fname + ".new"
   version_dates = Hash.new
   rest_of_change_log = ""
+  version_latest = nil
   puts "  Latest Change log"
   File.open(fname) do |file|
     while line = file.gets do
-      mdata = line.match(/^\* (\d+\.\d+) -- \[(.*)\]/)
+      mdata = line.match(/^\* (\d+\.\d+) ends (\S.*\S)/)
       if mdata
         if change_log[mdata[1]].length > 0
           version_dates[mdata[1]] = mdata[2]
+          version_latest = mdata[1] if !version_latest || compare_semver(mdata[1],version_latest) > 0
         else
           rest_of_change_log = line + file.read
         end
       end
     end
   end
-  version_dates[version.sub(/.\d+$/,'')] = Time.now.strftime("%m-%d-%Y %a")[0..-2]
+
+  version_short = version.sub(/.\d+$/,'')
+  version_dates[version_latest] = Time.now.strftime("%Y-%m-%d %a")[0..-2]
   File.open(nname,'w') do |nfile|
     change_log.each do |ver,log|
-      nfile.puts "* " + ver + " -- [" + version_dates[ver] + "]\n\n" + log + "\n"
+      nfile.puts "* " + ver + " ends " + version_dates[ver] + "\n\n" + log + "\n"
     end
     nfile.puts rest_of_change_log
   end
