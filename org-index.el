@@ -285,6 +285,7 @@ those pieces."
 (defvar oidx--cancel-ws-wait-function nil "Function to call on timeout for working-set commands.")
 (defvar oidx--ws-cancel-timer nil "Timer to cancel waiting for key.")
 (defvar oidx--ws-overlay nil "Overlay to display name of current working-set node.")
+(defvar oidx--ws-short-help-wanted nil "Non-nil, if short help should be displayed in working-set menu.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
@@ -2937,19 +2938,20 @@ This function calls itself recursively."
                      (length oidx--ws-ids))
            (format "%s single node" explain))
          menu-clause))
-    "No nodes in working-set, invoke again with capital letter to add."))
+    "No nodes in working-set, invoke again with capital letter to add"))
 
 
 (defun oidx--ws-menu ()
   "Show menu to let user choose among working-set nodes."
 
+  (setq  oidx--ws-short-help-wanted nil)
   (oidx--ws-menu-rebuild)
   (pop-to-buffer oidx--ws-menu-buffer-name '((display-buffer-at-bottom)))
   (fit-window-to-buffer (get-buffer-window))
   (enlarge-window 1)
 
   (oidx--ws-menu-install-keyboard-shortcuts)
-  "Buffer with nodes from working-set")
+  "Buffer with nodes of working-set")
 
 
 (defun oidx--ws-menu-install-keyboard-shortcuts ()
@@ -2969,14 +2971,14 @@ See `oidx--ws-menu-rebuld' for a list of commands."
       (lambda () (interactive)
         (save-window-excursion
           (save-excursion
-            (oidx--ws-goto-id id)
+            (oidx--ws-goto-id (oidx--ws-menu-get-id))
             (delete-other-windows)
             (recenter 1)
             (read-char-exclusive "Peeking into node, any key to return." nil 10)))))
 
     (define-key keymap (kbd "d")
       (lambda () (interactive)
-        (message (oidx--ws-delete-from))
+        (message (oidx--ws-delete-from (oidx--ws-menu-get-id)))
         (oidx--ws-nodes-persist)
         (oidx--ws-menu-rebuild)))
 
@@ -2994,6 +2996,25 @@ See `oidx--ws-menu-rebuld' for a list of commands."
     (define-key keymap (kbd "r")
       (lambda () (interactive)
         (oidx--ws-menu-rebuild)))
+
+    (define-key keymap (kbd "?")
+      (lambda () (interactive)
+        (setq oidx--ws-short-help-wanted t)
+        (oidx--ws-menu-rebuild t)))
+
+    (let ((toggle -1))
+      (mapc (lambda (x) (define-key keymap (kbd x)
+                     (lambda () (interactive)
+                       (forward-line toggle)
+                       (if (looking-at "\s*$")
+                           (forward-line (- toggle)))))
+              (setq toggle (- toggle)))
+            (list "<up>" "<down>" "C-p" "C-n")))
+
+    (mapc (lambda (x) (define-key keymap (kbd x)
+                   (lambda () (interactive))))
+          (list "<left>" "<right>" "C-b" "C-f"))
+
 
     (use-local-map keymap)))
 
@@ -3022,25 +3043,34 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 
 (defun oidx--ws-menu-rebuild ()
   "Rebuild content of working-set menu-buffer."
-  (let (first-line)
+  (let (first-line clock-id)
+    (when org-clock-marker
+      (save-excursion 
+        (with-current-buffer (marker-buffer org-clock-marker)
+          (goto-char org-clock-marker)
+          (setq clock-id (org-id-get)))))
     (with-current-buffer (get-buffer-create oidx--ws-menu-buffer-name)
       (setq buffer-read-only nil)
       (erase-buffer)
-      (insert (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content."))
+      (insert (propertize (if oidx--ws-short-help-wanted
+                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content.")
+                            "Press <return>,<tab>,h,H,b,B,p,d,u,q,r or ? for short help.")
+                          'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
       (setq first-line (point))
       (if oidx--ws-ids
           (mapconcat (lambda (id)
                        (let (head)
-                         (save-excursion
-                           (org-id-goto id)
-                           (setq head (substring-no-properties (org-get-heading))))
-                         (insert (format "  %s" head))
+                         (save-window-excursion
+                           (save-excursion
+                             (org-id-goto id)
+                             (setq head (substring-no-properties (org-get-heading)))))
+                         (insert (format " %s%s" (if (eq id clock-id) "*" " ") head))
                          (put-text-property (line-beginning-position) (line-end-position) 'org-index-id id)
                          (insert "\n")))
                      oidx--ws-ids
                      "\n")
-        (insert "\nNo nodes in working-set.\n"))
+        (insert "  No nodes in working-set.\n"))
       (goto-char first-line)
       (setq buffer-read-only t))))
 
