@@ -2854,7 +2854,7 @@ This function calls itself recursively."
         
         (setq oidx--cancel-ws-wait-function
               (set-transient-map (let ((map (make-sparse-keymap)))
-                                   (define-key map (vector ?f)
+                                   (define-key map (vector ?w)
                                      (lambda () (interactive)
                                        (setq this-command last-command)
                                        (setq oidx--this-command oidx--last-command)
@@ -2900,7 +2900,7 @@ This function calls itself recursively."
                                          (if keys (setq unread-command-events (listify-key-sequence keys)))))
                                    ;; ignore-errors saves during tear-down of some tests
                                    (ignore-errors (oidx--update-line (org-id-get) t)))))
-        (setq menu-clause (if oidx--short-help-wanted "; type 'f' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; 'm' creates buffer with menu" "; type f,h,b,d,m or ? for short help"))
+        (setq menu-clause (if oidx--short-help-wanted "; type 'w' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; 'm' creates buffer with menu" "; type w,h,b,d,m or ? for short help"))
         
         (if (member target-id (oidx--ws-ids-up-to-top))
             (setq explain (format "staying below %scurrent" bottom-clause))
@@ -2945,10 +2945,8 @@ This function calls itself recursively."
   "Show menu to let user choose among working-set nodes."
 
   (setq  oidx--ws-short-help-wanted nil)
-  (oidx--ws-menu-rebuild)
   (pop-to-buffer oidx--ws-menu-buffer-name '((display-buffer-at-bottom)))
-  (fit-window-to-buffer (get-buffer-window))
-  (enlarge-window 1)
+  (oidx--ws-menu-rebuild t)
 
   (oidx--ws-menu-install-keyboard-shortcuts)
   "Buffer with nodes of working-set")
@@ -2986,11 +2984,11 @@ See `oidx--ws-menu-rebuld' for a list of commands."
       (lambda () (interactive)
         (message (oidx--ws-nodes-restore))
         (oidx--ws-nodes-persist)
-        (oidx--ws-menu-rebuild)))
+        (oidx--ws-menu-rebuild t)))
 
     (define-key keymap (kbd "q")
       (lambda () (interactive)
-        (quit-windows-on oidx--ws-menu-buffer-name)
+        (delete-windows-on oidx--ws-menu-buffer-name)
         (kill-buffer oidx--ws-menu-buffer-name)))
 
     (define-key keymap (kbd "r")
@@ -2999,22 +2997,8 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 
     (define-key keymap (kbd "?")
       (lambda () (interactive)
-        (setq oidx--ws-short-help-wanted t)
+        (setq oidx--ws-short-help-wanted (not oidx--ws-short-help-wanted))
         (oidx--ws-menu-rebuild t)))
-
-    (let ((toggle -1))
-      (mapc (lambda (x) (define-key keymap (kbd x)
-                     (lambda () (interactive)
-                       (forward-line toggle)
-                       (if (looking-at "\s*$")
-                           (forward-line (- toggle)))))
-              (setq toggle (- toggle)))
-            (list "<up>" "<down>" "C-p" "C-n")))
-
-    (mapc (lambda (x) (define-key keymap (kbd x)
-                   (lambda () (interactive))))
-          (list "<left>" "<right>" "C-b" "C-f"))
-
 
     (use-local-map keymap)))
 
@@ -3032,7 +3016,8 @@ See `oidx--ws-menu-rebuld' for a list of commands."
       ((<tab> H B)
        (other-window 1)
        (oidx--ws-goto-id id)))
-    (if (memq key '(b B)) (oidx--ws-bottom-of-node))))
+    (if (memq key '(b B)) (oidx--ws-bottom-of-node))
+    (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))))
 
 
 (defun oidx--ws-menu-get-id ()
@@ -3041,7 +3026,7 @@ See `oidx--ws-menu-rebuld' for a list of commands."
       (error "This line does not point to a node from working-set")))
 
 
-(defun oidx--ws-menu-rebuild ()
+(defun oidx--ws-menu-rebuild (&optional resize)
   "Rebuild content of working-set menu-buffer."
   (let (first-line clock-id)
     (when org-clock-marker
@@ -3054,7 +3039,7 @@ See `oidx--ws-menu-rebuld' for a list of commands."
       (erase-buffer)
       (insert (propertize (if oidx--ws-short-help-wanted
                               (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content.")
-                            "Press <return>,<tab>,h,H,b,B,p,d,u,q,r or ? for short help.")
+                            "Press <return>,<tab>,h,H,b,B,p,d,u,q,r or ? to toggle short help.")
                           'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
       (setq first-line (point))
@@ -3072,6 +3057,9 @@ See `oidx--ws-menu-rebuld' for a list of commands."
                      "\n")
         (insert "  No nodes in working-set.\n"))
       (goto-char first-line)
+      (when resize
+        (fit-window-to-buffer (get-buffer-window))
+        (enlarge-window 1))
       (setq buffer-read-only t))))
 
 
@@ -3129,9 +3117,9 @@ See `oidx--ws-menu-rebuld' for a list of commands."
   (let (txt)
     (if oidx--ws-ids-saved
         (progn
-          (setq txt (format "discarded current working set of %d node%s and restored previous set; now %%s%%d node%%s in working-set" (length oidx--ws-ids-saved) (if (cdr oidx--ws-ids-saved) "s" "")))
+          (setq txt (format "Discarded current working set of and restored previous set; now %d node%s in working-set" (length oidx--ws-ids-saved) (if (cdr oidx--ws-ids-saved) "s" "")))
           (setq oidx--ws-ids oidx--ws-ids-saved))
-      (setq txt "no saved working-set nodes to restore, nothing to do"))
+      (setq txt "No saved working-set nodes to restore, nothing to do"))
     (if upcase (concat (upcase (substring txt 0 1))
                        (substring txt 1)
                        ".")
