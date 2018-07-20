@@ -3029,11 +3029,12 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 (defun oidx--ws-menu-rebuild (&optional resize)
   "Rebuild content of working-set menu-buffer."
   (let (first-line clock-id)
-    (when org-clock-marker
-      (save-excursion 
-        (with-current-buffer (marker-buffer org-clock-marker)
-          (goto-char org-clock-marker)
-          (setq clock-id (org-id-get)))))
+    (ignore-errors
+      (when org-clock-marker
+	(save-excursion 
+          (with-current-buffer (marker-buffer org-clock-marker)
+            (goto-char org-clock-marker)
+            (setq clock-id (org-id-get))))))
     (with-current-buffer (get-buffer-create oidx--ws-menu-buffer-name)
       (setq buffer-read-only nil)
       (erase-buffer)

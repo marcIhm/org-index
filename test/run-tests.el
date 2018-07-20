@@ -12,7 +12,7 @@
 (require 'oidxt)
 (require 'paredit)
 (autoload 'paredit-mode "paredit" "Minor mode for pseudo-structurally editing Lisp code." t)
-(add-hook 'emacs-lisp-mode-hook       (lambda () (paredit-mode +1) (hs-minor-mode)))
+(add-hook 'emacs-lisp-mode-hook (lambda () (paredit-mode +1)))
 
 (setq oidxt-keep-test-state t)
 

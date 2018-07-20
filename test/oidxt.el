@@ -164,7 +164,7 @@
 	    (setq org-index-clock-into-working-set t)
 	    (should (not (org-clock-is-active)))
 	    (oidxt-do "o c c u r <return> z w e i <down> <return>")
-	    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
+	    (oidxt-do "w o r k i n g - s e t <return> s")
 	    (sleep-for 2)
 	    (should (org-clock-is-active))))
       (org-clock-out))))
@@ -199,42 +199,42 @@
 (ert-deftest oidxt-test-working-set ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> z w e i <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> s")
     (beginning-of-buffer)
-    (oidxt-do "w o r k i n g - s e t <return>")
+    (oidxt-do "w o r k i n g - s e t <return>" "C-u")
     (should (looking-at ".* --8--"))))
 
 
 (ert-deftest oidxt-test-working-set-restore ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> z w e i <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
-    (should (= (length oidx--ids-ws-nodes) 1))
-    (oidxt-do "w o r k i n g - s e t <return> d" "C-u")
-    (should (= (length oidx--ids-ws-nodes) 0))
-    (oidxt-do "w o r k i n g - s e t <return> r" "C-u")
-    (should (= (length oidx--ids-ws-nodes) 1))))
+    (oidxt-do "w o r k i n g - s e t <return> s")
+    (should (= (length oidx--ws-ids) 1))
+    (oidxt-do "w o r k i n g - s e t <return> d")
+    (should (= (length oidx--ws-ids) 0))
+    (oidxt-do "w o r k i n g - s e t <return> u")
+    (should (= (length oidx--ws-ids) 1))))
 
 
 (ert-deftest oidxt-test-working-set-bottom-head ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> - - 4 - - <return>")
-    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> s")
     (beginning-of-buffer)
-    (oidxt-do "w o r k i n g - s e t <return> b")
+    (oidxt-do "w o r k i n g - s e t <return> b" "C-u")
     (forward-line)
     (should (looking-at ".* --2--"))
     (forward-line -1)
-    (oidxt-do "w o r k i n g - s e t <return> h")
+    (oidxt-do "w o r k i n g - s e t <return> h" "C-u")
     (should (looking-at ".* --4--"))))
 
 
 (ert-deftest oidxt-test-working-set-menu-goto ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> z w e i <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> s")
     (oidxt-do "o c c u r <return> e i n s <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> a" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> a")
     (oidxt-do "w o r k i n g - s e t <return> m <down> <return>")
     (should (looking-at ".* --8--"))))
 
@@ -242,9 +242,10 @@
 (ert-deftest oidxt-test-working-set-menu-delete ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> z w e i <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> s")
     (oidxt-do "o c c u r <return> e i n s <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> a" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> a")
+    (should (= (length oidx--ws-ids) 2))
     (oidxt-do "w o r k i n g - s e t <return> m <down> d q")
     (should (= (length oidx--ws-ids) 1))))
 
@@ -252,27 +253,27 @@
 (ert-deftest oidxt-test-double-working-set ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> z w e i <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> s")
     (oidxt-do "o c c u r <return> e i n s <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> a" "C-u")
-    (oidxt-do "w o r k i n g - s e t <return>")
+    (oidxt-do "w o r k i n g - s e t <return> a")
+    (oidxt-do "w o r k i n g - s e t <return>" "C-u")
     (should (looking-at ".* --8--"))
-    (oidx--do 'working-set)
+    (oidx--do 'working-set nil t)
     (should (looking-at ".* --13--"))
     (setq this-command 'org-index)
     (setq last-command 'org-index)
-    (oidx--do 'working-set)
+    (oidx--do 'working-set nil t)
     (should (looking-at ".* --8--"))))
 
 
 (ert-deftest oidxt-test-nested-working-set ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> v i e r <down> <return>")
-    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> s")
     (search-forward "neun")
     (org-reveal)
-    (oidxt-do "w o r k i n g - s e t <return> a" "C-u")
-    (should (= (length oidx--ids-ws-nodes) 1))))
+    (oidxt-do "w o r k i n g - s e t <return> a")
+    (should (= (length oidx--ws-ids) 1))))
 
 
 (ert-deftest oidxt-test-migrate-index ()
