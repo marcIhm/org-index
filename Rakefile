@@ -184,7 +184,7 @@ task :copy_info_pieces do
           puts "  Table of contents"
           nfile.puts line + "\n"
           toc.shift
-          toc.each {|t| nfile.puts "   - [[#{t}]]"}
+          toc.each {|t| nfile.puts "   - [[##{t}]]"}
           nfile.puts "\n"
           seen[:toc] = true
           line = file.gets

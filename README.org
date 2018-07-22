@@ -12,10 +12,10 @@
 
 ** Table of Contents
 
-   - [[About this Package]]
-   - [[Files]]
-   - [[Making a new Release]]
-   - [[Latest Change Log]]
+   - [[#About this Package]]
+   - [[#Files]]
+   - [[#Making a new Release]]
+   - [[#Latest Change Log]]
 
 ** About this Package
 
