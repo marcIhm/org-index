@@ -137,7 +137,7 @@ task :copy_info_pieces do
   puts "  Latest Change log"
   File.open(fname) do |file|
     while line = file.gets do
-      mdata = line.match(/^\* (\d+\.\d+) ends (\S.*\S)/)
+      mdata = line.match(/^\* (\d+\.\d+) until (\S.*\S)/)
       if mdata
         if change_log[mdata[1]].length > 0
           version_dates[mdata[1]] = mdata[2]
@@ -153,7 +153,7 @@ task :copy_info_pieces do
   version_dates[version_latest] = Time.now.strftime("%Y-%m-%d %a")[0..-2]
   File.open(nname,'w') do |nfile|
     change_log.each do |ver,log|
-      nfile.puts "* " + ver + " ends " + version_dates[ver] + "\n\n" + log + "\n"
+      nfile.puts "* " + ver + " until " + version_dates[ver] + "\n\n" + log + "\n"
     end
     nfile.puts rest_of_change_log
   end
