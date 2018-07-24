@@ -2179,7 +2179,7 @@ Optional argument NO-ERROR suppresses error."
 (defun oidx--unfold-buffer ()
   "Helper function to unfold buffer."
   (org-show-context 'tree)
-  (org-reveal '(4))
+  (org-reveal '(16))
   (recenter 1))
 
 
@@ -2768,10 +2768,10 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
   "Central dispatch for handling working-set."
   (let (id text more-text char prompt ids-up-to-top)
 
-    (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,r,m,w,c or ? for short help) - " (length oidx--ws-ids)))
-    (while (not (memq char (list ?s ?a ?d ?u ?w ?m ?c)))
+    (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,r,m,w,c,space or ? for short help) - " (length oidx--ws-ids)))
+    (while (not (memq char (list ?s ?a ?d ?u ?w ?m ?c ? )))
       (setq char (read-char-exclusive prompt))
-      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circke.  Please choose - " (length oidx--ws-ids))))
+      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circl (same as space)e.  Please choose - " (length oidx--ws-ids))))
     (setq text
           (cond
 
@@ -2815,7 +2815,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
            ((memq char '(?m ?w))
             (oidx--ws-menu))
 
-           ((eq char ?c)
+           ((memq char '(?c ? ))
             (oidx--ws-circle))
 
            ((eq char ?u)
@@ -2852,57 +2852,61 @@ This function calls itself recursively."
               (run-at-time 8 nil
                            (lambda () (if oidx--cancel-ws-wait-function
                                      (funcall oidx--cancel-ws-wait-function)))))
+
+        (let ((kmap (make-sparse-keymap)))
+          (mapc (lambda (x)
+                  (define-key kmap (vector x)
+                    (lambda () (interactive)
+                      (setq this-command last-command)
+                      (setq oidx--this-command oidx--last-command)
+                      (oidx--ws-message (oidx--ws-circle)))))
+                (list ?c ? ))
+          (define-key kmap (vector ?h)
+            (lambda () (interactive)
+              (oidx--ws-head-of-node)
+              (oidx--ws-message "On heading of node from working-set")))
+          (define-key kmap (vector ?b)
+            (lambda () (interactive)
+              (oidx--ws-bottom-of-node)
+              (oidx--ws-message "At bottom of node from working-set")))
+          (define-key kmap (vector ??)
+            (lambda () (interactive)
+              (setq oidx--short-help-wanted t)
+              (message (oidx--ws-circle))
+              (setq oidx--short-help-wanted nil)))
+          (define-key kmap (vector ?d)
+            (lambda () (interactive)
+              (setq this-command last-command)
+              (oidx--ws-nodes-persist)
+              (oidx--ws-message (concat (oidx--ws-delete-from)
+                                        (oidx--ws-circle)))
+              (setq oidx--cancel-ws-wait-function nil)))
+          (define-key kmap (vector ?m)
+            (lambda () (interactive)
+              (setq this-command last-command)
+              (oidx--ws-message "Switching to extended menu")
+              (oidx--ws-menu)
+              (setq oidx--cancel-ws-wait-function nil)))
+          
+          (setq oidx--cancel-ws-wait-function
+                (set-transient-map
+                 kmap t
+                 ;; this is run (in any case) on leaving the map
+                 (lambda () (cancel-timer oidx--ws-cancel-timer)
+                   (message nil)
+                   ;; Clean up overlay
+                   (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
+                   (setq oidx--ws-overlay nil)
+                   (if org-index-clock-into-working-set
+                       (let (keys)
+                         ;; save and repeat terminating key, because org-clock-in might read interactively
+                         (if (input-pending-p) (setq keys (read-key-sequence nil)))
+                         (org-with-limited-levels (org-clock-in))
+                         (if keys (setq unread-command-events (listify-key-sequence keys)))))
+                   ;; ignore-errors helps during tear-down of some tests
+                   (ignore-errors (oidx--update-line (org-id-get) t))))))
         
-        (setq oidx--cancel-ws-wait-function
-              (set-transient-map (let ((map (make-sparse-keymap)))
-                                   (define-key map (vector ?w)
-                                     (lambda () (interactive)
-                                       (setq this-command last-command)
-                                       (setq oidx--this-command oidx--last-command)
-                                       (oidx--ws-message (oidx--ws-circle))))
-                                   (define-key map (vector ?h)
-                                     (lambda () (interactive)
-                                       (oidx--ws-head-of-node)
-                                       (oidx--ws-message "On heading of node from working-set")))
-                                   (define-key map (vector ?b)
-                                     (lambda () (interactive)
-                                       (oidx--ws-bottom-of-node)
-                                       (oidx--ws-message "At bottom of node from working-set")))
-                                   (define-key map (vector ??)
-                                     (lambda () (interactive)
-                                       (setq oidx--short-help-wanted t)
-                                       (message (oidx--ws-circle))
-                                       (setq oidx--short-help-wanted nil)))
-                                   (define-key map (vector ?d)
-                                     (lambda () (interactive)
-                                       (setq this-command last-command)
-                                       (oidx--ws-nodes-persist)
-                                       (oidx--ws-message (concat (oidx--ws-delete-from)
-                                                                 (oidx--ws-circle)))
-                                       (setq oidx--cancel-ws-wait-function nil)))
-                                   (define-key map (vector ?m)
-                                     (lambda () (interactive)
-                                       (setq this-command last-command)
-                                       (oidx--ws-message "Switching to extended menu")
-                                       (oidx--ws-menu)
-                                       (setq oidx--cancel-ws-wait-function nil)))
-                                   map)
-                                 t
-                                 ;; this is run (in any case) on leaving the map
-                                 (lambda () (cancel-timer oidx--ws-cancel-timer)
-                                   (message nil)
-                                   ;; Clean up overlay
-                                   (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
-                                   (setq oidx--ws-overlay nil)
-                                   (if org-index-clock-into-working-set
-                                       (let (keys)
-                                         ;; save and repeat terminating key, because org-clock-in might read interactively
-                                         (if (input-pending-p) (setq keys (read-key-sequence nil)))
-                                         (org-with-limited-levels (org-clock-in))
-                                         (if keys (setq unread-command-events (listify-key-sequence keys)))))
-                                   ;; ignore-errors helps during tear-down of some tests
-                                   (ignore-errors (oidx--update-line (org-id-get) t)))))
-        (setq menu-clause (if oidx--short-help-wanted "; type 'w' to jump to next node in list; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; 'm' creates buffer with menu" "; type w,h,b,d,m or ? for short help"))
+        (setq menu-clause (if oidx--short-help-wanted "; type 'c' or space to jump to next node in circle; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; 'm' creates buffer with menu" "; type c,space,h,b,d,m or ? for short help"))
         
         (if (member target-id (oidx--ws-ids-up-to-top))
             (setq explain (format "staying below %scurrent" bottom-clause))
@@ -2918,7 +2922,7 @@ This function calls itself recursively."
         (when org-index-show-working-set-overlay
           ;; tooltip-overlay to show current heading
           (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
-          (setq oidx--ws-overlay (make-overlay (point-at-bol) (point-at-bol)))
+          (setq oidx--ws-overlay (make-overlay (point-at-eol) (point-at-eol)))
           (overlay-put oidx--ws-overlay
                        'after-string
                        (propertize
