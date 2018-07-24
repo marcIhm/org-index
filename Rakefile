@@ -42,11 +42,12 @@ task :copy_info_pieces do
   File.open(fname) do |file|
     line = ""
     puts "  Find version"
-    until line.start_with?(";; / This Commentary")
+    until line.start_with?(";;; Commentary:")
       line = file.gets
       mdata = line.match(/^;; Version: (\d+\.\d+\.\d+)\s*/)
       version ||= mdata[1] if mdata
-    end 
+    end
+    file.gets
     key = nil
     puts "  Pieces of Commentary"
     while (line = file.gets).start_with?(";;")

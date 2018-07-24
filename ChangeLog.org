@@ -1,4 +1,4 @@
-* 5.9 until 2018-07-22 Su
+* 5.9 until 2018-07-24 Tu
 
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly
   - Added special buffer to manage the working-set
