@@ -823,9 +823,10 @@ interactive calls."
 
         (if (and oidx--within-index-node
                  (org-at-table-p))
-            (let (char col num)
-              (setq char (read-char "Please specify, which column to go to (r=ref, k=keywords, c=category, y=yank): "))
-              (unless (memq char (list ?r ?k ?c ?y))
+            (let ((char-choices (list ?r ?k ?c ?y))
+                  char col num)
+              (setq char (read-char-choice "Please specify, which column to go to (r=ref, k=keywords, c=category, y=yank): " char-choices))
+              (unless (memq char char-choices)
                 (error (format "Invalid char '%c', cannot goto this column" char)))
               (setq col (cdr (assoc char '((?r . ref) (?k . keywords) (?c . category) (?y . yank)))))
               (setq num (oidx--column-num col))
@@ -2765,11 +2766,12 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 (defun oidx--ws-dispatch ()
   "Central dispatch for handling working-set."
   (interactive)
-  (let (id text more-text char prompt ids-up-to-top)
+  (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ? ))
+        id text more-text char prompt ids-up-to-top)
 
     (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,r,m,w,c,space or ? for short help) - " (length oidx--ws-ids)))
-    (while (not (memq char (list ?s ?a ?d ?u ?w ?m ?c ? )))
-      (setq char (read-char-exclusive prompt))
+    (while (not (memq char char-choices))
+      (setq char (read-char-choice prompt char-choices))
       (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circl (same as space)e.  Please choose - " (length oidx--ws-ids))))
     (setq text
           (cond
@@ -2977,7 +2979,7 @@ See `oidx--ws-menu-rebuld' for a list of commands."
             (oidx--ws-goto-id (oidx--ws-menu-get-id))
             (delete-other-windows)
             (recenter 1)
-            (read-char-exclusive "Peeking into node, any key to return." nil 10)))))
+            (read-char "Peeking into node, any key to return." nil 10)))))
 
     (define-key keymap (kbd "d")
       (lambda () (interactive)
