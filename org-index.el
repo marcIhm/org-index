@@ -1005,7 +1005,7 @@ Optional argument KEYS-VALUES specifies content of new line."
   "Prepare minibuffer for `oidx--read-command'."
   (setq oidx--minibuffer-saved-key (local-key-binding (kbd "?")))
   (local-set-key (kbd "?") 'oidx--display-short-help)
-  (local-set-key (kbd "C-u") (lambda () (interactive)
+  (local-set-key (kbd "C-u") (lambda () (interac tive)
 			       (setq oidx--prefix-arg t)
 			       (message "C-u")))
   (if oidx--short-help-wanted (oidx--display-short-help)))
@@ -2764,6 +2764,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 ;; Functions for working-set
 (defun oidx--ws-dispatch ()
   "Central dispatch for handling working-set."
+  (interactive)
   (let (id text more-text char prompt ids-up-to-top)
 
     (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,r,m,w,c,space or ? for short help) - " (length oidx--ws-ids)))
