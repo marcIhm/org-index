@@ -38,7 +38,11 @@
 ;;  by usage count and date, so that recently or frequently used entries
 ;;  appear first in the list of results.
 ;;
-;;  In addition, org-index introduces these supplemental concepts:
+;;  Please note, that org-index uses org-id to add an id-property to all
+;;  nodes in the index.
+;;
+;;  In the addition to the index table, org-index introduces these
+;;  supplemental concepts:
 ;;
 ;;  - 'References' are decorated numbers (e.g. 'R237' or '--455--'); they are
 ;;     well suited to be used outside of org, e.g. in folder names,
@@ -336,7 +340,11 @@ of matching lines is updated with every keystroke; results are sorted
 by usage count and date, so that recently or frequently used entries
 appear first in the list of results.
 
-In addition, org-index introduces these supplemental concepts:
+Please note, that org-index uses org-id to add an id-property to all
+nodes in the index.
+
+In the addition to the index table, org-index introduces these
+supplemental concepts:
 
 - 'References' are decorated numbers (e.g. 'R237' or '--455--'); they are
    well suited to be used outside of org, e.g. in folder names,
@@ -905,7 +913,7 @@ interactive calls."
                       (progn
                         (setq oidx--last-ws-message nil)
                         (oidx--ws-circle))
-                    (oidx--ws-dispatch))))
+                    (org-index-working-set))))
           (setq message-text (concat (upcase (substring mt 0 1)) (substring mt 1)))))
 
 
@@ -2763,7 +2771,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 
 ;; Functions for working-set
-(defun oidx--ws-dispatch ()
+(defun org-index-working-set ()
   "Central dispatch for handling working-set."
   (interactive)
   (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ? ))
