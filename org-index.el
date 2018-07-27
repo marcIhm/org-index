@@ -48,7 +48,9 @@
 ;;     well suited to be used outside of org, e.g. in folder names,
 ;;     ticket systems or on printed documents.
 ;;  - 'Working set' (short: ws) is a small set of nodes for your daily work;
-;;     it can be managed easily and traversed very fast.
+;;     it can be managed easily and traversed very fast. All related tasks
+;;     are also available through the interactive function
+;;     org-index-working-set, which see.
 ;;
 ;;  On first invocation org-index will assist you in creating the index
 ;;  table.
@@ -80,7 +82,13 @@
 ;; 
 ;;   Version 5.9
 ;; 
-;;   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly
+;;   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
+;;     Especially these customization options have been renamed:
+;;     - org-index-clock-into-focus         into  org-index-clock-into-working-set
+;;     - org-index-show-focus-overlay       into  org-index-show-working-set-overlay
+;;     - org-index-goto-bottom-after-focus  into  org-index-goto-bottom-in-working-set
+;;     If you have changed those options from their defaults,
+;;     you may need to adjust your settings manually.
 ;;   - Added special buffer to manage the working-set
 ;; 
 ;;   Version 5.8
@@ -248,7 +256,6 @@ those pieces."
 (defvar oidx--ref-regex nil "Regular expression to match a reference.")
 (defvar oidx--ref-format nil "Format, that can print a reference.")
 (defvar oidx--columns nil "Columns of index-table.")
-(defvar oidx--buffer nil "Buffer of index table.")
 (defvar oidx--point nil "Position at start of headline of index table.")
 (defvar oidx--below-hline nil "Position of first cell in first line below hline.")
 (defvar oidx--saved-positions nil "Saved positions within current buffer and index buffer; filled by ‘oidx--save-positions’.")
@@ -258,8 +265,7 @@ those pieces."
 (defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
 (defvar oidx--id-last-goto-ws nil "Id of last node from working-set, that has been visited.")
 
-;; Variables to hold context and state
-;; Variables for occur, see the respective section
+;; Variables to hold context and state; Variables for occur, see the respective section
 (defvar oidx--buffer nil "Buffer, that contains index.")
 (defvar oidx--last-fingerprint nil "Fingerprint of last line created.")
 (defvar oidx--category-before nil "Category of node before.")
@@ -360,7 +366,7 @@ index entries and 'occur' to find them.
 
 This is version 5.8.99 of org-index.el.
 
-The function `org-index' is the only interactive function of this
+The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
 of subcommands to choose from:
 
@@ -2772,7 +2778,21 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 ;; Functions for working-set
 (defun org-index-working-set ()
-  "Central dispatch for handling working-set."
+  "Central interactive function to manage a working-set of nodes.
+
+The working-set is a small number of nodes, among whom you switch
+rapidly; it is expected to change on a daily or even hourly
+basis. If this description matches your working habits, you may
+profit from using org-index-working-set.
+
+Subcommands of org-index-working-set allow to:
+- Modify the list of nodes (e.g. add new nodes)
+- Circle quickly through the nodes
+- Show a menu buffer with all nodes currently in the working set
+
+org-index-working-set is available as a subcommand of org-index,
+but may also be bound to its own key-sequence.
+"
   (interactive)
   (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ? ))
         id text more-text char prompt ids-up-to-top)
@@ -3031,7 +3051,9 @@ See `oidx--ws-menu-rebuld' for a list of commands."
       ((<tab> H B)
        (other-window 1)
        (oidx--ws-goto-id id)))
-    (if (memq key '(b B)) (oidx--ws-bottom-of-node))
+    (if (or (memq key '(b B))
+            (and (memq key '(<return> RET))
+                 org-index-goto-bottom-in-working-set)) (oidx--ws-bottom-of-node))
     (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))))
 
 
