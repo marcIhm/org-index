@@ -68,7 +68,8 @@ task :copy_info_pieces do
 
     puts "  Latest Change Log"
     vkey = nil
-    line = file.gets until line.start_with?(";; / This Change Log")
+    line = file.gets until line.start_with?(";;; Change Log:")
+    line = file.gets
     while (line = file.gets).start_with?(";;")
       mdata = line.match(/^;;   Version (\d+\.\d+)\s*/)
       if mdata 

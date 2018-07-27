@@ -1,6 +1,6 @@
-* 5.9 until 2018-07-25 We
+* 5.9 until 2018-07-28 Sa
 
-  - Renamed 'focus' to 'working-set', changed commands and help texts accordingly
+  - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
   - Added special buffer to manage the working-set
 
 * 5.8 until 2018-03-07 We
