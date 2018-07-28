@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.8.99
+;; Version: 5.9.0
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -48,7 +48,7 @@
 ;;     well suited to be used outside of org, e.g. in folder names,
 ;;     ticket systems or on printed documents.
 ;;  - 'Working set' (short: ws) is a small set of nodes for your daily work;
-;;     it can be managed easily and traversed very fast. All related tasks
+;;     it can be managed easily and traversed very fast.  All related tasks
 ;;     are also available through the interactive function
 ;;     org-index-working-set, which see.
 ;;
@@ -115,7 +115,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.8.99" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.9.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -354,7 +354,7 @@ supplemental concepts:
    well suited to be used outside of org, e.g. in folder names,
    ticket systems or on printed documents.
 - 'Working set' (short: ws) is a small set of nodes for your daily work;
-   it can be managed easily and traversed very fast. All related tasks
+   it can be managed easily and traversed very fast.  All related tasks
    are also available through the interactive function
    org-index-working-set, which see.
 
@@ -364,7 +364,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.8.99 of org-index.el.
+This is version 5.9.0 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -1020,7 +1020,7 @@ Optional argument KEYS-VALUES specifies content of new line."
   "Prepare minibuffer for `oidx--read-command'."
   (setq oidx--minibuffer-saved-key (local-key-binding (kbd "?")))
   (local-set-key (kbd "?") 'oidx--display-short-help)
-  (local-set-key (kbd "C-u") (lambda () (interac tive)
+  (local-set-key (kbd "C-u") (lambda () (interactive)
 			       (setq oidx--prefix-arg t)
 			       (message "C-u")))
   (if oidx--short-help-wanted (oidx--display-short-help)))
@@ -2782,17 +2782,16 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 The working-set is a small number of nodes, among whom you switch
 rapidly; it is expected to change on a daily or even hourly
-basis. If this description matches your working habits, you may
-profit from using org-index-working-set.
+basis.  If this description matches your working habits, you may
+profit from using this command.
 
-Subcommands of org-index-working-set allow to:
+Its subcommands allow to:
 - Modify the list of nodes (e.g. add new nodes)
 - Circle quickly through the nodes
 - Show a menu buffer with all nodes currently in the working set
 
-org-index-working-set is available as a subcommand of org-index,
-but may also be bound to its own key-sequence.
-"
+This command is available as a subcommand of ‘org-index’,
+but may also be bound to its own key-sequence."
   (interactive)
   (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ? ))
         id text more-text char prompt ids-up-to-top)
@@ -2860,7 +2859,7 @@ but may also be bound to its own key-sequence.
 This function calls itself recursively."
   (if oidx--ws-ids
       (let (again last-id target-id following-id in-last-id
-                  explain marker heading-is-clause head
+                  explain heading-is-clause head
                   (bottom-clause (if org-index-goto-bottom-in-working-set "bottom of " ""))
                   (menu-clause ""))
         (setq again (and (eq this-command last-command)
@@ -3039,7 +3038,8 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 
 
 (defun oidx--ws-menu-action (key)
-  "Perform some actions for working-set menu"
+  "Perform some actions for working-set menu.
+Argument KEY has been pressed to trigger this function."
   (setq key (intern key))
   (let (id)
     (setq id (oidx--ws-menu-get-id))
@@ -3064,11 +3064,12 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 
 
 (defun oidx--ws-menu-rebuild (&optional resize)
-  "Rebuild content of working-set menu-buffer."
+  "Rebuild content of working-set menu-buffer.
+Optional argument RESIZE adjusts window size."
   (let (first-line clock-id)
     (ignore-errors
       (when org-clock-marker
-	(save-excursion 
+	(save-excursion
           (with-current-buffer (marker-buffer org-clock-marker)
             (goto-char org-clock-marker)
             (setq clock-id (org-id-get))))))
@@ -3102,7 +3103,7 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 
 
 (defun oidx--ws-goto-id (id)
-  "Goto node with given id and unfold"
+  "Goto node with given ID and unfold."
   (let (marker)
     (unless (setq marker (org-id-find id 'marker))
       (setq oidx--id-last-goto-ws nil)
@@ -3151,7 +3152,8 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 
 
 (defun oidx--ws-nodes-restore (&optional upcase)
-  "Restore previously saved working-set."
+  "Restore previously saved working-set.
+Optional argument UPCASE modifies the returned message."
   (let (txt)
     (if oidx--ws-ids-saved
         (progn
@@ -3171,7 +3173,8 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 
 
 (defun oidx--ws-delete-from (&optional id)
-  "Delete current node from working-set."
+  "Delete current node from working-set.
+Optional argument ID gives the node to delete."
   (setq id (or id (org-id-get)))
   (format
    (if (and id (member id oidx--ws-ids))
