@@ -677,6 +677,19 @@
     (oidxt-do "i n d e x <return> .")
     (should (string= (oidx--get-or-set-field 'keywords) "dreibar"))))
 
+
+(ert-deftest oidxt-test-consistent-versions-in-news ()
+  (oidxt-with-test-setup
+    (let (ver1 ver2)
+      (oidxt-do "n e w s <return>")
+      (with-current-buffer "*org-index news*"
+	(should (looking-at "News for Version \\([0-9]+.[0-9]+\\) "))
+	(setq ver1 (match-string 1))
+	(forward-line 2)
+	(should (looking-at "* \\([0-9]+.[0-9]+\\)$"))
+	(setq ver2 (match-string 1))
+	(should (string= ver1 ver2))))))
+
 ;;
 ;; Helper functions
 ;;
