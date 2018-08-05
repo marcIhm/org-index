@@ -82,6 +82,7 @@
 ;; 
 ;;   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
 ;;   - Added special buffer to manage the working-set
+;;   - Function org-index-working-set may now be invoked directly
 ;; 
 ;;   Version 5.8
 ;; 
@@ -261,7 +262,8 @@ those pieces."
 (defvar oidx--headings-visible nil "Visible part of headlines of index-table as a string.")
 (defvar oidx--ws-ids nil "Ids of working-set nodes (if any).")
 (defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
-(defvar oidx--id-last-goto-ws nil "Id of last node from working-set, that has been visited.")
+(defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
+(defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle")
 
 ;; Variables to hold context and state; Variables for occur, see the respective section
 (defvar oidx--buffer nil "Buffer, that contains index.")
@@ -285,9 +287,8 @@ those pieces."
 (defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
 (defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
 (defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
-(defvar oidx--this-command nil "Subcommand, that is currently excecuted.")
-(defvar oidx--last-command nil "Subcommand, that hast been excecuted last.")
 (defvar oidx--last-ws-message nil "Last message issued by working-set commands.")
+(defvar oidx--ws-circle-bail-out nil "Set, if bailing out of working-set circle.")
 (defvar oidx--cancel-ws-wait-function nil "Function to call on timeout for working-set commands.")
 (defvar oidx--ws-cancel-timer nil "Timer to cancel waiting for key.")
 (defvar oidx--ws-overlay nil "Overlay to display name of current working-set node.")
@@ -542,9 +543,6 @@ interactive calls."
 	(if oidx--prefix-arg (setq arg (or arg '(4))))
         (setq oidx--short-help-wanted nil))
 
-      (setq oidx--last-command oidx--this-command)
-      (setq oidx--this-command command)
-
 
       ;;
       ;; Get search string, if required; process possible sources one after
@@ -655,6 +653,7 @@ interactive calls."
 
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
   - Added special buffer to manage the working-set
+  - Function org-index-working-set may now be invoked directly
 
 * 5.8
 
@@ -918,7 +917,7 @@ interactive calls."
         (let ((mt (if arg
                       (progn
                         (setq oidx--last-ws-message nil)
-                        (oidx--ws-circle))
+                        (oidx--ws-circle-start))
                     (org-index-working-set))))
           (setq message-text (concat (upcase (substring mt 0 1)) (substring mt 1)))))
 
@@ -2807,8 +2806,8 @@ but may also be bound to its own key-sequence."
             (setq id (org-id-get-create))
             (setq oidx--ws-ids-saved oidx--ws-ids)
             (setq oidx--ws-ids (list id))
-            (setq oidx--id-last-goto-ws id)
-            (oidx--update-line id t)
+            (setq oidx--ws-id-last-goto id
+                  (oidx--update-line id t))
             (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))
             "working-set has been set to current node (1 node)")
 
@@ -2832,7 +2831,7 @@ but may also be bound to its own key-sequence."
                 (setq oidx--ws-ids (seq-difference oidx--ws-ids ids-up-to-top))
                 (setq more-text (concat more-text ", replacing its parent")))
               (setq oidx--ws-ids (cons id oidx--ws-ids)))
-            (setq oidx--id-last-goto-ws id)
+            (setq oidx--ws-id-last-goto id)
             (oidx--update-line id t)
             (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))
             "current node has been appended to working-set%s (%d node%s)")
@@ -2844,7 +2843,7 @@ but may also be bound to its own key-sequence."
             (oidx--ws-menu))
 
            ((memq char '(?c ? ))
-            (oidx--ws-circle))
+            (oidx--ws-circle-start))
 
            ((eq char ?u)
             (oidx--ws-nodes-restore))))
@@ -2854,40 +2853,19 @@ but may also be bound to its own key-sequence."
     (format text (or more-text "") (length oidx--ws-ids) (if (cdr oidx--ws-ids) "s" ""))))
 
 
-(defun oidx--ws-circle ()
-  "Go through working-set, one node after the other.
-This function calls itself recursively."
+(defun oidx--ws-circle-start ()
+  "Go through working-set, one node after the other."
   (if oidx--ws-ids
-      (let (again last-id target-id following-id in-last-id
-                  explain heading-is-clause head
-                  (bottom-clause (if org-index-goto-bottom-in-working-set "bottom of " ""))
-                  (menu-clause ""))
-        (setq again (and (eq this-command last-command)
-                         (eq oidx--this-command oidx--last-command)))
-        (setq last-id (or oidx--id-last-goto-ws
-                          (car (last oidx--ws-ids))))
-        (setq following-id (car (or (cdr-safe (member last-id
-                                                      (append oidx--ws-ids
-                                                              oidx--ws-ids)))
-                                    oidx--ws-ids)))
-        (setq in-last-id (string= (ignore-errors (org-id-get)) last-id))
-
-        (setq target-id (if (or again in-last-id) following-id last-id))
-
-        ;; bail out on inactivity
-        (if oidx--ws-cancel-timer (cancel-timer oidx--ws-cancel-timer))
-        (setq oidx--ws-cancel-timer
-              (run-at-time 8 nil
-                           (lambda () (if oidx--cancel-ws-wait-function
-                                     (funcall oidx--cancel-ws-wait-function)))))
+      (progn
+        (setq oidx--ws-short-help-wanted nil)
+        (setq oidx--ws-circle-before-marker (point-marker))
 
         (let ((kmap (make-sparse-keymap)))
           (mapc (lambda (x)
                   (define-key kmap (vector x)
                     (lambda () (interactive)
                       (setq this-command last-command)
-                      (setq oidx--this-command oidx--last-command)
-                      (oidx--ws-message (oidx--ws-circle)))))
+                      (oidx--ws-message (oidx--ws-circle-continue)))))
                 (list ?c ? ))
           (define-key kmap (vector ?h)
             (lambda () (interactive)
@@ -2899,21 +2877,26 @@ This function calls itself recursively."
               (oidx--ws-message "At bottom of node from working-set")))
           (define-key kmap (vector ??)
             (lambda () (interactive)
-              (setq oidx--short-help-wanted t)
-              (message (oidx--ws-circle))
-              (setq oidx--short-help-wanted nil)))
+              (setq oidx--ws-short-help-wanted t)
+              (message (oidx--ws-circle-continue t))
+              (setq oidx--ws-short-help-wanted nil)))
           (define-key kmap (vector ?d)
             (lambda () (interactive)
               (setq this-command last-command)
               (oidx--ws-nodes-persist)
               (oidx--ws-message (concat (oidx--ws-delete-from)
-                                        (oidx--ws-circle)))
+                                        (oidx--ws-circle-continue)))
               (setq oidx--cancel-ws-wait-function nil)))
-          (define-key kmap (vector ?m)
+          (define-key kmap (kbd "<escape>")
             (lambda () (interactive)
-              (setq this-command last-command)
-              (oidx--ws-message "Switching to extended menu")
-              (oidx--ws-menu)
+              (if org-index-clock-into-working-set
+                  (oidx--ws-message "Bailing out of circle"))
+              (setq oidx--ws-circle-bail-out t)
+              (setq oidx--cancel-ws-wait-function nil)))
+          (define-key kmap (kbd "C-g")
+            (lambda () (interactive)
+              (if oidx--ws-circle-before-marker (org-goto-marker-or-bmk oidx--ws-circle-before-marker))
+              (setq oidx--ws-circle-bail-out t)
               (setq oidx--cancel-ws-wait-function nil)))
           
           (setq oidx--cancel-ws-wait-function
@@ -2925,54 +2908,79 @@ This function calls itself recursively."
                    ;; Clean up overlay
                    (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
                    (setq oidx--ws-overlay nil)
-                   (if org-index-clock-into-working-set
+                   (if (and  org-index-clock-into-working-set
+                             (not oidx--ws-circle-bail-out))
                        (let (keys)
                          ;; save and repeat terminating key, because org-clock-in might read interactively
                          (if (input-pending-p) (setq keys (read-key-sequence nil)))
                          (org-with-limited-levels (org-clock-in))
                          (if keys (setq unread-command-events (listify-key-sequence keys)))))
+                   (if oidx--ws-circle-before-marker (move-marker oidx--ws-circle-before-marker nil))
+                   (setq oidx--ws-circle-bail-out nil)
                    ;; ignore-errors helps during tear-down of some tests
-                   (ignore-errors (oidx--update-line (org-id-get) t))))))
-        
-        (setq menu-clause (if oidx--short-help-wanted "; type 'c' or space to jump to next node in circle; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; 'm' creates buffer with menu" "; type c,space,h,b,d,m or ? for short help"))
-        
-        (if (member target-id (oidx--ws-ids-up-to-top))
-            (setq explain (format "staying below %scurrent" bottom-clause))
-          ;; actually change location
-          (oidx--ws-goto-id target-id)
-          (setq explain
-                (if (or again in-last-id)
-                    (format "at %snext" bottom-clause)
-                  (format "back to %scurrent" bottom-clause))))
-        (setq oidx--id-last-goto-ws target-id)
+                   (ignore-errors (oidx--update-line (org-id-get) t)))))
 
-        (setq head (org-with-limited-levels (org-get-heading t t t t)))
-        (when org-index-show-working-set-overlay
-          ;; tooltip-overlay to show current heading
-          (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
-          (setq oidx--ws-overlay (make-overlay (point-at-eol) (point-at-eol)))
-          (overlay-put oidx--ws-overlay
-                       'after-string
-                       (propertize
-                        (format " %s (%d of %d) "
-                                head
-                                (1+ (- (length oidx--ws-ids)
-                                       (length (member target-id oidx--ws-ids))))
-                                (length oidx--ws-ids))
-                        'face 'highlight))
-          (overlay-put oidx--ws-overlay 'priority most-positive-fixnum))
+          ;; first move
+          (oidx--ws-circle-continue)))
+    "No nodes in working-set"))
 
-        (setq heading-is-clause (format "Working-set %s, " (propertize head 'face 'org-todo)))
-        
-        (concat
-         heading-is-clause
-         (if (cdr oidx--ws-ids)
-             (format "%s node (out of %d)"
-                     explain
-                     (length oidx--ws-ids))
-           (format "%s single node" explain))
-         menu-clause))
-    "No nodes in working-set, invoke again with capital letter to add"))
+
+(defun oidx--ws-circle-continue (&optional stay)
+  "Continue with working set circle after start."
+  (let (last-id following-id explain head)
+
+    ;; compute target
+    (setq last-id (or oidx--ws-id-last-goto
+                      (car (last oidx--ws-ids))))
+    (setq following-id (car (or (cdr-safe (member last-id
+                                                  (append oidx--ws-ids
+                                                          oidx--ws-ids)))
+                                oidx--ws-ids)))
+
+    ;; bail out on inactivity
+    (if oidx--ws-cancel-timer (cancel-timer oidx--ws-cancel-timer))
+    (setq oidx--ws-cancel-timer
+          (run-at-time 8 nil
+                       (lambda () (if oidx--cancel-ws-wait-function
+                                 (funcall oidx--cancel-ws-wait-function)))))
+
+    (if (or stay (member following-id (oidx--ws-ids-up-to-top)))
+        ;; only do explanation
+        (setq explain "staying below %scurrent")
+      ;; actually change location
+      (oidx--ws-goto-id following-id)
+      ;; remember last id
+      (setq oidx--ws-id-last-goto following-id)
+      (setq explain "at %snext"))
+    (setq explain (format explain (if org-index-goto-bottom-in-working-set "bottom of " "")))
+
+    ;; tooltip-overlay to show current heading
+    (setq head (org-with-limited-levels (org-get-heading t t t t)))
+    (when org-index-show-working-set-overlay
+      (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
+      (setq oidx--ws-overlay (make-overlay (point-at-eol) (point-at-eol)))
+      (overlay-put oidx--ws-overlay
+                   'after-string
+                   (propertize
+                    (format " %s (%d of %d) "
+                            head
+                            (1+ (- (length oidx--ws-ids)
+                                   (length (member following-id oidx--ws-ids))))
+                            (length oidx--ws-ids))
+                    'face 'highlight))
+      (overlay-put oidx--ws-overlay 'priority most-positive-fixnum))
+
+    ;; return message
+    (concat
+     (format "Working-set node %s, " (propertize head 'face 'org-todo))
+     (if (cdr oidx--ws-ids)
+         (format "%s node (out of %d)"
+                 explain
+                 (length oidx--ws-ids))
+       (format "%s single node" explain))
+     (if oidx--ws-short-help-wanted
+         "; type 'c' or space to jump to next node in circle; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; esc skips clocking in"
+       "; type c,space,h,b,d,esc or ? for short help"))))
 
 
 (defun oidx--ws-menu ()
@@ -3106,7 +3114,7 @@ Optional argument RESIZE adjusts window size."
   "Goto node with given ID and unfold."
   (let (marker)
     (unless (setq marker (org-id-find id 'marker))
-      (setq oidx--id-last-goto-ws nil)
+      (setq oidx--ws-id-last-goto nil)
       (error "Could not find working-set node with id %s" id))
     
     (pop-to-buffer-same-window (marker-buffer marker))
@@ -3179,13 +3187,13 @@ Optional argument ID gives the node to delete."
   (format
    (if (and id (member id oidx--ws-ids))
        (progn
-         (setq oidx--id-last-goto-ws
+         (setq oidx--ws-id-last-goto
                (or (car-safe (cdr-safe (member id (reverse (append oidx--ws-ids
                                                                    oidx--ws-ids)))))
-                   oidx--id-last-goto-ws))
+                   oidx--ws-id-last-goto))
          (setq oidx--ws-ids-saved oidx--ws-ids)
          (setq oidx--ws-ids (delete id oidx--ws-ids))
-         (setq oidx--id-last-goto-ws nil)
+         (setq oidx--ws-id-last-goto nil)
          "Current node has been removed from working-set (%d node%s)")
      "Current node has not been in working-set (%d node%s)")
    (length oidx--ws-ids) (if oidx--ws-ids "s" "")))

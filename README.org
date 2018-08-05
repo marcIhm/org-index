@@ -127,6 +127,7 @@
 
     - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
     - Added special buffer to manage the working-set
+    - Function org-index-working-set may now be invoked directly
   
 *** 5.8
 
