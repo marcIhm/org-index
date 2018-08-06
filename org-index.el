@@ -263,7 +263,8 @@ those pieces."
 (defvar oidx--ws-ids nil "Ids of working-set nodes (if any).")
 (defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
 (defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
-(defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle")
+(defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle.")
+(defvar oidx--ws-circle-before-window-configuration nil "Window configuration before entry into circle.")
 
 ;; Variables to hold context and state; Variables for occur, see the respective section
 (defvar oidx--buffer nil "Buffer, that contains index.")
@@ -918,7 +919,8 @@ interactive calls."
                       (progn
                         (setq oidx--last-ws-message nil)
                         (oidx--ws-circle-start))
-                    (org-index-working-set))))
+                    (let ((oidx--skip-verify-id t))
+                      (org-index-working-set)))))
           (setq message-text (concat (upcase (substring mt 0 1)) (substring mt 1)))))
 
 
@@ -2848,6 +2850,7 @@ but may also be bound to its own key-sequence."
            ((eq char ?u)
             (oidx--ws-nodes-restore))))
 
+    (oidx--verify-id)
     (oidx--ws-nodes-persist)
     
     (format text (or more-text "") (length oidx--ws-ids) (if (cdr oidx--ws-ids) "s" ""))))
@@ -2859,6 +2862,7 @@ but may also be bound to its own key-sequence."
       (progn
         (setq oidx--ws-short-help-wanted nil)
         (setq oidx--ws-circle-before-marker (point-marker))
+        (setq oidx--ws-circle-before-window-configuration (current-window-configuration))
 
         (let ((kmap (make-sparse-keymap)))
           (mapc (lambda (x)
@@ -2895,7 +2899,10 @@ but may also be bound to its own key-sequence."
               (setq oidx--cancel-ws-wait-function nil)))
           (define-key kmap (kbd "C-g")
             (lambda () (interactive)
-              (if oidx--ws-circle-before-marker (org-goto-marker-or-bmk oidx--ws-circle-before-marker))
+              (if oidx--ws-circle-before-marker
+                  (org-goto-marker-or-bmk oidx--ws-circle-before-marker))
+              (if oidx--ws-circle-before-window-configuration
+                  (set-window-configuration oidx--ws-circle-before-window-configuration))
               (setq oidx--ws-circle-bail-out t)
               (setq oidx--cancel-ws-wait-function nil)))
           
