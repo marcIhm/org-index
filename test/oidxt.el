@@ -157,7 +157,7 @@
 	  (let ((oidx--after-ws-delay 1) (org-index-clock-into-working-set nil))
 	    (should (not (org-clock-is-active)))
 	    (oidxt-do "o c c u r <return> z w e i <down> <return>")
-	    (oidxt-do "w o r k i n g - s e t <return> s" "C-u")
+	    (oidxt-do "w o r k i n g - s e t <return> s")
 	    (sleep-for 2)
 	    (should (not (org-clock-is-active)))
 	    
@@ -168,6 +168,7 @@
 	    (sleep-for 2)
 	    (should (org-clock-is-active))))
       (org-clock-out))))
+
 
 (unless (functionp 'org-duration-from-minutes)
   (defun org-duration-from-minutes (x)))
@@ -256,14 +257,12 @@
     (oidxt-do "w o r k i n g - s e t <return> s")
     (oidxt-do "o c c u r <return> e i n s <down> <return>")
     (oidxt-do "w o r k i n g - s e t <return> a")
-    (oidxt-do "w o r k i n g - s e t <return>" "C-u")
+    (oidxt-do "w o r k i n g - s e t <return> SPC SPC")
     (should (looking-at ".* --8--"))
-    (oidx--do 'working-set nil t)
-    (should (looking-at ".* --13--"))
-    (setq this-command 'org-index)
-    (setq last-command 'org-index)
-    (oidx--do 'working-set nil t)
-    (should (looking-at ".* --8--"))))
+    (oidxt-do "w o r k i n g - s e t <return> SPC")
+    (should (looking-at ".* --8--"))
+    (oidxt-do "w o r k i n g - s e t <return> SPC SPC")
+    (should (looking-at ".* --13--"))))
 
 
 (ert-deftest oidxt-test-nested-working-set ()
