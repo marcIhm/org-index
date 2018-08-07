@@ -1,8 +1,9 @@
-* 5.9 until 2018-08-05 Su
+* 5.9 until 2018-08-07 Tu
 
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
   - Added special buffer to manage the working-set
   - Function org-index-working-set may now be invoked directly
+  - Simplified working-set circle
 
 * 5.8 until 2018-03-07 We
 

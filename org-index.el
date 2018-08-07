@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.9.0
+;; Version: 5.9.1
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -83,6 +83,7 @@
 ;;   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
 ;;   - Added special buffer to manage the working-set
 ;;   - Function org-index-working-set may now be invoked directly
+;;   - Simplified working-set circle
 ;; 
 ;;   Version 5.8
 ;; 
@@ -116,7 +117,7 @@
 (require 'widget)
 
 ;; Version of this package
-(defvar org-index-version "5.9.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.9.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -366,7 +367,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.9.0 of org-index.el.
+This is version 5.9.1 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -655,6 +656,7 @@ interactive calls."
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
   - Added special buffer to manage the working-set
   - Function org-index-working-set may now be invoked directly
+  - Simplified working-set circle
 
 * 5.8
 
@@ -2944,7 +2946,8 @@ but may also be bound to its own key-sequence."
 
 
 (defun oidx--ws-circle-continue (&optional stay)
-  "Continue with working set circle after start."
+  "Continue with working set circle after start.
+Optional argument STAY prevents changing location."
   (let (last-id following-id target-id parent-ids head)
 
     ;; compute target
