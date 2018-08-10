@@ -32,11 +32,11 @@
 ;;  Fast search for selected org-nodes and things outside.
 ;;
 ;;  org-index creates and updates an index table with keywords; each line
-;;  either points to a heading in org, references something outside or
-;;  carries a snippet of text to yank.  When searching the index, the set
-;;  of matching lines is updated with every keystroke; results are sorted
-;;  by usage count and date, so that recently or frequently used entries
-;;  appear first in the list of results.
+;;  either points to a heading in org, references a folder outside of org
+;;  or carries an url or a snippet of text.  When searching the index, the
+;;  set of matching lines is updated with every keystroke; results are
+;;  sorted by usage count and date, so that recently or frequently used
+;;  entries appear first in the list of results.
 ;;
 ;;  Please note, that org-index uses org-id to add an id-property to all
 ;;  nodes in the index.
