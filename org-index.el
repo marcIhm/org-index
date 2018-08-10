@@ -84,6 +84,7 @@
 ;;   - Added special buffer to manage the working-set
 ;;   - Function org-index-working-set may now be invoked directly
 ;;   - Simplified working-set circle
+;;   - Introduced org-index-occur-columns to limit matches during occur to leading columns
 ;; 
 ;;   Version 5.8
 ;; 
@@ -152,6 +153,24 @@ mixed  First, show all index entries, which have been
 	  (const last-accessed)
 	  (const count)
 	  (const mixed)))
+
+(defcustom org-index-occur-columns 4
+  "Number of columns to search during occur.
+This is mainly used to avoid spurious matches within the id-column.
+With the default index columns, this setting will ignore everything
+after the tags-column.
+Please note, that you may have to adjust this setting, if you reorder
+the columns in your index."
+  :group 'org-index
+  :initialize 'custom-initialize-set
+  :set (lambda (var val)
+         (custom-set-default var val)
+         (when val
+           (if (< val 1)
+               (error "Need to have at least one column for occur."))
+           (if (and oidx--columns (> val (length oidx--columns)))
+               (error (format "Cannot set this higher than the number of columts (=%d)" (length oidx--columns))))))
+  :type 'integer)
 
 (defcustom org-index-key nil
   "Key to invoke ‘org-index’, which is the central entry function for ‘org-index’."
@@ -523,7 +542,7 @@ interactive calls."
 
       ;; lets assume, that it has been sorted this way (we try hard to make sure)
       (unless oidx--last-sort-assumed (setq oidx--last-sort-assumed org-index-sort-by))
-      ;; rearrange for index beeing sorted into default sort order after 300 secs of idle time
+      ;; arrange for index beeing sorted into default sort order after 300 secs of idle time
       (unless oidx--sort-timer
         (setq oidx--sort-timer
               (run-with-idle-timer org-index-idle-delay t 'oidx--sort-silent)))
@@ -2692,6 +2711,11 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
   This node needs not be a top level node; its name is completely
   at your choice; it is found through its ID only.
+
+  You may change the order of columns in this table; if you do
+  so, please consider adjusting `org-index-occur-columns'.
+  Additional custom columns can be added, if they start with 
+  a dot.
 ")
       (unless temporary
         (insert "
@@ -3737,9 +3761,18 @@ Argument DAYS hides older lines."
 (defun oidx--test-words (words)
   "Test current line for match against WORDS."
   (let ((lbp (line-beginning-position))
-        line dc-line places index)
+        line index dc-line places index)
     (setq line (buffer-substring lbp (line-beginning-position 2)))
+
+    ;; cut off after tags, so that id-field does not give spurious matches
+    (setq index 0)
+    (dotimes (_i 5)
+      (setq index (cl-search "|" line :start2 index))
+      (setq index (+ 1 index)))
+    (setq line (substring line 0 index))
+    
     (setq dc-line (downcase line))
+
     (catch 'not-found
       (dolist (word words)
         (if (setq index (cl-search word (if (string= word (downcase word)) dc-line line)))
