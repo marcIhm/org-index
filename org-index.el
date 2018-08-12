@@ -85,6 +85,7 @@
 ;;   - Function org-index-working-set may now be invoked directly
 ;;   - Simplified working-set circle
 ;;   - Introduced org-index-occur-columns to limit matches during occur to leading columns
+;;   - Removed days option from occur command
 ;; 
 ;;   Version 5.8
 ;; 
@@ -116,6 +117,64 @@
 (require 'org-inlinetask)
 (require 'cl-lib)
 (require 'widget)
+
+;; Variables to hold the configuration of the index table
+(defvar oidx--head nil "Header before number (e.g. 'R').")
+(defvar oidx--tail nil "Tail after number (e.g. '}' or ')'.")
+(defvar oidx--numcols nil "Number of columns in index table.")
+(defvar oidx--ref-regex nil "Regular expression to match a reference.")
+(defvar oidx--ref-format nil "Format, that can print a reference.")
+(defvar oidx--point nil "Position at start of headline of index table.")
+(defvar oidx--below-hline nil "Position of first cell in first line below hline.")
+(defvar oidx--saved-positions nil "Saved positions within current buffer and index buffer; filled by ‘oidx--save-positions’.")
+(defvar oidx--columns nil "Columns of index-table.")
+(defvar oidx--headings nil "Headlines of index-table as a string.")
+(defvar oidx--headings-visible nil "Visible part of headlines of index-table as a string.")
+(defvar oidx--ws-ids nil "Ids of working-set nodes (if any).")
+(defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
+(defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
+(defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle.")
+(defvar oidx--ws-circle-before-window-configuration nil "Window configuration before entry into circle.")
+
+;; Variables to hold context and state; Variables for occur, see the respective section
+(defvar oidx--buffer nil "Buffer, that contains index.")
+(defvar oidx--last-fingerprint nil "Fingerprint of last line created.")
+(defvar oidx--category-before nil "Category of node before.")
+(defvar oidx--active-region nil "Active region, initially.  I.e. what has been marked.")
+(defvar oidx--below-cursor nil "Word below cursor.")
+(defvar oidx--within-index-node nil "Non-nil, if we are within node of the index table.")
+(defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
+(defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
+(defvar oidx--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
+(defvar oidx--sort-timer nil "Timer to sort index in correct order.")
+(defvar oidx--inhibit-sort-idle nil "If set, index will not be sorted in idle background.")
+(defvar oidx--aligned 0 "For this Emacs session: remember number of table lines aligned.")
+(defvar oidx--align-interactive most-positive-fixnum "Number of rows to align in ‘oidx--parse-table’.")
+(defvar oidx--edit-widgets nil "List of widgets used to edit.")
+(defvar oidx--context-index nil "Position and line used for index in edit buffer.")
+(defvar oidx--context-occur nil "Position and line used for occur in edit buffer.")
+(defvar oidx--context-node nil "Buffer and position for node in edit buffer.")
+(defvar oidx--short-help-wanted nil "Non-nil, if short help should be displayed.")
+(defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
+(defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
+(defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
+(defvar oidx--last-ws-message nil "Last message issued by working-set commands.")
+(defvar oidx--ws-circle-bail-out nil "Set, if bailing out of working-set circle.")
+(defvar oidx--cancel-ws-wait-function nil "Function to call on timeout for working-set commands.")
+(defvar oidx--ws-cancel-timer nil "Timer to cancel waiting for key.")
+(defvar oidx--ws-overlay nil "Overlay to display name of current working-set node.")
+(defvar oidx--ws-short-help-wanted nil "Non-nil, if short help should be displayed in working-set menu.")
+(defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
+
+;; static information for this program package
+(defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news working-set example sort find-ref highlight maintain) "List of commands available.")
+(defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
+(defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
+(defconst oidx--ws-menu-buffer-name "*org-index working-set of nodes*" "Name of buffer with list of working-set nodes.")
+(defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
+(defconst oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
+(defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
+(defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
 (defvar org-index-version "5.9.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
@@ -268,65 +327,6 @@ those pieces."
   :group 'org-index
   :type 'boolean)
 
-;; Variables to hold the configuration of the index table
-(defvar oidx--head nil "Header before number (e.g. 'R').")
-(defvar oidx--tail nil "Tail after number (e.g. '}' or ')'.")
-(defvar oidx--numcols nil "Number of columns in index table.")
-(defvar oidx--ref-regex nil "Regular expression to match a reference.")
-(defvar oidx--ref-format nil "Format, that can print a reference.")
-(defvar oidx--columns nil "Columns of index-table.")
-(defvar oidx--point nil "Position at start of headline of index table.")
-(defvar oidx--below-hline nil "Position of first cell in first line below hline.")
-(defvar oidx--saved-positions nil "Saved positions within current buffer and index buffer; filled by ‘oidx--save-positions’.")
-(defvar oidx--headings nil "Headlines of index-table as a string.")
-(defvar oidx--headings-visible nil "Visible part of headlines of index-table as a string.")
-(defvar oidx--ws-ids nil "Ids of working-set nodes (if any).")
-(defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
-(defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
-(defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle.")
-(defvar oidx--ws-circle-before-window-configuration nil "Window configuration before entry into circle.")
-
-;; Variables to hold context and state; Variables for occur, see the respective section
-(defvar oidx--buffer nil "Buffer, that contains index.")
-(defvar oidx--last-fingerprint nil "Fingerprint of last line created.")
-(defvar oidx--category-before nil "Category of node before.")
-(defvar oidx--active-region nil "Active region, initially.  I.e. what has been marked.")
-(defvar oidx--below-cursor nil "Word below cursor.")
-(defvar oidx--within-index-node nil "Non-nil, if we are within node of the index table.")
-(defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
-(defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
-(defvar oidx--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
-(defvar oidx--sort-timer nil "Timer to sort index in correct order.")
-(defvar oidx--inhibit-sort-idle nil "If set, index will not be sorted in idle background.")
-(defvar oidx--aligned 0 "For this Emacs session: remember number of table lines aligned.")
-(defvar oidx--align-interactive most-positive-fixnum "Number of rows to align in ‘oidx--parse-table’.")
-(defvar oidx--edit-widgets nil "List of widgets used to edit.")
-(defvar oidx--context-index nil "Position and line used for index in edit buffer.")
-(defvar oidx--context-occur nil "Position and line used for occur in edit buffer.")
-(defvar oidx--context-node nil "Buffer and position for node in edit buffer.")
-(defvar oidx--short-help-wanted nil "Non-nil, if short help should be displayed.")
-(defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
-(defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
-(defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
-(defvar oidx--last-ws-message nil "Last message issued by working-set commands.")
-(defvar oidx--ws-circle-bail-out nil "Set, if bailing out of working-set circle.")
-(defvar oidx--cancel-ws-wait-function nil "Function to call on timeout for working-set commands.")
-(defvar oidx--ws-cancel-timer nil "Timer to cancel waiting for key.")
-(defvar oidx--ws-overlay nil "Overlay to display name of current working-set node.")
-(defvar oidx--ws-short-help-wanted nil "Non-nil, if short help should be displayed in working-set menu.")
-(defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
-
-;; static information for this program package
-(defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news working-set example sort find-ref highlight maintain) "List of commands available.")
-(defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
-(defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
-(defconst oidx--ws-menu-buffer-name "*org-index working-set of nodes*" "Name of buffer with list of working-set nodes.")
-(defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
-(defconst oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
-(defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
-(defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
-
-
 (defmacro oidx--on (column value &rest body)
   "Execute the forms in BODY with point on index line whose COLUMN is VALUE.
 The value returned is the value of the last form in BODY or nil,
@@ -397,9 +397,7 @@ of subcommands to choose from:
   occur: [o] Incrementally show matching lines from index.
     Result is updated after every keystroke.  You may enter a
     list of words seperated by space or comma (`,'), to select
-    lines that contain all of the given words. With a numeric
-    prefix argument, show lines, which have been accessed at
-    most this many days ago.
+    lines that contain all of the given words.
 
   add: [a] Add the current node to index.
     So that (e.g.) it can be found through the subcommand
@@ -824,7 +822,7 @@ interactive calls."
        ((eq command 'occur)
 
         (set-buffer oidx--buffer)
-        (oidx--do-occur (if (numberp arg) arg nil)))
+        (oidx--do-occur))
 
 
        ((eq command 'ref)
@@ -3276,11 +3274,10 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 (defvar oidx--occur-buffer nil "Buffer, where occur takes place.")
 (defvar oidx--occur-search-text nil "Description of text to search for.")
 (defvar oidx--occur-words nil "Final list of match words.")
-(defvar oidx--occur-days-clause nil "Clause for help text, denoting the number of days searched back.")
 
 
-(defun oidx--do-occur (&optional days)
-  "Perform command occur; optional narrow to DAYS back."
+(defun oidx--do-occur ()
+  "Perform command occur."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
         (lines-wanted (window-body-height))
@@ -3293,19 +3290,10 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         key-sequence-raw)
 
 
-    (oidx--occur-prepare-buffer days)
+    (oidx--occur-prepare-buffer)
 
     (setq initial-frame (selected-frame))
-
-    ;; do not enter loop if number of days is requested
-    (when days
-      (goto-char oidx--occur-point-begin)
-      (oidx--hide-with-overlays (cons word words) lines-wanted days)
-      (move-overlay oidx--occur-tail-overlay (oidx--occur-end-of-visible) (point-max))
-      
-      (goto-char oidx--occur-point-begin)
-      (setq done t))
-
+    
     ;; main loop
     (while (not done)
 
@@ -3386,7 +3374,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         
         ;; make overlays to hide lines, that do not match longer word any more
         (goto-char oidx--occur-point-begin)
-        (oidx--hide-with-overlays (cons word words) lines-wanted days)
+        (oidx--hide-with-overlays (cons word words) lines-wanted)
         (move-overlay oidx--occur-tail-overlay
                       (oidx--occur-end-of-visible)
                       (point-max))
@@ -3416,8 +3404,8 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
     (oidx--occur-install-keyboard-shortcuts)))
 
 
-(defun oidx--occur-prepare-buffer (days)
-  "Prepare buffer for 'oidx--do-occur; optional narrow to DAYS back."
+(defun oidx--occur-prepare-buffer ()
+  "Prepare buffer for 'oidx--do-occur."
 
   ;; make and show buffer
   (if (get-buffer oidx--occur-buffer-name)
@@ -3443,11 +3431,10 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
   (forward-line)
 
   ;; initialize help text
-  (setq oidx--occur-days-clause (if days (format " (%d days back)" days) ""))
   (setq oidx--occur-help-text
         (cons
          (concat
-          (propertize (format "Incremental occur%s" oidx--occur-days-clause) 'face 'org-todo)
+          (propertize "Incremental occur" 'face 'org-todo)
           (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
          (concat
           (propertize
@@ -3529,12 +3516,12 @@ Argument LINES-WANTED specifies number of lines to display."
     (setq oidx--occur-help-text
           (cons
            (oidx--wrap
-            (propertize (format "Search is done%s;    ? toggles help and headlines.\n" oidx--occur-days-clause) 'face 'org-agenda-dimmed-todo-face))
+            (propertize "Search is done;    ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
            (concat
             (oidx--wrap
              (propertize
               (format
-               (concat (format "Search is done%s." oidx--occur-days-clause)
+               (concat "Search is done."
                        (if (< lines-collected lines-wanted)
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
@@ -3663,15 +3650,14 @@ Argument LINES-WANTED specifies number of lines to display."
     (message "Not at table")))
 
 
-(defun oidx--hide-with-overlays (words lines-wanted days)
+(defun oidx--hide-with-overlays (words lines-wanted)
   "Hide lines that are currently visible and do not match WORDS; 
-leave LINES-WANTED lines visible.
-Argument DAYS hides older lines."
+leave LINES-WANTED lines visible."
   (let ((lines-found 0)
         (end-of-visible (point))
         overlay overlays start matched places all-places)
 
-    ;; main loop
+    ;; loop over index table
     (while (and (not (eobp))
                 (< lines-found lines-wanted))
 
@@ -3690,32 +3676,23 @@ Argument DAYS hides older lines."
                   (not (and
                         (invisible-p (point))
                         (< (point) (overlay-start oidx--occur-tail-overlay))))
-                  ;; either regard words or days, but not both
-                  (if days
-                      (let ((last-accessed (oidx--get-or-set-field 'last-accessed)))
-                        (if last-accessed
-                            (not (and
-                                  (<= (- (time-to-days (current-time))
-                                         (time-to-days (org-read-date nil t last-accessed nil)))
-                                      days)
-                                  (setq matched t))) ; for its side effect
-                          t))
-                    (not (and (setq places (oidx--test-words words))
-                              (setq matched t))))) ; for its side effect
+                  (not (and (setq places (oidx--test-words words))
+                            (setq matched t)))) 
         (forward-line 1))
 
+      ;; build list of match positions
       (setq all-places (append places all-places))
 
       ;; create overlay to hide this stretch
-      (when (< start (point))           ; avoid creating an empty overlay
+      (when (< start (point)) 
         (setq overlay (make-overlay start (point)))
         (overlay-put overlay 'invisible t)
         (setq overlays (cons overlay overlays)))
 
       ;; skip and count line, that matched
       (when matched
-        (let ((inhibit-read-only t) (lbp (line-beginning-position)))
-          (put-text-property lbp (line-end-position) 'face nil)
+        (let ((inhibit-read-only t))
+          (put-text-property (line-beginning-position) (line-end-position) 'face nil)
           (while places
             (put-text-property (caar places) (+ (caar places) (cdar places)) 'face 'isearch)
             (setq places (cdr places))))
@@ -3762,15 +3739,14 @@ Argument DAYS hides older lines."
   "Test current line for match against WORDS."
   (let ((lbp (line-beginning-position))
         line index dc-line places index)
-    (setq line (buffer-substring lbp (line-beginning-position 2)))
 
+    (setq line (buffer-substring lbp (line-beginning-position 2)))
     ;; cut off after tags, so that id-field does not give spurious matches
     (setq index 0)
-    (dotimes (_i 5)
+    (dotimes (_i (+ org-index-occur-columns 1))
       (setq index (cl-search "|" line :start2 index))
       (setq index (+ 1 index)))
     (setq line (substring line 0 index))
-    
     (setq dc-line (downcase line))
 
     (catch 'not-found
@@ -3778,6 +3754,7 @@ Argument DAYS hides older lines."
         (if (setq index (cl-search word (if (string= word (downcase word)) dc-line line)))
             (setq places (cons (cons (+ lbp index) (length word)) places))
           (throw 'not-found nil)))
+      ;; return places that matched words
       places)))
 
 
