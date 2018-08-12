@@ -11,6 +11,8 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
 
 ---
 {start}
+
+{kbd C-c i c~r~e~a~t~e~-~i~n~d~e~x~10~RET~10~d~e~m~o~.~o~r~g~10~RET~I~n~d~e~x~RET~-~-~\1~-~-~10~RET~n~10~RET}done.{sleep 1}
   Welcome to my short and silent screencast for org-index {sleepscale 2}{sleep 1}!{sleep 2}
 
   Hi ... let us assume, that you have a lot of nodes in org and
@@ -41,7 +43,7 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
 
   Now, when you invoke org-index for the first time (e.g. by typing
   "C-c i SPC") it will ask you some questions and create your
-  index. Just watch ... {sleep 1}{kbd C-c i SPC c~r~e~a~t~e~-~i~n~d~e~x~10~RET~y~10~RET~d~e~m~o~.~o~r~g~10~RET~M~y~SPC~I~n~d~e~x~RET~-~-~\1~-~-~10~RET~n~10~RET}done.{sleep 1} So now you see the new index at the bottom
+  index. Just watch ... {sleep 1}{kbd C-c i SPC c~r~e~a~t~e~-~i~n~d~e~x~10~RET~y~10~RET~d~e~m~o~.~o~r~g~10~RET~M~y~SPC~I~n~d~e~x~RET~-~-~\1~-~-~10~RET~n~10~RET}done.{sleep 1} So now you see the new index at the bottom<
   of this file.
 
   (Just let me recenter ... {sleep 0.5}{recenter 5}done{sleep 0.3})

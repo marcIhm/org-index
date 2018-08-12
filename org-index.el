@@ -1227,7 +1227,7 @@ Optional argument KEYS-VALUES specifies content of new line."
     (unless org-index-id
       (let ((answer (oidx--completing-read "Cannot find an index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") "read-help")))
         (if (string= answer "create-index")
-            (oidx--create-missing-index "Variable org-index-id is not set, so probably no index table has been created yet.")
+            (oidx--create-index)
           (describe-function 'org-index)
           (throw 'new-index nil))))
 
@@ -2661,7 +2661,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 (defun oidx--create-index (&optional temporary compare)
   "Create a new empty index table with detailed explanation.
-specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existing index."
+Specify flag TEMPORARY for the or COMPARE it with the existing index."
   (let (buffer
         title
         firstref
@@ -2680,7 +2680,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
             (erase-buffer)
             (org-mode)))
 
-      (setq buffer (get-buffer (oidx--completing-read "Please choose the buffer, where the new node for the index table should be created; the new node will be inserted at its end.\n\nBuffer: " (mapcar 'buffer-name (org-buffer-list))))))
+      (setq buffer (get-buffer (read-buffer "Please choose a buffer, where the new node for the index table will be appended. Buffer: "))))
 
     (setq title (read-from-minibuffer "Please enter the title of the index node (leave empty for default 'index'): "))
     (if (string= title "") (setq title "index"))
