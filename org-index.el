@@ -3267,7 +3267,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 (defvar oidx--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
 (defvar oidx--occur-help-overlay nil "Overlay for help in occur buffer.")
 (defvar oidx--occur-stack nil "Stack with overlays for hiding lines.")
-(defvar oidx--occur-tail-overlay nil "Overlay to cover invisible lines.")
+(defvar oidx--occur-tail-overlay nil "Overlay to cover invisible lines at end of table up to rest of buffer.")
 (defvar oidx--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar oidx--occur-win-config nil "Window configuration stored away during occur.")
 (defvar oidx--occur-point-begin nil "Point of first line of table contents.")
@@ -3280,8 +3280,9 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
   "Perform command occur."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
-        (lines-window (window-body-height))
-        words                                ; list words that should match
+        (lines-wanted (window-body-height))
+        hide-frame                     ; hash with information from last last hiding operation
+        words                          ; list words that should match
         done                           ; true, if loop is done
         in-c-backspace                 ; true, while processing C-backspace
         initial-frame                  ; Frame when starting occur
@@ -3326,7 +3327,8 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         (setq in-c-backspace t))
 
 
-       ((member key (list "<backspace>" "DEL"))   ; erase last char
+       ;; erase last char
+       ((member key (list "<backspace>" "DEL"))   
 
         (if (= (length word) 0)
 
@@ -3345,15 +3347,13 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
           ;; free top list of overlays and remove list
           (oidx--unhide)
-          (move-overlay oidx--occur-tail-overlay
-                        (oidx--occur-end-of-visible)
-                        (point-max))
-          
+
           ;; make sure, point is still visible
           (goto-char oidx--occur-point-begin)))
 
 
-       ((member key (list "SPC" ",")) ; space or comma: enter an additional search word
+       ;; space or comma: enter an additional search word
+       ((member key (list "SPC" ",")) 
 
         ;; push current word and clear, no need to change display
         (unless (string= word "")
@@ -3361,35 +3361,35 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
           (setq word "")))
 
 
-       ((string= key "?") ; question mark: toggle display of headlines and help
+       ;; question mark: toggle display of headlines and help
+       ((string= key "?") 
         (setq oidx--occur-help-text (cons (cdr oidx--occur-help-text)
                                           (car oidx--occur-help-text))) ; swap
         (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text)))
 
-       ((and (= (length key) 1)
-             (aref printable-chars (elt key 0))) ; any printable char: add to current search word
 
-        ;; add to word
+       ;; any printable char: add to current search word
+       ((and (= (length key) 1)
+             (aref printable-chars (elt key 0))) 
+
+        ;; append key to word
         (setq word (concat word key))
         
         ;; make overlays to hide lines, that do not match longer word any more
         (goto-char oidx--occur-point-begin)
-        (oidx--hide-with-overlays
-         (cons word words)
-         (- lines-window
-            (apply '+ (mapcar (lambda (x) (assoc :lines x) oidx--occur-stack)))))
-        (move-overlay oidx--occur-tail-overlay
-                      (oidx--occur-end-of-visible)
-                      (point-max))
-        
+        (setq hide-frame (oidx--hide-with-overlays (cons word words) lines-wanted))
+        ;; put overlays on stack
+        (if hide-frame (setq oidx--occur-stack (cons hide-frame oidx--occur-stack)))
+
         (goto-char oidx--occur-point-begin)
         
         ;; make sure, point is on a visible line
         (line-move -1 t)
         (line-move 1 t))
 
+
        ;; anything else terminates input loop
-       (t (setq done t))))
+       (t (setq done t)))) 
 
     ;; remember list of words
     (setq oidx--occur-words (cons word words))
@@ -3421,9 +3421,8 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
   (setq buffer-read-only t)
   (toggle-truncate-lines 1)
 
-  ;; reset stack and overlays
+  ;; reset stack of overlays
   (setq oidx--occur-stack nil)
-  (setq oidx--occur-tail-overlay nil)
   
   ;; narrow to table rows and one line before
   (goto-char oidx--below-hline)
@@ -3450,7 +3449,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
   ;; insert overlays for help text and to cover unsearched lines
   (setq oidx--occur-help-overlay (make-overlay (point-min) oidx--occur-point-begin))
   (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
-  (setq oidx--occur-tail-overlay (make-overlay (point-max) (point-max)))
+  (setq oidx--occur-tail-overlay (make-overlay (org-table-end) (point-max)))
   (overlay-put oidx--occur-tail-overlay 'invisible t))
 
 
@@ -3657,61 +3656,54 @@ Argument LINES-WANTED specifies number of lines to display."
   "Hide lines that are currently visible and do not match WORDS. 
 Leave LINES-WANTED lines visible."
   (let ((lines-found 0)
-        (end-of-visible (point))
-        overlay overlays start matched places all-places)
+        (end-of-table (org-table-end))
+        end-of-visible prev-overlay overlay overlays start places all-places)
 
     ;; loop over index table
-    (while (and (not (eobp))
+    (while (and (< (point) end-of-table)
                 (< lines-found lines-wanted))
 
       ;; skip invisible lines
-      (while (and (not (eobp))
-                  (and
-                   (invisible-p (point))
-                   (< (point) (overlay-start oidx--occur-tail-overlay))))
-        (goto-char (overlay-end (car (overlays-at (point))))))
+      (setq prev-overlay nil)
+      (while (and (< (point) end-of-table)
+                  (invisible-p (point)))
+        (setq prev-overlay (car (overlays-at (point))))
+        (goto-char (overlay-end prev-overlay)))
 
-      ;; find stretch of lines, that are currently visible but should be invisible now
-      (setq matched nil)
+      ;; skip and find stretch of lines, that are currently visible but do
+      ;; not match current words and whence should be invisible now
       (setq places nil)
       (setq start (point))
-      (while (and (not (eobp))
-                  (not (and
-                        (invisible-p (point))
-                        (< (point) (overlay-start oidx--occur-tail-overlay))))
-                  (not (and (setq places (oidx--test-words words))
-                            (setq matched t)))) 
-        (forward-line 1))
+      (while (and (< (point) end-of-table)
+                  (not (invisible-p (point)))
+                  (not places)) 
+        (setq places (oidx--test-words words))
+        (or places (forward-line 1)))
 
-      ;; build list of match positions
-      (setq all-places (append places all-places))
+      ;; enlarge or create overlay to hide this stretch
+      (when (< start (point))
+        (if prev-overlay
+            (move-overlay prev-overlay (overlay-start prev-overlay) (point))
+          (setq overlay (make-overlay start (point)))
+          (overlay-put overlay 'invisible t)
+          (setq overlays (cons overlay overlays))))
 
-      ;; create overlay to hide this stretch
-      (when (< start (point)) 
-        (setq overlay (make-overlay start (point)))
-        (overlay-put overlay 'invisible t)
-        (setq overlays (cons overlay overlays)))
-
-      ;; find one line that matches all words; skip and count
-      (when matched
+      ;; fontify, skip and count the single line, that matched
+      (when places
         (let ((inhibit-read-only t))
           (put-text-property (line-beginning-position) (line-end-position) 'face nil)
-          (while places
-            (put-text-property (caar places) (+ (caar places) (cdar places)) 'face 'isearch)
-            (setq places (cdr places))))
+          (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face 'isearch)) places))
         (forward-line 1)
         (setq end-of-visible (point))
+        (setq all-places (append places all-places))
         (cl-incf lines-found)))
     
-    ;; put new frame on top of stack
-    (setq oidx--occur-stack
-          (cons (list (cons :overlays overlays)
-                      (cons :end-of-visible end-of-visible)
-                      (cons :lines lines-found)
-		      (cons :places all-places))
-                oidx--occur-stack))
-
-    lines-found))
+    ;; return new frame with info
+    (and overlays
+         (list (cons :overlays overlays)
+               (cons :end-of-visible end-of-visible)
+               (cons :lines lines-found)
+	       (cons :places all-places)))))
 
 
 (defun oidx--unhide ()
@@ -3741,7 +3733,7 @@ Leave LINES-WANTED lines visible."
 (defun oidx--test-words (words)
   "Test current line for match against WORDS."
   (let ((lbp (line-beginning-position))
-        line index dc-line places index)
+        line dc-line places index)
 
     (setq line (buffer-substring lbp (line-beginning-position 2)))
     ;; cut off after tags, so that id-field does not give spurious matches
