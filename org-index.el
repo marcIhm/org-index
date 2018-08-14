@@ -3280,7 +3280,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
   "Perform command occur."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
-        (lines-wanted (window-body-height))
+        (lines-window (window-body-height))
         words                                ; list words that should match
         done                           ; true, if loop is done
         in-c-backspace                 ; true, while processing C-backspace
@@ -3374,7 +3374,10 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         
         ;; make overlays to hide lines, that do not match longer word any more
         (goto-char oidx--occur-point-begin)
-        (oidx--hide-with-overlays (cons word words) lines-wanted)
+        (oidx--hide-with-overlays
+         (cons word words)
+         (- lines-window
+            (apply '+ (mapcar (lambda (x) (assoc :lines x) oidx--occur-stack)))))
         (move-overlay oidx--occur-tail-overlay
                       (oidx--occur-end-of-visible)
                       (point-max))
@@ -3399,7 +3402,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
       (message key))
     
 
-    (oidx--occur-make-permanent lines-wanted)
+    (oidx--occur-make-permanent lines-window)
 
     (oidx--occur-install-keyboard-shortcuts)))
 
@@ -3651,8 +3654,8 @@ Argument LINES-WANTED specifies number of lines to display."
 
 
 (defun oidx--hide-with-overlays (words lines-wanted)
-  "Hide lines that are currently visible and do not match WORDS; 
-leave LINES-WANTED lines visible."
+  "Hide lines that are currently visible and do not match WORDS. 
+Leave LINES-WANTED lines visible."
   (let ((lines-found 0)
         (end-of-visible (point))
         overlay overlays start matched places all-places)
@@ -3689,7 +3692,7 @@ leave LINES-WANTED lines visible."
         (overlay-put overlay 'invisible t)
         (setq overlays (cons overlay overlays)))
 
-      ;; skip and count line, that matched
+      ;; find one line that matches all words; skip and count
       (when matched
         (let ((inhibit-read-only t))
           (put-text-property (line-beginning-position) (line-end-position) 'face nil)
@@ -3700,7 +3703,7 @@ leave LINES-WANTED lines visible."
         (setq end-of-visible (point))
         (cl-incf lines-found)))
     
-    ;; put new list on top of stack
+    ;; put new frame on top of stack
     (setq oidx--occur-stack
           (cons (list (cons :overlays overlays)
                       (cons :end-of-visible end-of-visible)
