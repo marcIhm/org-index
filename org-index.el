@@ -13,6 +13,7 @@
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
+
 ;; the Free Software Foundation; either version 3, or (at your option)
 ;; any later version.
 ;;
@@ -84,9 +85,11 @@
 ;;   - Added special buffer to manage the working-set
 ;;   - Function org-index-working-set may now be invoked directly
 ;;   - Simplified working-set circle
-;;   - Introduced org-index-occur-columns to limit matches during occur to leading columns
+;;   - Introduced org-index-occur-columns to limit matches during occur to specified
+;;     number of leading columns; this gives better matches
 ;;   - Removed days option from occur command
-;;   - Fixed and Optimized overlay-handling in occur for better performance
+;;   - Fixed and Optimized overlay-handling in occur for better performance and
+;;     overall stability
 ;; 
 ;;   Version 5.8
 ;; 
@@ -145,7 +148,7 @@
 (defvar oidx--below-cursor nil "Word below cursor.")
 (defvar oidx--within-index-node nil "Non-nil, if we are within node of the index table.")
 (defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
-(defvar oidx--occur-verify-result nil "Non-nil, if we should verify occur result.")
+(defvar oidx--occur-assert-result nil "Non-nil, if occur result should be asserted; used during tests.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
 (defvar oidx--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar oidx--sort-timer nil "Timer to sort index in correct order.")
@@ -229,7 +232,7 @@ the columns in your index."
          (custom-set-default var val)
          (when val
            (if (< val 1)
-               (error "Need to have at least one column for occur."))
+               (error "Need to have at least one column for occur"))
            (if (and oidx--columns (> val (length oidx--columns)))
                (error (format "Cannot set this higher than the number of columts (=%d)" (length oidx--columns))))))
   :type 'integer)
@@ -1706,14 +1709,13 @@ Optional argument KEYS-VALUES specifies content of new line."
 Argument COLS gives list of columns to edit.
 Optional argument DEFAULTS gives default values."
   
-  (let (content args)
-    
+  (let (content args def def-clause)
     (dolist (col cols)
-      
       (setq content "")
-
+      (setq def (plist-get col defaults))
+      (setq def-clause (if def (format " (default: '%s')") ""))
       (setq content (read-from-minibuffer
-                     (format "Enter text for column '%s': " (symbol-name col))
+                     (format "Enter text for column '%s'%s: " (symbol-name col) def-clause)
                      (plist-get col defaults)))
       
       (unless (string= content "")
@@ -2715,7 +2717,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
   You may change the order of columns in this table; if you do
   so, please consider adjusting `org-index-occur-columns'.
-  Additional custom columns can be added, if they start with 
+  Additional custom columns can be added, if they start with
   a dot.
 ")
       (unless temporary
@@ -3332,7 +3334,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
        ;; erase last char
-       ((member key (list "<backspace>" "DEL"))   
+       ((member key (list "<backspace>" "DEL"))
 
         (if (= (length word) 0)
 
@@ -3357,7 +3359,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
        ;; space or comma: enter an additional search word
-       ((member key (list "SPC" ",")) 
+       ((member key (list "SPC" ","))
 
         ;; push current word and clear, no need to change display
         (unless (string= word "")
@@ -3366,7 +3368,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
        ;; question mark: toggle display of headlines and help
-       ((string= key "?") 
+       ((string= key "?")
         (setq oidx--occur-help-text (cons (cdr oidx--occur-help-text)
                                           (car oidx--occur-help-text))) ; swap
         (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text)))
@@ -3374,7 +3376,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
        ;; any printable char: add to current search word
        ((and (= (length key) 1)
-             (aref printable-chars (elt key 0))) 
+             (aref printable-chars (elt key 0)))
 
         ;; append key to word
         (setq word (concat word key))
@@ -3386,9 +3388,9 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         (when hide-frame
           ;; delete older overlays
           (mapc (lambda (x) (delete-overlay (cl-first x)))
-             (cdr (assoc :overlays (car oidx--occur-stack))))
-          (setq oidx--occur-stack (cons hide-frame oidx--occur-stack)))
-
+                (cdr (assoc :overlays-with-borders (car oidx--occur-stack)))))
+        (setq oidx--occur-stack (cons hide-frame oidx--occur-stack))
+        
         (goto-char oidx--occur-point-begin)
         
         ;; make sure, point is on a visible line
@@ -3397,7 +3399,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
        ;; anything else terminates input loop
-       (t (setq done t)))) 
+       (t (setq done t))))
 
     ;; remember list of words
     (setq oidx--occur-words (cons word words))
@@ -3493,7 +3495,7 @@ Argument LINES-WANTED specifies number of lines to display."
 
     (mapc (lambda (x) (oidx--occur-stack-delete-frame x t))
           oidx--occur-stack)
-    (kill-buffer oidx--occur-buffer) 
+    (kill-buffer oidx--occur-buffer)
 
     ;; create new buffer
     (setq oidx--occur-buffer (get-buffer-create oidx--occur-buffer-name))
@@ -3556,16 +3558,20 @@ Argument LINES-WANTED specifies number of lines to display."
                            (regexp-quote w)) 'isearch)))
           oidx--occur-words)
 
-    ;; verify result
-    (when oidx--occur-verify-result
-      (save-excursion
-       (let ((expected-matches 0))
-         (goto-char oidx--below-hline)
-         (while (org-at-table-p)
-           (if (oidx--test-words oidx--occur-words) (cl-incf expected-matches))
-           (forward-line 1))
-         (goto-char (point-max))
-         (insert (format "\nCollected %d lines, expected %d.\n" lines-collected expected-matches)))))
+    ;; typically executed only during tests
+    (when oidx--occur-assert-result
+      (let ((expected-matches 0)
+	    (assertion-text ))
+	(save-excursion
+          (goto-char oidx--below-hline)
+          (while (org-at-table-p)
+            (if (oidx--test-words oidx--occur-words) (cl-incf expected-matches))
+            (forward-line 1))
+	  (setq assertion-text (format "Number of lines collected incrementally (%d) should be equal to number collected in one pass (%d)" lines-collected expected-matches))
+	  (if (not (= lines-collected expected-matches))
+              (error (concat "Assertion failed: " assertion-text) )
+	    (message (concat "Assertion passed: " assertion-text))))))
+
     (setq buffer-read-only t)))
 
 
@@ -3627,10 +3633,11 @@ Argument LINES-WANTED specifies number of lines to display."
 
 
 (defun oidx--occur-stack-delete-frame (frame &optional keep-places)
-  "Shorten occur-stack and delete overlays and highlights."
-  (when oidx--occur-stack
+  "Delete overlays and highlights in FRAME.
+To skip highlighted letters set KEEP-PLACES."
+  (when frame
     (mapc (lambda (x) (delete-overlay (cl-first x)))
-          (cdr (assoc :overlays frame)))
+          (cdr (assoc :overlays-with-borders frame)))
     (unless keep-places
       (let ((inhibit-read-only t))
         (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face nil))
@@ -3677,10 +3684,11 @@ Argument LINES-WANTED specifies number of lines to display."
 
 
 (defun oidx--hide-with-overlays (words lines-wanted end-of-table)
-  "Hide lines that are currently visible and do not match WORDS. 
-Leave LINES-WANTED lines visible."
+  "Hide lines that are currently visible and do not match WORDS.
+Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
   (let ((lines-found 0)
-        overlay overlays old-overlay overlays-coalesced start places all-places)
+        overlay overlays old-overlay start places all-places
+        overlays-csced-wb) ; this is short for overlays-coalesced-with-borders
 
     ;; loop over index table
     (while (and (< (point) end-of-table)
@@ -3691,8 +3699,7 @@ Leave LINES-WANTED lines visible."
                   (invisible-p (point)))
         ;; duplicate already exisiting overlays, so that we have a full set to be coalesced
         (setq old-overlay (car (overlays-at (point))))
-        (setq overlays (cons (list (copy-overlay old-overlay) (overlay-start old-overlay) (overlay-end old-overlay))
-                             overlays))
+        (setq overlays (cons (copy-overlay old-overlay) overlays))
         (goto-char (overlay-end old-overlay)))
 
       ;; skip and find stretch of lines, that are currently visible but do
@@ -3701,7 +3708,7 @@ Leave LINES-WANTED lines visible."
       (setq start (point))
       (while (and (< (point) end-of-table)
                   (not (invisible-p (point)))
-                  (not places)) 
+                  (not places))
         (setq places (oidx--test-words words))
         (or places (forward-line 1)))
 
@@ -3709,8 +3716,7 @@ Leave LINES-WANTED lines visible."
       (when (< start (point))
         (setq overlay (make-overlay start (point)))
         (overlay-put overlay 'invisible t)
-        (setq overlays (cons (list overlay start (point))
-                             overlays)))
+        (setq overlays (cons overlay overlays)))
 
       ;; fontify, skip and count the single line, that matched
       (when places
@@ -3721,26 +3727,29 @@ Leave LINES-WANTED lines visible."
         (setq all-places (append places all-places))
         (cl-incf lines-found)))
 
-    ;; check, if two overlays can be coalesced into one
+    ;; check, if two overlays can be coalesced into one; add borders
     (when overlays
       (let (this next)
-        (while (and
-                (setq this (car-safe overlays))
-                (setq next (car-safe (cdr-safe overlays))))
-          (if (= (overlay-start (car this)) (overlay-end (car next)))
-              (progn
-                (move-overlay (car next) (overlay-start (car next)) (overlay-end (car this)))
-                (delete-overlay (car this))
-                (setq this nil))
-            (setq overlays-coalesced (cons this overlays-coalesced)))
+        (while (progn
+                 (setq this (car-safe overlays))
+                 (setq next (car-safe (cdr-safe overlays)))
+                 this)
+          (when (and next (= (overlay-start this) (overlay-end next)))
+            (progn
+              (move-overlay next (overlay-start next) (overlay-end this))
+              (delete-overlay this)
+              (setq this nil)))
+          (if this (setq overlays-csced-wb
+                         (cons (list this (overlay-start this) (overlay-end this))
+                               overlays-csced-wb)))
           (setq overlays (cdr-safe overlays)))
-        (if this (setq overlays-coalesced (cons this overlays-coalesced)))
-        (if (> (length overlays-coalesced) (+ 1 lines-found))
-            (error "Assertion failed: '%d overlays' should be <=  1 + '%d lines found'" (length overlays-coalesced) lines-found))))
+        (if (> (length overlays-csced-wb) (+ 1 lines-found))
+            (error "Assertion failed: '%d overlays' should be <=  1 + '%d lines found'"
+                   (length overlays-csced-wb) lines-found))))
 
     ;; return new frame with info
-    (and overlays-coalesced
-         (list (cons :overlays overlays-coalesced)
+    (and overlays-csced-wb
+         (list (cons :overlays-with-borders overlays-csced-wb)
 	       (cons :highlights all-places)))))
 
 
@@ -3760,7 +3769,7 @@ Leave LINES-WANTED lines visible."
 
     ;; revive older overlays
     (mapc (lambda (x) (move-overlay (cl-first x) (cl-second x) (cl-third x)))
-          (cdr (assoc :overlays (car oidx--occur-stack))))))
+          (cdr (assoc :overlays-with-borders (car oidx--occur-stack))))))
 
 
 (defun oidx--test-words (words)

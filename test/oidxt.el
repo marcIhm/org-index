@@ -729,6 +729,7 @@
   (if (get-buffer "*org-index-occur*") (kill-buffer "*org-index-occur*"))
   (setq oidx--last-sort-assumed 'mixed)
   (setq oidx--maxrefnum nil)
+  (setq oidx--occur-assert-result t)
   ;; remove any left over buffers
   (oidxt-remove-work-buffers)
   ;; create them new
@@ -829,6 +830,7 @@
     (oidxt-save-and-set-state test-id)
     (remove-hook 'before-save-hook 'oidx--sort-silent)
     (org-id-add-location test-id oidxt-ert-index-file)
+    (setq org-index-occur-columns 8)
     (unless oidxt-index-buffer
       (setq oidxt-index-buffer (find-file-noselect oidxt-ert-index-file)))
     (with-current-buffer oidxt-index-buffer
