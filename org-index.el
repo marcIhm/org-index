@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.9.1
+;; Version: 5.9.2
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -183,7 +183,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "5.9.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.9.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -366,11 +366,11 @@ if VALUE cannot be found."
   "Fast search for selected org-nodes and things outside.
 
 org-index creates and updates an index table with keywords; each line
-either points to a heading in org, references something outside or
-carries a snippet of text to yank.  When searching the index, the set
-of matching lines is updated with every keystroke; results are sorted
-by usage count and date, so that recently or frequently used entries
-appear first in the list of results.
+either points to a heading in org, references a folder outside of org
+or carries an url or a snippet of text.  When searching the index, the
+set of matching lines is updated with every keystroke; results are
+sorted by usage count and date, so that recently or frequently used
+entries appear first in the list of results.
 
 Please note, that org-index uses org-id to add an id-property to all
 nodes in the index.
@@ -392,7 +392,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.9.1 of org-index.el.
+This is version 5.9.2 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -680,6 +680,11 @@ interactive calls."
   - Added special buffer to manage the working-set
   - Function org-index-working-set may now be invoked directly
   - Simplified working-set circle
+  - Introduced org-index-occur-columns to limit matches during occur to specified
+    number of leading columns; this gives better matches
+  - Removed days option from occur command
+  - Fixed and Optimized overlay-handling in occur for better performance and
+    overall stability
 
 * 5.8
 
@@ -3563,6 +3568,7 @@ Argument LINES-WANTED specifies number of lines to display."
       (let ((expected-matches 0)
 	    (assertion-text ))
 	(save-excursion
+	  (set-buffer oidx--buffer)
           (goto-char oidx--below-hline)
           (while (org-at-table-p)
             (if (oidx--test-words oidx--occur-words) (cl-incf expected-matches))

@@ -1,9 +1,14 @@
-* 5.9 until 2018-08-07 Tu
+* 5.9 until 2018-08-16 Th
 
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
   - Added special buffer to manage the working-set
   - Function org-index-working-set may now be invoked directly
   - Simplified working-set circle
+  - Introduced org-index-occur-columns to limit matches during occur to specified
+    number of leading columns; this gives better matches
+  - Removed days option from occur command
+  - Fixed and Optimized overlay-handling in occur for better performance and
+    overall stability
 
 * 5.8 until 2018-03-07 We
 

@@ -79,7 +79,7 @@
   (oidxt-with-test-setup
     (setq org-index-edit-on-yank '(keywords yank))
     (oidxt-do "y a n k <return> f o o <return> b a r <return>")
-    (oidxt-do "o c c u r <return> b a r <return>")
+    (oidxt-do "o c c u r <return> f o o <return>")
     (should (string= "bar" (current-kill 0)))))
 
 
@@ -138,16 +138,6 @@
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
       (should (= (line-number-at-pos) 21)))))
-
-
-(ert-deftest oidxt-test-occur-days ()
-  (let (days digits)
-    (setq days (- (time-to-days (current-time))
-                  (time-to-days (org-read-date nil t "[2013-12-17 Di]" nil))))
-    (setq digits (apply 'concat (mapcar (lambda (x) (format "%c " x)) (number-to-string days))))
-    (oidxt-with-test-setup
-      (oidxt-do  "o c c u r <return>" (concat "C-u " digits))
-      (should (string= "[2013-12-19 Do 10:00]" (oidx--get-or-set-field 'last-accessed))))))
 
 
 (ert-deftest oidxt-test-clock-into-working-set ()
