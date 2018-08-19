@@ -90,6 +90,8 @@
 ;;   - Removed days option from occur command
 ;;   - Fixed and Optimized overlay-handling in occur for better performance and
 ;;     overall stability
+;;   - Limited the number of lines to display in occur for better performance,
+;;     see 'org-index-occur-max-lines'
 ;; 
 ;;   Version 5.8
 ;; 
@@ -138,7 +140,7 @@
 (defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
 (defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
 (defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle.")
-(defvar oidx--ws-circle-before-window-configuration nil "Window configuration before entry into circle.")
+(defvar oidx--ws-circle-win-config nil "Window configuration before entry into circle.")
 
 ;; Variables to hold context and state
 (defvar oidx--buffer nil "Buffer, that contains index.")
@@ -229,12 +231,23 @@ the columns in your index."
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
-         (custom-set-default var val)
          (when val
            (if (< val 1)
                (error "Need to have at least one column for occur"))
            (if (and oidx--columns (> val (length oidx--columns)))
-               (error (format "Cannot set this higher than the number of columts (=%d)" (length oidx--columns))))))
+               (error (format "Cannot set this higher than the number of columts (=%d)" (length oidx--columns))))
+           (custom-set-default var val)))
+  :type 'integer)
+
+(defcustom org-index-occur-max-lines 16
+  "Maximum number of lines to show in occur; zero height of window.
+This can be helpful to speed up occur."
+  :group 'org-index
+  :initialize 'custom-initialize-set
+  :set (lambda (var val)
+         (when (< val 0)
+           (error "Number of lines must be positive"))
+         (custom-set-default var val))
   :type 'integer)
 
 (defcustom org-index-key nil
@@ -833,7 +846,7 @@ interactive calls."
        ((eq command 'occur)
 
         (set-buffer oidx--buffer)
-        (oidx--do-occur))
+        (oidx--do-occur arg))
 
 
        ((eq command 'ref)
@@ -950,7 +963,7 @@ interactive calls."
                         (setq oidx--last-ws-message nil)
                         (oidx--ws-circle-start))
                     (let ((oidx--skip-verify-id t))
-                      (org-index-working-set)))))
+                      (org-index-working-set t)))))
           (setq message-text (concat (upcase (substring mt 0 1)) (substring mt 1)))))
 
 
@@ -1040,7 +1053,7 @@ Optional argument KEYS-VALUES specifies content of new line."
       (when command
         (unless (string= command (downcase command))
           (setq command (downcase command))
-          (setq oidx--prefix-arg '(4)))
+          (setq oidx--prefix-arg t))
         (setq command (intern command)))
       (when oidx--short-help-displayed
         (quit-windows-on oidx--short-help-buffer-name)))
@@ -1718,7 +1731,7 @@ Optional argument DEFAULTS gives default values."
     (dolist (col cols)
       (setq content "")
       (setq def (plist-get col defaults))
-      (setq def-clause (if def (format " (default: '%s')") ""))
+      (setq def-clause (if def (format " (default: '%s')" def) ""))
       (setq content (read-from-minibuffer
                      (format "Enter text for column '%s'%s: " (symbol-name col) def-clause)
                      (plist-get col defaults)))
@@ -2817,7 +2830,7 @@ specify flag TEMPORARY for th new table temporary, maybe COMPARE it with existin
 
 
 ;; Functions for working-set
-(defun org-index-working-set ()
+(defun org-index-working-set (&optional silent)
   "Central interactive function to manage a working-set of nodes.
 
 The working-set is a small number of nodes, among whom you switch
@@ -2833,14 +2846,14 @@ Its subcommands allow to:
 This command is available as a subcommand of ‘org-index’,
 but may also be bound to its own key-sequence."
   (interactive)
-  (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ? ))
+  (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ?g ? ))
         id text more-text char prompt ids-up-to-top)
 
     (oidx--verify-id)
-    (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,r,m,w,c,space or ? for short help) - " (length oidx--ws-ids)))
+    (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,u,m,w,c,space,g or ? for short help) - " (length oidx--ws-ids)))
     (while (not (memq char char-choices))
       (setq char (read-char-choice prompt char-choices))
-      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circl (same as space)e.  Please choose - " (length oidx--ws-ids))))
+      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circle (same as space),  g)o to bottom position in current node.  Please choose - " (length oidx--ws-ids))))
     (setq text
           (cond
 
@@ -2887,12 +2900,18 @@ but may also be bound to its own key-sequence."
            ((memq char '(?c ? ))
             (oidx--ws-circle-start))
 
+           ((eq char ?g)
+            (oidx--ws-bottom-of-node)
+            "at bottom of node")
+
            ((eq char ?u)
             (oidx--ws-nodes-restore))))
 
     (oidx--ws-nodes-persist)
     
-    (format text (or more-text "") (length oidx--ws-ids) (if (cdr oidx--ws-ids) "s" ""))))
+    (setq text (format text (or more-text "") (length oidx--ws-ids) (if (cdr oidx--ws-ids) "s" "")))
+    (unless silent (message (concat (upcase (substring text 0 1)) (substring text 1))))
+    text))
 
 
 (defun oidx--ws-circle-start ()
@@ -2901,7 +2920,7 @@ but may also be bound to its own key-sequence."
 
   (setq oidx--ws-short-help-wanted nil)
   (setq oidx--ws-circle-before-marker (point-marker))
-  (setq oidx--ws-circle-before-window-configuration (current-window-configuration))
+  (setq oidx--ws-circle-win-config (current-window-configuration))
 
   (let ((kmap (make-sparse-keymap)))
     (mapc (lambda (x)
@@ -2939,8 +2958,8 @@ but may also be bound to its own key-sequence."
       (lambda () (interactive)
         (if oidx--ws-circle-before-marker
             (org-goto-marker-or-bmk oidx--ws-circle-before-marker))
-        (if oidx--ws-circle-before-window-configuration
-            (set-window-configuration oidx--ws-circle-before-window-configuration))
+        (if oidx--ws-circle-win-config
+            (set-window-configuration oidx--ws-circle-win-config))
         (message "Quit")
         (oidx--ws-circle-cancel-helper)))
     
@@ -3131,13 +3150,7 @@ Argument KEY has been pressed to trigger this function."
 (defun oidx--ws-menu-rebuild (&optional resize)
   "Rebuild content of working-set menu-buffer.
 Optional argument RESIZE adjusts window size."
-  (let (first-line clock-id)
-    (ignore-errors
-      (when org-clock-marker
-	(save-excursion
-          (with-current-buffer (marker-buffer org-clock-marker)
-            (goto-char org-clock-marker)
-            (setq clock-id (org-id-get))))))
+  (let (first-line)
     (with-current-buffer (get-buffer-create oidx--ws-menu-buffer-name)
       (setq buffer-read-only nil)
       (erase-buffer)
@@ -3154,7 +3167,7 @@ Optional argument RESIZE adjusts window size."
                            (save-excursion
                              (org-id-goto id)
                              (setq head (substring-no-properties (org-get-heading)))))
-                         (insert (format " %s%s" (if (eq id clock-id) "*" " ") head))
+                         (insert (format "%s %s" (if (eq id oidx--ws-id-last-goto) "*" " ") head))
                          (put-text-property (line-beginning-position) (line-end-position) 'org-index-id id)
                          (insert "\n")))
                      oidx--ws-ids
@@ -3280,17 +3293,20 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 (defvar oidx--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar oidx--occur-win-config nil "Window configuration stored away during occur.")
 (defvar oidx--occur-point-begin nil "Point of first line of table contents.")
+(defvar oidx--occur-last-visible-initial nil "Initial point of last visibility.")
 (defvar oidx--occur-buffer nil "Buffer, where occur takes place.")
 (defvar oidx--occur-search-text nil "Description of text to search for.")
 (defvar oidx--occur-words nil "Final list of match words.")
 
 
-(defun oidx--do-occur ()
+(defun oidx--do-occur (&optional arg)
   "Perform command occur."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
-        (lines-wanted (window-body-height))
-        end-of-table                   ; to be passed to org-index-hide
+        (lines-wanted (if (or arg (= org-index-occur-max-lines 0))
+                          (window-body-height)
+                        (min org-index-occur-max-lines (window-body-height))))
+        end-of-table
         hide-frame                     ; hash with information from last last hiding operation
         words                          ; list words that should match
         done                           ; true, if loop is done
@@ -3300,9 +3316,8 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         key-sequence
         key-sequence-raw)
 
-
-    (oidx--occur-prepare-buffer)
-    (setq end-of-table (org-table-end))
+    (setq end-of-table
+          (oidx--occur-prepare-buffer lines-wanted))
 
     (setq initial-frame (selected-frame))
     
@@ -3386,6 +3401,9 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         ;; append key to word
         (setq word (concat word key))
         
+        ;; move overlay out of the way
+        (move-overlay oidx--occur-tail-overlay (point-max) (point-max))
+
         ;; make overlays to hide lines, that do not match longer word any more
         (goto-char oidx--occur-point-begin)
         (setq hide-frame (oidx--hide-with-overlays (cons word words) lines-wanted end-of-table))
@@ -3393,7 +3411,12 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
         (when hide-frame
           ;; delete older overlays
           (mapc (lambda (x) (delete-overlay (cl-first x)))
-                (cdr (assoc :overlays-with-borders (car oidx--occur-stack)))))
+                (cdr (assoc :overlays-with-borders (car oidx--occur-stack))))
+
+          ;; move overlay to cover untested rest of table
+          (let ((last-visible (cdr (assoc :last-visible hide-frame))))
+            (move-overlay oidx--occur-tail-overlay (or last-visible oidx--occur-last-visible-initial) (point-max))))
+        
         (setq oidx--occur-stack (cons hide-frame oidx--occur-stack))
         
         (goto-char oidx--occur-point-begin)
@@ -3416,59 +3439,69 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
       (setq unread-command-events (listify-key-sequence key-sequence-raw))
       (message key))
     
-
-    (oidx--occur-make-permanent lines-wanted)
+    (oidx--occur-make-permanent lines-wanted end-of-table)
 
     (oidx--occur-install-keyboard-shortcuts)))
 
 
-(defun oidx--occur-prepare-buffer ()
+(defun oidx--occur-prepare-buffer (lines-wanted)
   "Prepare buffer for 'oidx--do-occur."
 
-  ;; make and show buffer
-  (if (get-buffer oidx--occur-buffer-name)
-      (kill-buffer oidx--occur-buffer-name))
-  (setq oidx--occur-buffer (make-indirect-buffer oidx--buffer oidx--occur-buffer-name))
-  (setq oidx--occur-win-config (current-window-configuration))
-  (pop-to-buffer-same-window oidx--occur-buffer)
+  (let (end-of-table)
+    
+    ;; make and show buffer
+    (if (get-buffer oidx--occur-buffer-name)
+        (kill-buffer oidx--occur-buffer-name))
+    (setq oidx--occur-buffer (make-indirect-buffer oidx--buffer oidx--occur-buffer-name))
+    (setq oidx--occur-win-config (current-window-configuration))
+    (pop-to-buffer-same-window oidx--occur-buffer)
 
-  ;; avoid modifying direct buffer
-  (setq buffer-read-only t)
-  (toggle-truncate-lines 1)
+    ;; avoid modifying direct buffer
+    (setq buffer-read-only t)
+    (toggle-truncate-lines 1)
+    
+    ;; reset stack of overlays
+    (setq oidx--occur-stack nil)
+    
+    ;; narrow to table rows and one line before
+    (goto-char oidx--below-hline)
+    (setq end-of-table (org-table-end))
+    (forward-line 0)
+    (setq oidx--occur-point-begin (point))
+    (forward-line -1)
+    (narrow-to-region (point) end-of-table)
+    (forward-line)
 
-  ;; reset stack of overlays
-  (setq oidx--occur-stack nil)
-  
-  ;; narrow to table rows and one line before
-  (goto-char oidx--below-hline)
-  (forward-line 0)
-  (setq oidx--occur-point-begin (point))
-  (forward-line -1)
-  (narrow-to-region (point) (org-table-end))
-  (forward-line)
+    ;; initialize help text
+    (setq oidx--occur-help-text
+          (cons
+           (concat
+            (propertize "Incremental occur" 'face 'org-todo)
+            (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
+           (concat
+            (propertize
+             (oidx--wrap
+              (concat
+               "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word; <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index; all other keys end search." oidx--usage-note "\n"))
+             'face 'org-agenda-dimmed-todo-face)
+            oidx--headings)))
+    
+    ;; overlay for help text
+    (setq oidx--occur-help-overlay (make-overlay (point-min) oidx--occur-point-begin))
+    (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
+    
+    ;; overlay to cover tail of table
+    (goto-char oidx--occur-point-begin)
+    (forward-line lines-wanted)
+    (setq oidx--occur-last-visible-initial (point))
+    (setq oidx--occur-tail-overlay (make-overlay oidx--occur-last-visible-initial (point-max)))
+    (goto-char oidx--occur-point-begin)
+    (overlay-put oidx--occur-tail-overlay 'invisible t)
 
-  ;; initialize help text
-  (setq oidx--occur-help-text
-        (cons
-         (concat
-          (propertize "Incremental occur" 'face 'org-todo)
-          (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
-         (concat
-          (propertize
-           (oidx--wrap
-            (concat
-             "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word; <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index; all other keys end search." oidx--usage-note "\n"))
-           'face 'org-agenda-dimmed-todo-face)
-          oidx--headings)))
-  
-  ;; insert overlays for help text and to cover unsearched lines
-  (setq oidx--occur-help-overlay (make-overlay (point-min) oidx--occur-point-begin))
-  (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
-  (setq oidx--occur-tail-overlay (make-overlay (org-table-end) (point-max)))
-  (overlay-put oidx--occur-tail-overlay 'invisible t))
+    end-of-table))
 
 
-(defun oidx--occur-make-permanent (lines-wanted)
+(defun oidx--occur-make-permanent (lines-wanted end-of-table)
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display."
 
@@ -3479,7 +3512,7 @@ Argument LINES-WANTED specifies number of lines to display."
     (setq cursor-type t)
     (goto-char oidx--occur-point-begin)
     (let ((inhibit-read-only t))
-      (put-text-property oidx--occur-point-begin (org-table-end) 'face nil))
+      (put-text-property oidx--occur-point-begin end-of-table 'face nil))
 
     ;; collect all visible lines
     (while (and (not (eobp))
@@ -3564,9 +3597,10 @@ Argument LINES-WANTED specifies number of lines to display."
           oidx--occur-words)
 
     ;; typically executed only during tests
-    (when oidx--occur-assert-result
+    (when (and oidx--occur-assert-result
+               (> lines-wanted lines-collected))
       (let ((expected-matches 0)
-	    (assertion-text ))
+	    assertion-text)
 	(save-excursion
 	  (set-buffer oidx--buffer)
           (goto-char oidx--below-hline)
@@ -3693,10 +3727,11 @@ To skip highlighted letters set KEEP-PLACES."
   "Hide lines that are currently visible and do not match WORDS.
 Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
   (let ((lines-found 0)
-        overlay overlays old-overlay start places all-places
-        overlays-csced-wb) ; this is short for overlays-coalesced-with-borders
+        overlay overlays old-overlay start
+        places all-places last-visible
+        overlays-csced-wb) ; short for overlays-coalesced-with-borders
 
-    ;; loop over index table
+    ;; loop over index table and find one line that should be visible during each iteration
     (while (and (< (point) end-of-table)
                 (< lines-found lines-wanted))
 
@@ -3730,6 +3765,7 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
           (put-text-property (line-beginning-position) (line-end-position) 'face nil)
           (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face 'isearch)) places))
         (forward-line 1)
+        (setq last-visible (point))
         (setq all-places (append places all-places))
         (cl-incf lines-found)))
 
@@ -3756,6 +3792,7 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
     ;; return new frame with info
     (and overlays-csced-wb
          (list (cons :overlays-with-borders overlays-csced-wb)
+               (cons :last-visible last-visible)
 	       (cons :highlights all-places)))))
 
 
@@ -3765,6 +3802,8 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
 
     ;; remove top of overlay-stack to make visible and remove highlights
     (oidx--occur-stack-delete-frame (car oidx--occur-stack))
+
+    ;; shorten stack
     (setq oidx--occur-stack (cdr oidx--occur-stack))
 
     ;; redo older highlights
@@ -3775,7 +3814,11 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
 
     ;; revive older overlays
     (mapc (lambda (x) (move-overlay (cl-first x) (cl-second x) (cl-third x)))
-          (cdr (assoc :overlays-with-borders (car oidx--occur-stack))))))
+          (cdr (assoc :overlays-with-borders (car oidx--occur-stack))))
+
+    ;; move tail overlay to cover untested rest of table
+    (let ((last-visible (cdr (assoc :last-visible (car oidx--occur-stack)))))
+      (move-overlay oidx--occur-tail-overlay (or last-visible oidx--occur-last-visible-initial) (point-max)))))
 
 
 (defun oidx--test-words (words)
