@@ -3138,6 +3138,7 @@ Argument KEY has been pressed to trigger this function."
     (if (or (memq key '(b B))
             (and (memq key '(<return> RET))
                  org-index-goto-bottom-in-working-set)) (oidx--ws-bottom-of-node))
+    (setq oidx--ws-id-last-goto id)
     (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))))
 
 
@@ -3150,7 +3151,7 @@ Argument KEY has been pressed to trigger this function."
 (defun oidx--ws-menu-rebuild (&optional resize)
   "Rebuild content of working-set menu-buffer.
 Optional argument RESIZE adjusts window size."
-  (let (first-line)
+  (let (cursor-here)
     (with-current-buffer (get-buffer-create oidx--ws-menu-buffer-name)
       (setq buffer-read-only nil)
       (erase-buffer)
@@ -3159,7 +3160,7 @@ Optional argument RESIZE adjusts window size."
                             "Press <return>,<tab>,h,H,b,B,p,d,u,q,r or ? to toggle short help.")
                           'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
-      (setq first-line (point))
+      (setq cursor-here (point))
       (if oidx--ws-ids
           (mapconcat (lambda (id)
                        (let (head)
@@ -3167,13 +3168,17 @@ Optional argument RESIZE adjusts window size."
                            (save-excursion
                              (org-id-goto id)
                              (setq head (substring-no-properties (org-get-heading)))))
-                         (insert (format "%s %s" (if (eq id oidx--ws-id-last-goto) "*" " ") head))
+                         (let ((star " "))
+                           (when (eq id oidx--ws-id-last-goto)
+                             (setq star "*")
+                             (setq cursor-here (point)))
+                           (insert (format "%s %s" star head)))
                          (put-text-property (line-beginning-position) (line-end-position) 'org-index-id id)
                          (insert "\n")))
                      oidx--ws-ids
                      "\n")
         (insert "  No nodes in working-set.\n"))
-      (goto-char first-line)
+      (goto-char cursor-here)
       (when resize
         (fit-window-to-buffer (get-buffer-window))
         (enlarge-window 1))
