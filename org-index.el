@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.9.2
+;; Version: 5.9.3
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -39,8 +39,8 @@
 ;;  sorted by usage count and date, so that recently or frequently used
 ;;  entries appear first in the list of results.
 ;;
-;;  Please note, that org-index uses org-id to add an id-property to all
-;;  nodes in the index.
+;;  Please note, that org-index uses org-id throughout and therefore adds
+;;  an id-property to all nodes in the index.
 ;;
 ;;  In the addition to the index table, org-index introduces these
 ;;  supplemental concepts:
@@ -185,7 +185,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "5.9.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.9.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -385,8 +385,8 @@ set of matching lines is updated with every keystroke; results are
 sorted by usage count and date, so that recently or frequently used
 entries appear first in the list of results.
 
-Please note, that org-index uses org-id to add an id-property to all
-nodes in the index.
+Please note, that org-index uses org-id throughout and therefore adds
+an id-property to all nodes in the index.
 
 In the addition to the index table, org-index introduces these
 supplemental concepts:
@@ -405,7 +405,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.9.2 of org-index.el.
+This is version 5.9.3 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -698,6 +698,8 @@ interactive calls."
   - Removed days option from occur command
   - Fixed and Optimized overlay-handling in occur for better performance and
     overall stability
+  - Limited the number of lines to display in occur for better performance,
+    see 'org-index-occur-max-lines'
 
 * 5.8
 
@@ -2844,7 +2846,8 @@ Its subcommands allow to:
 - Show a menu buffer with all nodes currently in the working set
 
 This command is available as a subcommand of ‘org-index’,
-but may also be bound to its own key-sequence."
+but may also be bound to its own key-sequence.
+Optional argument SILENT does not issue final message."
   (interactive)
   (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ?g ? ))
         id text more-text char prompt ids-up-to-top)
@@ -3305,7 +3308,8 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
 (defun oidx--do-occur (&optional arg)
-  "Perform command occur."
+  "Perform command occur.
+Optional argument ARG, when given does not limit number of lines shown."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
         (lines-wanted (if (or arg (= org-index-occur-max-lines 0))
@@ -3450,7 +3454,8 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 
 (defun oidx--occur-prepare-buffer (lines-wanted)
-  "Prepare buffer for 'oidx--do-occur."
+  "Prepare buffer for 'oidx--do-occur.
+Only collect LINES-WANTED lines."
 
   (let (end-of-table)
     
@@ -3508,7 +3513,7 @@ from within this buffer, the index is updated accordingly" "Note on usage in occ
 
 (defun oidx--occur-make-permanent (lines-wanted end-of-table)
   "Make permanent copy of current view into index.
-Argument LINES-WANTED specifies number of lines to display."
+Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is position."
 
   ;; copy visible lines
   (let ((lines-collected 0)
@@ -3606,16 +3611,16 @@ Argument LINES-WANTED specifies number of lines to display."
                (> lines-wanted lines-collected))
       (let ((expected-matches 0)
 	    assertion-text)
-	(save-excursion
-	  (set-buffer oidx--buffer)
-          (goto-char oidx--below-hline)
-          (while (org-at-table-p)
-            (if (oidx--test-words oidx--occur-words) (cl-incf expected-matches))
-            (forward-line 1))
-	  (setq assertion-text (format "Number of lines collected incrementally (%d) should be equal to number collected in one pass (%d)" lines-collected expected-matches))
-	  (if (not (= lines-collected expected-matches))
-              (error (concat "Assertion failed: " assertion-text) )
-	    (message (concat "Assertion passed: " assertion-text))))))
+	(with-current-buffer oidx--buffer
+	  (save-excursion
+            (goto-char oidx--below-hline)
+            (while (org-at-table-p)
+              (if (oidx--test-words oidx--occur-words) (cl-incf expected-matches))
+              (forward-line 1))))
+	(setq assertion-text (format "Number of lines collected incrementally (%d) should be equal to number collected in one pass (%d)" lines-collected expected-matches))
+	(if (not (= lines-collected expected-matches))
+            (error (concat "Assertion failed: " assertion-text) )
+	  (message (concat "Assertion passed: " assertion-text)))))
 
     (setq buffer-read-only t)))
 

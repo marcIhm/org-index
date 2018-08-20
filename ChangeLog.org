@@ -1,4 +1,4 @@
-* 5.9 until 2018-08-16 Th
+* 5.9 until 2018-08-20 Mo
 
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
   - Added special buffer to manage the working-set
@@ -9,6 +9,8 @@
   - Removed days option from occur command
   - Fixed and Optimized overlay-handling in occur for better performance and
     overall stability
+  - Limited the number of lines to display in occur for better performance,
+    see 'org-index-occur-max-lines'
 
 * 5.8 until 2018-03-07 We
 

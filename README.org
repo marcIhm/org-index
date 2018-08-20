@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 5.9.2.
+  The current version is 5.9.3.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -30,8 +30,8 @@
     sorted by usage count and date, so that recently or frequently used
     entries appear first in the list of results.
     
-    Please note, that org-index uses org-id to add an id-property to all
-    nodes in the index.
+    Please note, that org-index uses org-id throughout and therefore adds
+    an id-property to all nodes in the index.
     
     In the addition to the index table, org-index introduces these
     supplemental concepts:
@@ -134,6 +134,8 @@
     - Removed days option from occur command
     - Fixed and Optimized overlay-handling in occur for better performance and
       overall stability
+    - Limited the number of lines to display in occur for better performance,
+      see 'org-index-occur-max-lines'
   
 *** 5.8
 
