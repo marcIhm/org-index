@@ -11,6 +11,7 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
 
 ---
 {start}
+{kbd M-x~o~r~g~-~i~n~d~e~x~RET~c~r~e~a~t~e~-~i~n~d~e~x~10~RET~10~d~e~m~o~.~o~r~g~10~RET~I~n~d~e~x~10~RET~-~-~\1~-~-~10~RET~y~10~RET~y~10~RET~<f7>~10~RET~y~10~RET}done.{sleep 1}
 
   Welcome to this minimal demo of org-index {sleepscale 2}{sleep 1}!{sleep 2}
 
@@ -34,9 +35,9 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
 * two three
 * one four
 {return}{sleepscale 2}done.{sleep 1}
-~i~ foo
+
   Now, when you invoke org-index for the first time it will ask you
-  some questions and create your index. Just watch ... {sleep 1}{kbd M-x~o~r~g~-~i~n~d~e~x~RET~c~r~e~a~t~e~-~i~n~d~e~x~10~RET~10~d~e~m~o~.~o~r~g~10~RET~I~n~d~e~x~RET~-~-~\1~-~-~10~RET~n~10~RET~n~10~RET}done.{sleep 1}
+  some questions and create your index. Just watch ... {sleep 1}{kbd M-x~o~r~g~-~i~n~d~e~x~RET~c~r~e~a~t~e~-~i~n~d~e~x~10~RET~10~d~e~m~o~.~o~r~g~10~RET~I~n~d~e~x~RET~-~-~\1~-~-~10~RET~n~10~RET~y~10~RET~}done.{sleep 1}
 
   (Just let me recenter ... {sleep 0.5}{recenter 5}done{sleep 0.3})
 

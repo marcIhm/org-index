@@ -22,4 +22,3 @@
 (global-font-lock-mode 1)
 (toggle-truncate-lines)
 
-(global-set-key (kbd "C-c i") 'org-index)

@@ -5,7 +5,7 @@
 ;;  Therefore, emacs will no longer work as expected, once, this file is evaled.
 ;;
 
-(defvar sleepscale nil)
+(defvar sleepscale 2)
 (defvar nosleep nil)
 (defvar last-raw-keys nil)
 
@@ -14,8 +14,7 @@
 (define-key query-replace-map (kbd "<f6>") 'wait-and-see)
 (define-key multi-query-replace-map (kbd "<f6>") 'wait-and-see)
 (define-key org-mode-map (kbd "<f6>") 'wait-and-see)
-(define-key global-map (kbd "<f7>") (lambda () (interactive)))
-(define-key global-map (kbd "<f8>") (lambda () (interactive)))
+(define-key global-map (kbd "<f7>") (lambda () (interactive) (insert "C-c i")))
 
 
 (defun y-or-n-p (prompt)
@@ -30,12 +29,13 @@
 
 (defun read-key-sequence (prompt &rest ignored)
   (let (char)
-    (setq char (read-from-minibuffer (if prompt (substring prompt 0 -1) ""))
+    (setq char (read-from-minibuffer (or prompt "")))
     (if (string= char "<down>")
         (setq last-raw-keys [down])
       (if (string= char "<return>")
            (setq last-raw-keys "")
-        (setq last-raw-keys char)))))
+        (setq last-raw-keys char)))
+    (kbd char)))
 
 
 (unless (symbol-function 'recenter-orig)
