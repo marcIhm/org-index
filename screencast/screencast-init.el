@@ -22,3 +22,19 @@
 (global-font-lock-mode 1)
 (toggle-truncate-lines)
 
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(c-basic-offset 4)
+ '(diff-switches "-u")
+ '(menu-bar-mode nil)
+ '(org-index-id "fd6a5627-2ba5-4d84-833f-804e3437759b")
+ '(org-index-key "i"))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )

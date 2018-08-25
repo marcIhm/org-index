@@ -2699,9 +2699,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
                        (cond ((string= firstref "") "is empty")
                              ((not (string-match "^[^0-9]+" firstref)) "starts with a digit")
                              ((not (string-match "^[^0-9]+[0-9]+" firstref)) "does not contain a number")
-                             ((not (string-match "^[^0-9]+[0-9]+[^0-9]*$" firstref)) "contains more than one sequence of digits")
-
-                             )))
+                             ((not (string-match "^[^0-9]+[0-9]+[^0-9]*$" firstref)) "contains more than one sequence of digits"))))
                (if desc
                    (progn
                      (read-from-minibuffer (format "Your input '%s' does not meet the requirements because it %s.\nPlease hit RET and try again: " firstref desc))

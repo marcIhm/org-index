@@ -14,8 +14,10 @@
 (define-key query-replace-map (kbd "<f6>") 'wait-and-see)
 (define-key multi-query-replace-map (kbd "<f6>") 'wait-and-see)
 (define-key org-mode-map (kbd "<f6>") 'wait-and-see)
-(define-key global-map (kbd "<f7>") (lambda () (interactive) (insert "C-c i")))
 
+;;
+;; Override some internal functions
+;;
 
 (defun y-or-n-p (prompt)
   (if (string= "y" (org-completing-read (concat prompt " (y or n) ") (list "y" "n") nil t nil nil "y"))
@@ -42,6 +44,9 @@
   (fset 'recenter-orig (symbol-function 'recenter)))
 (defun recenter (&optional arg))
 
+;;
+;; Functions to play a screencast
+;;
 
 (defun wait-and-see (arg)
   "Redisplay and wait"
@@ -67,8 +72,14 @@
   (setq org-index-id nil)
   (setq org-id-track-globally t)
   (setq org-index-id-sort-by 'count)
-  (ignore-errors (kill-buffer "demo.org"))
-  (find-file "~/org-index/demo.org")
+  (global-unset-key (kbd "C-c i"))
+  (setq org-index-key nil)
+
+  (ignore-errors
+    (with-current-buffer "demo.org"
+      (save-buffer)
+      (kill-buffer)))
+  (find-file "~/org-index/screencast/demo.org")
   (with-current-buffer "demo.org"
     (erase-buffer)))
 
