@@ -1,3 +1,9 @@
+;;; screencast.el --- helper functions for the screencast of org-index
+
+;;
+;;  Please beware: This file redefines some common functions of emacs itself !
+;;  Therefore, emacs will no longer work as expected, once, this file is evaled.
+;;
 
 (defvar sleepscale nil)
 (defvar nosleep nil)
@@ -24,7 +30,7 @@
 
 (defun read-key-sequence (prompt &rest ignored)
   (let (char)
-    (setq char (read-from-minibuffer (substring prompt 0 -1)))
+    (setq char (read-from-minibuffer (if prompt (substring prompt 0 -1) ""))
     (if (string= char "<down>")
         (setq last-raw-keys [down])
       (if (string= char "<return>")
@@ -55,18 +61,28 @@
     (sleep-for (* sec sleepscale))))
 
 
+(defun prepare-for-screencast ()
+  "Set up index-options as used for screencast"
+  (interactive)
+  (setq org-index-id nil)
+  (setq org-id-track-globally t)
+  (setq org-index-id-sort-by 'count)
+  (ignore-errors (kill-buffer "demo.org"))
+  (find-file "~/org-index/demo.org")
+  (with-current-buffer "demo.org"
+    (erase-buffer)))
+
+
 (defun play-screencast ()
   "Play Screencast."
   (interactive)
+  (prepare-for-screencast)
   (setq sleepscale 1.0)
-  (setq org-index-id nil)
   (setq enable-recursive-minibuffers t)
-  (setq org-id-track-globally t)
-  (setq org-index-id-sort-by 'count)
   (setq redisplay-dont-pause t)
   (setq redisplay-preemption-period 0)
   (let ((frombuf (get-buffer "screencast.org"))
-        (tobuf (get-buffer-create "demo.org"))
+        (tobuf (get-buffer "demo.org"))
         atmax char as-string last-as-string within at-period to-point to-point-stored)
 
     (with-current-buffer frombuf

@@ -2711,7 +2711,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
     (with-current-buffer buffer
       (goto-char (point-max))
       (insert (format "* %s %s\n" firstref title))
-      (org-entry-put oidx--point "max-ref" firstref)
+      (org-entry-put (point) "max-ref" firstref)
       (if temporary
           (insert "
   Below you find your temporary index table, which WILL NOT LAST LONGER
@@ -2800,7 +2800,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
           (delete-other-windows)
           (org-id-goto id)
           (oidx--unfold-buffer)
-          (if (y-or-n-p "This is your new index table.  It is already set for this Emacs session, so you may try it out.  Do you want to save it's id to make it available for future Emacs sessions too ? ")
+          (if (y-or-n-p "This is your new index table.  It is already set for this Emacs session, so you may try it out.  Do you want to save it's id to make it available in future Emacs sessions too ? ")
               (progn
                 (customize-save-variable 'org-index-id id)
                 (message "Saved org-index-id '%s' to %s." id (or custom-file user-init-file)))
@@ -2826,7 +2826,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 		    (customize-save-variable 'org-index-key key)
 		    (setq saved "and saved "))
 		  (message "Set %sorg-index-key '%s' to %s." saved (kbd key) (or custom-file user-init-file)))))
-	    (message "Did not set org-index-key; however this can be done any time with `org-customize'."))
+	    (message "Did not set orgig-index-key; however this can be done any time with `org-customize'."))
           (throw 'new-index nil))))))
 
 

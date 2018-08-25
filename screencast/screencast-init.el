@@ -1,3 +1,5 @@
+;;; screencast-init.el --- initialize screencast
+
 (add-to-list 'load-path "..")
 (add-to-list 'load-path "../../org")
 
