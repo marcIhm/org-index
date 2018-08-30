@@ -2948,7 +2948,7 @@ Optional argument SILENT does not issue final message."
       (lambda () (interactive)
         (setq this-command last-command)
         (oidx--ws-nodes-persist)
-        (oidx--ws-message (concat (oidx--ws-delete-from)
+        (oidx--ws-message (concat (oidx--ws-delete-from) " "
                                   (oidx--ws-circle-continue)))
         (setq oidx--cancel-ws-wait-function nil)))
     (define-key kmap (kbd "<escape>")
@@ -3007,8 +3007,7 @@ Optional argument STAY prevents changing location."
     (setq last-id (or oidx--ws-id-last-goto
                       (car (last oidx--ws-ids))))
     (setq following-id (car (or (cdr-safe (member last-id
-                                                  (append oidx--ws-ids
-                                                          oidx--ws-ids)))
+                                                  (append oidx--ws-ids oidx--ws-ids)))
                                 oidx--ws-ids)))
     (setq target-id (if stay last-id following-id))
     (setq parent-ids (oidx--ws-ids-up-to-top)) ; remember this before changing location
@@ -3264,13 +3263,9 @@ Optional argument ID gives the node to delete."
   (format
    (if (and id (member id oidx--ws-ids))
        (progn
-         (setq oidx--ws-id-last-goto
-               (or (car-safe (cdr-safe (member id (reverse (append oidx--ws-ids
-                                                                   oidx--ws-ids)))))
-                   oidx--ws-id-last-goto))
+         (if (string= id oidx--ws-id-last-goto) (setq oidx--ws-id-last-goto nil))
          (setq oidx--ws-ids-saved oidx--ws-ids)
          (setq oidx--ws-ids (delete id oidx--ws-ids))
-         (setq oidx--ws-id-last-goto nil)
          "Current node has been removed from working-set (%d node%s)")
      "Current node has not been in working-set (%d node%s)")
    (length oidx--ws-ids) (if oidx--ws-ids "s" "")))
