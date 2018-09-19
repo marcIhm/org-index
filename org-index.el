@@ -151,6 +151,7 @@
 (defvar oidx--within-index-node nil "Non-nil, if we are within node of the index table.")
 (defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
 (defvar oidx--occur-assert-result nil "Non-nil, if occur result should be asserted; used during tests.")
+(defvar oidx--recording-screencast nil "Set Non-nil, if screencast is beeing recorded to trigger some minor tweaks.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
 (defvar oidx--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar oidx--sort-timer nil "Timer to sort index in correct order.")
@@ -2708,17 +2709,18 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 
     (with-current-buffer buffer
       (goto-char (point-max))
-      (insert (format "* %s %s\n" firstref title))
+      (insert (format "\n* %s %s\n" firstref title))
       (org-entry-put (point) "max-ref" firstref)
-      (if temporary
-          (insert "
+      (unless oidx--recording-screencast
+	(if temporary
+            (insert "
   Below you find your temporary index table, which WILL NOT LAST LONGER
   THAN YOUR CURRENT EMACS SESSION; please use it only for evaluation.
 ")
-        (insert "
+          (insert "
   Below you find your initial index table, which will grow over time.
 "))
-      (insert "  You may start using it by adding some lines. Just
+	(insert "  You may start using it by adding some lines. Just
   move to another heading within org, invoke `org-index' and
   choose the command 'add'.  After adding a few nodes, try the
   command 'occur' to search among them.
@@ -2738,10 +2740,10 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
   Additional custom columns can be added, if they start with
   a dot.
 ")
-      (unless temporary
-        (insert "
+	(unless temporary
+          (insert "
   Remark: These lines of explanation can be removed at any time.
-"))
+")))
 
       (setq id (org-id-get-create))
       (insert (format "

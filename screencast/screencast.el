@@ -7,7 +7,6 @@
 
 (defvar sleepscale 2)
 (defvar nosleep nil)
-(defvar last-raw-keys nil)
 
 (define-key minibuffer-local-completion-map (kbd "<f6>") 'wait-and-see)
 (define-key minibuffer-local-map (kbd "<f6>") 'wait-and-see)
@@ -25,19 +24,14 @@
     nil))
 
 
-(defun this-single-command-raw-keys ()
-  last-raw-keys)
-
-
 (defun read-key-sequence (prompt &rest ignored)
+  "Modified version of read-key-sequence, recurring to read-from-minibuffer."
   (let (char)
     (setq char (read-from-minibuffer (or prompt "")))
-    (if (string= char "<down>")
-        (setq last-raw-keys [down])
-      (if (string= char "<return>")
-           (setq last-raw-keys "")
-        (setq last-raw-keys char)))
-    (kbd char)))
+    (setq last-raw-keys char)
+    (if (string= char " ")
+        " "
+      (kbd char))))
 
 
 (unless (symbol-function 'recenter-orig)
@@ -72,8 +66,12 @@
   (setq org-index-id nil)
   (setq org-id-track-globally t)
   (setq org-index-id-sort-by 'count)
+  (setq oidx--recording-screencast t)
   (global-unset-key (kbd "C-c i"))
   (setq org-index-key nil)
+  (when (not (and (= (frame-width) 108)
+		  (= (frame-height) 38)))
+    (error "Wrong frame size, must be 108 x 38, not %d x %d" (frame-width) (frame-height)))
 
   (ignore-errors
     (with-current-buffer "demo.org"
@@ -149,6 +147,8 @@
                 (with-current-buffer "demo.org"
                   (select-window (get-buffer-window))
                   (recenter-orig (string-to-number txt))))
+	       ((string= cmd "version")
+		(insert org-index-version))
                ((string= cmd "start")
                 (setq within t))
                ((string= cmd "kbd")
