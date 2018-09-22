@@ -28,7 +28,6 @@
   "Modified version of read-key-sequence, recurring to read-from-minibuffer."
   (let (char)
     (setq char (read-from-minibuffer (or prompt "")))
-    (setq last-raw-keys char)
     (if (string= char " ")
         " "
       (kbd char))))
@@ -49,8 +48,7 @@
     (with-timeout ((* 0.1
                       (if (listp arg)
                           0.5
-                        (prefix-numeric-value arg)) sleepscale))
-      (kbd-macro-query t))))
+                        (prefix-numeric-value arg)) sleepscale)))))
 
 
 (defun my-sleep (sec)
@@ -66,6 +64,7 @@
   (setq org-index-id nil)
   (setq org-id-track-globally t)
   (setq org-index-id-sort-by 'count)
+  (setq org-index-edit-on-add nil)
   (setq oidx--recording-screencast t)
   (global-unset-key (kbd "C-c i"))
   (setq org-index-key nil)
@@ -80,6 +79,14 @@
   (find-file "~/org-index/screencast/demo.org")
   (with-current-buffer "demo.org"
     (erase-buffer)))
+
+
+(defun put-advice (pom property value)
+  (if (string= property "ID")
+      (save-excursion
+	(org-back-to-heading)
+	(forward-line)
+	(org-cycle))))
 
 
 (defun play-screencast ()
@@ -133,7 +140,7 @@
                 (setq nosleep t))
                ((string= cmd "dosleep")
                 (setq nosleep nil))
-               ((string= cmd "search")
+	       ((string= cmd "search")
                 (with-current-buffer tobuf
                   (beginning-of-line)
                   (while (not (string= (buffer-substring (point) (+ (point) (length txt))) txt))
@@ -166,9 +173,11 @@
                 (setq txt (replace-regexp-in-string "," " C-u <f6> " txt))
                 (setq txt (replace-regexp-in-string "\\(\\\\[0-9]\\)" (lambda (x) (substring x 1)) txt))
                 (setq txt (org-trim txt))
-                (save-excursion
-                  (execute-kbd-macro (kbd txt)))
                 (with-current-buffer tobuf
+		  (save-excursion
+                    (execute-kbd-macro (kbd txt)))
+		  (let ((inhibit-message t))
+		    (message "kbd %s" txt))
                   (goto-char to-point)))
                (t
                 (error "Unkown command: %s" cmd)))

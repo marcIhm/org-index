@@ -36,6 +36,8 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
 * two three
 * one four
 
+  {return}done.
+
   Now, when you invoke org-index for the first time it will ask you
   some questions and create your index. Just watch ... {sleep 1}{sleepscale 0.4}{sleep 1}{kbd M-x~o~r~g~-~i~n~d~e~x~RET~c~r~e~a~t~e~-~i~n~d~e~x~10~RET~10~d~e~m~o~.~o~r~g~10~RET~I~n~d~e~x~10~RET~-~-~\1~-~-~10~RET~y~10~RET~y~10~RET~C~-~c~SPC~i~10~RET~y~10~RET}done.{sleep 1}{return}
   (Just let me recenter ... {sleep 0.5}{recenter 5}done{sleep 0.3})
@@ -43,7 +45,7 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
   However, the new index only contains a single line ! So lets add nodes,
   simply by pressing "C-c i a" on each of our headlines. Nodes are
   referenced by their IDs, so each node gains a property-drawer with
-  its ID. Note also, how the index table grows ...{#dosleep}{mark}{search * one two}{kbd C-c i a~4~TAB C-a}{sleep 0.3}{search * one three}{kbd C-c i a~4~TAB C-a}{sleep 0.3}{search * two three}{kbd C-c i a~4~TAB C-a}{sleep 0.3}{search * one four}{kbd C-c i a~4~TAB C-a}{sleep 0.3}{return} done.{sleep 1}
+  its ID. Note also, how the index table grows ...{#dosleep}{mark}{search * one two}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * one three}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * two three}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * one four}{kbd C-a C-c i a~4~TAB}{sleep 0.3}{return} done.{sleep 1}
 
   Now our index contains 5 lines, one for each node added. Please
   mark, that we had to add nodes to the index manually; thats
