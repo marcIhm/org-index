@@ -48,7 +48,8 @@
     (with-timeout ((* 0.1
                       (if (listp arg)
                           0.5
-                        (prefix-numeric-value arg)) sleepscale)))))
+                        (prefix-numeric-value arg)) sleepscale))
+      (kbd-macro-query t))))
 
 
 (defun my-sleep (sec)
@@ -99,7 +100,8 @@
   (setq redisplay-preemption-period 0)
   (let ((frombuf (get-buffer "screencast.org"))
         (tobuf (get-buffer "demo.org"))
-        atmax char as-string last-as-string within at-period to-point to-point-stored)
+	atmax char as-string
+        last-as-string within at-period to-point to-point-stored recenter-pt recenter-long)
 
     (with-current-buffer frombuf
       (goto-char 0))
@@ -151,9 +153,19 @@
                ((string= cmd "sleepscale")
                 (setq sleepscale (string-to-number txt)))
                ((string= cmd "recenter")
+		(let ((sleepscale 2))
                 (with-current-buffer "demo.org"
                   (select-window (get-buffer-window))
-                  (recenter-orig (string-to-number txt))))
+		  (setq recenter-long (< (string-to-number txt) 0))
+		  (setq recenter-pt (point))
+		  (insert (if recenter-long " (just let me recenter ... " " (recenter)"))
+		  (my-sleep (* sleepscale (if recenter-long 0.2 0.1)))
+                  (recenter-orig (abs (string-to-number txt)))
+		  (if recenter-long (insert "done)"))
+		  (my-sleep (* sleepscale (if recenter-long 0.2 0.1)))
+		  (while (> (point) recenter-pt)
+		    (delete-char -1)
+		    (my-sleep (* sleepscale 0.002))))))
 	       ((string= cmd "version")
 		(insert org-index-version))
                ((string= cmd "start")
