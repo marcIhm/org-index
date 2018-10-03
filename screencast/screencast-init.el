@@ -10,8 +10,8 @@
 (setq user-init-file "screencast-init.el")
 (setq org-id-locations-file ".org-id-locations-screencast")
 
-(setq debug-on-error t)
-(setq debug-on-quit t)
+;(setq debug-on-error t)
+;(setq debug-on-quit t)
 
 (setq-default mode-line-format (list "      %b (%m)"))
 (setq scroll-conservatively 200)
@@ -30,7 +30,7 @@
  '(c-basic-offset 4)
  '(diff-switches "-u")
  '(menu-bar-mode nil)
- '(org-index-id "fe940d6a-e9b9-4252-a421-abe6fa959b9f")
+ '(org-index-id "915c26ee-597d-4116-b088-e4aa6a27dd65")
  '(org-index-key "i"))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.

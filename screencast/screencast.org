@@ -1,6 +1,5 @@
-{#nosleep}
 ;; Local Variables:
-;; fill-column: 70
+;; fill-column: 96
 ;; End:
 
 https://obsproject.com/forum/resources/how-to-convert-flvs-to-mp4-fast-without-re-encoding.78/
@@ -12,24 +11,24 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
 ---
 {start}
 
-  Welcome to this minimal demo of org-index {sleepscale 0.02}{sleep 0.5}!
-  {sleep 1}
+  Welcome to this minimal demo of org-index {sleepscale 2}{sleep 0.2}!{sleep 1}
 
-  Let us assume, that you have a lot of nodes in org and sometimes
-  problems to find the right one.{sleep 0.5}
+  Let us assume, that you have a lot of nodes in org and sometimes problems to find 
+  the right one.{sleep 0.6}
 
-  Well, in much the same way it can be difficult to find the right
-  page in a book. To help with that, some books contain an Index: A
-  sorted list of keywords, where each keyword links to a specific
-  location (i.e. page) in the book. And that's what org-index can be
-  for org.{sleep 1}
+  Well, in much the same way it can be difficult to find the right page in a book.  To help with
+  that, some books contain an Index: A sorted list of keywords, where each keyword links to a
+  specific location (i.e. page) in the book. And that's what org-index can be for org.{sleep 1}
 
-  org-index can be installed from melpa with a standard package-install.
+  org-index comes as a package of its own and can be installed from melpa. It has a handful of
+  customizable variables, most important the global prefix key `C-c i' for the central
+  interactive function `org-index'. The key-binding `C-c i' is assumed for the rest of this
+  screencast; if you do not want to make this binding, you may just type `M-x org-index RET' to
+  invoke org-index.
 
-  Then, to start using org-index, we need some nodes. Probably you
-  already have hundreds of them, but for this screencast, we only need
-  a handful; lets create them ... {mark}
-{sleepscale 0.2}
+  Next, to start using org-index, we need some nodes. Probably you already have hundreds of them
+  (or org-index might not make much sense for you anyway), but for this screencast, we only need
+  a handful; lets create them ... {mark}{sleepscale 0.2}
 
 * one two
 * one three
@@ -38,75 +37,69 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
 
   {return}done.
 
-  Now, when you invoke org-index for the first time it will ask you
-  some questions and create your index. 
+  Now, when you invoke org-index for the first time it will ask you some questions and create
+  your index.{recenter -4}{sleep 1}
+  {sleepscale 0.4}{sleep 1}{kbd M-x~o~r~g~-~i~n~d~e~x~RET~c~r~e~a~t~e~-~i~n~d~e~x~10~RET~10~d~e~m~o~.~o~r~g~10~RET~I~n~d~e~x~10~RET~-~-~\1~-~-~10~RET~y~10~RET~y~10~RET~C~-~c~SPC~i~10~RET~y~10~RET}{sleep 1}{return}
+  However, the new index only contains a single line ! So lets add nodes, simply by pressing
+  `C-c i a' on each of our headlines. Nodes are referenced by their IDs, so each node gains a
+  property-drawer with its ID. Note also, how the index table grows.{recenter 5}
+  {mark}{search * one two}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * one three}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * two three}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * one four}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{return}{sleep 1}
 
-  {recenter -4}{sleep 1}{sleepscale 0.4}{sleep 1}{kbd M-x~o~r~g~-~i~n~d~e~x~RET~c~r~e~a~t~e~-~i~n~d~e~x~10~RET~10~d~e~m~o~.~o~r~g~10~RET~I~n~d~e~x~10~RET~-~-~\1~-~-~10~RET~y~10~RET~y~10~RET~C~-~c~SPC~i~10~RET~y~10~RET}{sleep 1}{return}
-
-  However, the new index only contains a single line ! So lets add nodes,
-  simply by pressing "C-c i a" on each of our headlines. Nodes are
-  referenced by their IDs, so each node gains a property-drawer with
-  its ID. Note also, how the index table grows.
-
-{recenter 5}{mark}{search * one two}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * one three}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * two three}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{search * one four}{kbd C-a C-c i a~4~RET TAB}{sleep 0.3}{return}{sleep 1}
-
-  Now our index contains 5 lines, one for each node added. Please
-  mark, that we had to add nodes to the index manually; thats
-  intended, because the index should contain only the nodes we choose.
+  Now our index contains 5 lines, one for each node added. Please mark, that we had to add nodes
+  to the index manually; thats intended, because the index should contain only the nodes we
+  choose.
 
   Having a closer look at the index table we observe:
 
-  - The column keywords contains the headline of each node added.
-  - There is a column "count", which currently contains 1 for all
-    lines. The index table is sorted by this column.
-  - Finally there is a column id, which contains the id of all the
-    nodes added and allows to access them quickly. However, currently
-    this column is hidden beyond the edge of this window.
+  - The column 'keywords' contains the headline of each node added.
+  - There is a column 'count', which currently contains 1 for all lines. The index table is
+    sorted by this column.
+  - Finally there is a column id, which contains the ids of all the nodes added and allows to
+    access them quickly. However, currently this column is hidden beyond the edge of this
+    window.
     
-  {recenter 5}With a populated index we may start to search: Let us assume, that
-  among your nodes it has become difficult to find the right one.
-  However, you remember that its heading contained the strings "one"
-  and "two".
+  {recenter 5}With a populated index we may start to search: Let us assume, that among your
+  nodes it has become difficult to find the right one.  However, you remember that its heading
+  contained the strings 'one' and 'two'.
   
-  We will search by invoking the occur command of org-index. It will
-  ask for keywords and incrementally narrow the set of matching lines
-  as we type.  We start the search by typing "C-c i o" and then our
-  search words. Initially all lines are shown, and the line "one two"
-  appears last; but then with every keystroke fewer and fewer lines are
-  displayed until we choose the right one ... {sleep 0.5}{dosleep}{kbd C-c i o~3~RET n~3~RET e~3~RET SPC~3~RET t~6~RET~< d o w n >~~~RET~8~RET~6~<down>~<down>~RET~RET~RET~<up>~<up>~SPC~SPC,H,e,r,e,SPC,w,e,SPC,l,a,n,d,e,d,.~~~}done.{sleep 1} 
+  We will search by invoking the occur command of org-index. It will ask for keywords and
+  incrementally narrow the set of matching lines as we type.  We start the search by typing 
+  `C-c i o' and then our search words. Initially all lines are shown, and the line 'one two' appears
+  last; but then with every keystroke fewer and fewer lines are displayed until we choose the
+  right one ...{sleep 0.5}{kbd C-c i o~3~RET n~3~RET e~3~RET SPC~3~RET t~6~RET~< d o w n >~~~RET~8~RET~6~<down>~<down>~RET~RET~RET~<up>~<up>~SPC~SPC,H,e,r,e,SPC,w,e,SPC,l,a,n,d,e,d,.~~~}done.{sleep 1} 
 
-  And after searching we landed at the desired node ("one two") by 
-  hitting RET.
+  And after searching we landed at the desired node ('one two') by hitting RET.
 
-  Thats how to navigate to a node with the help of our index.{sleep 0.5}
+  That's how to navigate to a node with the help of our index.{sleep 0.5}
 
-  {recenter 5}Now have another look at our index table: The index line for our last
-  search ("one two") now appears first within the index table as its
-  count is now 2; it has been incremented automatically when we hit
-  RET to end the last search.
+  {recenter 5}Now have another look at our index table: The index line for our last search ('one two') 
+  now appears first within the index table as its count is now 2; it has been incremented
+  automatically when we hit RET to end the last search.
 
-  Just watch another search for the node "one two"; this time the
-  desired line already appears first in the index. So we only need to
-  hit RET, which increments its count to 3 ... {dosleep}{sleep 0.5}{kbd C-c i o~3~RET~~~RET~<down>~<down>~<down>~RET~<up>~SPC~SPC,H,e,r,e,SPC,a,g,a,i,n,.~~~}done.{sleep 1}
+  Just watch another search for the node 'one two'; this time the desired line already appears
+  first in the index. So we only need to hit RET, which increments its count to 3 ...{sleep 0.5}{kbd C-c i o~3~RET~~~RET~<down>~<down>~<down>~RET~<up>~SPC~SPC,H,e,r,e,SPC,a,g,a,i,n,.~~~}done.{sleep 1}
 
-{dosleep}  So now, we have seen the main features of org-index: How to
-  add nodes to the index and how to search. But of course org-index
-  has more commands: Most notable to remove lines from the index and to
-  edit their content.{sleep 0.5}
+  So now, we have seen the main features of org-index: How to add nodes to the index and how to
+  search. But of course org-index has more commands: Most notably to remove lines from the index
+  and to edit their content.{sleep 0.5}
 
   Finally, the index may contain more than just IDs of org nodes:
 
-  - References, which are small numbers, that can be used outside of
-    org. In our example references look like this: --1--
+  - References, which are small numbers, that can be used outside of org. In our example
+    references look like this: --1--
   - Yanks, just short pieces of text, that are copied to the clipboard
 
+  Please see the built-in help for these and other more advanced features.
 
-  {recenter 12}I hope, this is enough to start using org-index. If you
-  encounter any problems, feel free to send me a mail:
+  {recenter 12}For questions, problems or feature requests please send me a mail to:
 
     org-index@2484.de
     
   Best regards
   Marc
 
+
 ---
+
+This screencast has been produced with Version {version} of org-index.
+This screencast is fully scripted and has been recorded without human intervention.

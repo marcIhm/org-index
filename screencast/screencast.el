@@ -75,10 +75,11 @@
 
   (ignore-errors
     (with-current-buffer "demo.org"
-      (save-buffer)
+      (setq buffer-file-name nil)
       (kill-buffer)))
   (find-file "~/org-index/screencast/demo.org")
   (with-current-buffer "demo.org"
+    (setq buffer-file-name nil)
     (erase-buffer)))
 
 
@@ -100,6 +101,7 @@
   (setq redisplay-preemption-period 0)
   (let ((frombuf (get-buffer "screencast.org"))
         (tobuf (get-buffer "demo.org"))
+	(inhibit-quit t)
 	atmax char as-string
         last-as-string within at-period to-point to-point-stored recenter-pt recenter-long)
 
@@ -118,6 +120,9 @@
 
     (while (not atmax)
       (setq to-point (point))
+      (when quit-flag
+	(setq quit-flag nil)
+	(if (y-or-n-p "Terminate execution ? ") (keyboard-quit)))
       (with-current-buffer frombuf
         (setq at-period (and (looking-at "\\. ")
                              (not (string= last-as-string "."))))
