@@ -3338,10 +3338,9 @@ Optional argument ARG, when given does not limit number of lines shown."
             (progn
               (setq key-sequence
                     (let ((echo-keystrokes 0)
-                          (full-prompt (format "%s%s%s"
+                          (full-prompt (format "%s%s"
                                                prompt
-                                               oidx--occur-search-text
-                                               (if (string= oidx--occur-search-text "") "" " "))))
+                                               oidx--occur-search-text)))
                       (read-key-sequence full-prompt nil nil t t)))
               (setq key (key-description key-sequence))
               (setq key-sequence-raw (this-single-command-raw-keys)))

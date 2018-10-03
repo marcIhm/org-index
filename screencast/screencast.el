@@ -28,6 +28,9 @@
   "Modified version of read-key-sequence, recurring to read-from-minibuffer."
   (let (char)
     (setq char (read-from-minibuffer (or prompt "")))
+    (if (and (> (length char) 5)
+	     (not (numberp (compare-strings "C-c i" 0 5 char 0 5))))
+	(setq char (substring char 5)))
     (if (string= char " ")
         " "
       (kbd char))))
@@ -75,11 +78,11 @@
 
   (ignore-errors
     (with-current-buffer "demo.org"
-      (setq buffer-file-name nil)
+      (save-current-buffer)
       (kill-buffer)))
   (find-file "~/org-index/screencast/demo.org")
   (with-current-buffer "demo.org"
-    (setq buffer-file-name nil)
+    (save-current-buffer)
     (erase-buffer)))
 
 
@@ -105,6 +108,7 @@
 	atmax char as-string
         last-as-string within at-period to-point to-point-stored recenter-pt recenter-long)
 
+    (message "")
     (with-current-buffer frombuf
       (goto-char 0))
 
@@ -122,7 +126,10 @@
       (setq to-point (point))
       (when quit-flag
 	(setq quit-flag nil)
-	(if (y-or-n-p "Terminate execution ? ") (keyboard-quit)))
+	(when (y-or-n-p "Terminate execution ? ")
+	  (with-current-buffer tobuf
+	    (save-current-buffer))
+	  (keyboard-quit)))
       (with-current-buffer frombuf
         (setq at-period (and (looking-at "\\. ")
                              (not (string= last-as-string "."))))
@@ -154,7 +161,8 @@
                     (my-sleep 0.1)
                     (forward-line)
                     (while (invisible-p (point))
-                      (forward-line)))))
+                      (forward-line)))
+		  (beginning-of-line)))
                ((string= cmd "sleepscale")
                 (setq sleepscale (string-to-number txt)))
                ((string= cmd "recenter")
@@ -172,7 +180,8 @@
 		    (delete-char -1)
 		    (my-sleep (* sleepscale 0.002))))))
 	       ((string= cmd "version")
-		(insert org-index-version))
+		(with-current-buffer "demo.org"
+		  (insert org-index-version)))
                ((string= cmd "start")
                 (setq within t))
                ((string= cmd "kbd")
@@ -219,4 +228,7 @@
                ((string= as-string ",") 0.03)
                ((string= as-string ";") 0.04)
                ((string= as-string ":") 0.05)
-               (t 0))))))))
+               (t 0))))))
+    (with-current-buffer tobuf
+      (save-current-buffer)))
+  (save-buffers-kill-emacs))
