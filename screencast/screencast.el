@@ -104,6 +104,7 @@
   (setq redisplay-preemption-period 0)
   (let ((frombuf (get-buffer "screencast.org"))
         (tobuf (get-buffer "demo.org"))
+	(inhibit-read-only t)
 	(inhibit-quit t)
 	atmax char as-string
         last-as-string within at-period to-point to-point-stored recenter-pt recenter-long)
@@ -114,8 +115,7 @@
 
     (with-current-buffer tobuf
       (goto-char 0)
-      (let ((inhibit-read-only t))
-        (erase-buffer))
+      (erase-buffer)
       (setq-local cursor-type 'box))
 
     (pop-to-buffer-same-window tobuf)
@@ -127,8 +127,6 @@
       (when quit-flag
 	(setq quit-flag nil)
 	(when (y-or-n-p "Terminate execution ? ")
-	  (with-current-buffer tobuf
-	    (save-current-buffer))
 	  (keyboard-quit)))
       (with-current-buffer frombuf
         (setq at-period (and (looking-at "\\. ")
@@ -138,21 +136,21 @@
             (let ((cmd (match-string 1))
                   (txt (match-string 2))
                   (total (length (match-string 0))))
-              (cond
-               ((string= (substring cmd 0 1) "#"))
-               ((string= cmd "mark")
+	      (cond
+	       ((string= (substring cmd 0 1) "#"))
+	       ((string= cmd "mark")
                 (setq to-point-stored to-point))
-               ((string= cmd "return")
+	       ((string= cmd "return")
                 (with-current-buffer tobuf
                   (if to-point-stored (goto-char to-point-stored)))
                 (setq to-point-stored nil))
-               ((string= cmd "sleep")
+	       ((string= cmd "sleep")
                 (my-sleep (string-to-number txt)))
-               ((string= cmd "pause")
+	       ((string= cmd "pause")
                 (read-string "Paused, press RET to continue ... "))
-               ((string= cmd "nosleep")
+	       ((string= cmd "nosleep")
                 (setq nosleep t))
-               ((string= cmd "dosleep")
+	       ((string= cmd "dosleep")
                 (setq nosleep nil))
 	       ((string= cmd "search")
                 (with-current-buffer tobuf
@@ -161,38 +159,41 @@
                     (my-sleep 0.1)
                     (forward-line)
                     (while (invisible-p (point))
-                      (forward-line)))
+		      (forward-line)))
 		  (beginning-of-line)))
-               ((string= cmd "sleepscale")
+	       ((string= cmd "sleepscale")
                 (setq sleepscale (string-to-number txt)))
-               ((string= cmd "recenter")
-		(let ((sleepscale 2))
-                (with-current-buffer "demo.org"
-                  (select-window (get-buffer-window))
-		  (setq recenter-long (< (string-to-number txt) 0))
-		  (setq recenter-pt (point))
-		  (insert (if recenter-long " (just let me recenter ... " " (recenter)"))
-		  (my-sleep (* sleepscale (if recenter-long 0.2 0.1)))
-                  (recenter-orig (abs (string-to-number txt)))
-		  (if recenter-long (insert "done)"))
-		  (my-sleep (* sleepscale (if recenter-long 0.2 0.1)))
-		  (while (> (point) recenter-pt)
-		    (delete-char -1)
-		    (my-sleep (* sleepscale 0.002))))))
+	       ((string= cmd "recenter")
+		(let (text outchar)
+                  (with-current-buffer "demo.org"
+                    (select-window (get-buffer-window))
+		    (setq recenter-long (< (string-to-number txt) 0))
+		    (setq recenter-pt (point))
+		    (setq text (if recenter-long "(just let me scroll ... " "(scrolling)"))
+		    (my-sleep (* sleepscale (if recenter-long 0.4 0.2)))
+		    (setq outchar (lambda (x) (insert x) (my-sleep (* sleepscale 0.01))))
+		    (mapc outchar text)
+		    (my-sleep (* sleepscale (if recenter-long 0.2 0.1)))
+                    (recenter-orig (abs (string-to-number txt)))
+		    (if recenter-long (mapc outchar "done)"))
+		    (my-sleep (* sleepscale (if recenter-long 0.2 0.1)))
+		    (while (> (point) recenter-pt)
+		      (delete-char -1)
+		      (my-sleep (* sleepscale 0.01))))))
 	       ((string= cmd "version")
 		(with-current-buffer "demo.org"
 		  (insert org-index-version)))
-               ((string= cmd "start")
+	       ((string= cmd "start")
                 (setq within t))
-               ((string= cmd "kbd")
+	       ((string= cmd "kbd")
                 (setq txt (replace-regexp-in-string
                            "\\(~[0-9]+~\\)"
                            (lambda (x)
                              (concat
-                              " C-u "
-                              (apply 'concat
+			      " C-u "
+			      (apply 'concat
                                      (cdr (butlast (mapcar (lambda (x) (concat (char-to-string x) " ")) x))))
-                              "<f6> "))
+			      "<f6> "))
                            txt))
                 
                 (setq txt (replace-regexp-in-string "~" " <f6> " txt))
@@ -205,9 +206,9 @@
 		  (let ((inhibit-message t))
 		    (message "kbd %s" txt))
                   (goto-char to-point)))
-               (t
+	       (t
                 (error "Unkown command: %s" cmd)))
-              (forward-char total))
+	      (forward-char total))
           (setq char (char-after))
           (setq atmax (>= (point) (point-max)))
           (unless atmax (forward-char))))
@@ -222,13 +223,11 @@
       (if within
           (my-sleep
            (+ 0.02
-              (cond 
-               (at-period 0.06)
-               ((string= as-string "!") 0.2)
-               ((string= as-string ",") 0.03)
-               ((string= as-string ";") 0.04)
-               ((string= as-string ":") 0.05)
-               (t 0))))))
-    (with-current-buffer tobuf
-      (save-current-buffer)))
-  (save-buffers-kill-emacs))
+	      (cond 
+	       (at-period 0.06)
+	       ((string= as-string "!") 0.2)
+	       ((string= as-string ",") 0.03)
+	       ((string= as-string ";") 0.04)
+	       ((string= as-string ":") 0.05)
+	       (t 0)))))))
+  (save-buffers-kill-emacs t))

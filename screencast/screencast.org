@@ -2,16 +2,9 @@
 ;; fill-column: 96
 ;; End:
 
-https://obsproject.com/forum/resources/how-to-convert-flvs-to-mp4-fast-without-re-encoding.78/
-C:\Users\Marc-Oliver\Desktop\FLV Extract
+{start}{#nosleep}
 
-(frame-pixel-height)
-(frame-pixel-width)
-
----
-{start}{nosleep}
-
-  Welcome to this minimal demo of org-index {sleepscale 2}{sleep 0.2}!{sleep 1}
+  Welcome to this minimal demo of org-index {sleepscale 2}{sleep 0.2}!{sleep 0.5}
 
   Let us assume, that you have a lot of nodes in org and sometimes problems to find 
   the right one.{sleep 0.6}
@@ -20,35 +13,35 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
   that, some books contain an Index: A sorted list of keywords, where each keyword links to a
   specific location (i.e. page) in the book. 
   
-  org-index is like that, but in addition, it learns from your habits, by presenting the most
-  frequently used entries first.
-  That way it is a personal adaptive index for your content.{sleep 1}
-
+  In much the same way org-index is an index for your content in orgmode.  And in addition it
+  learns from your habits by presenting the most frequently used entries first.
+  
   org-index comes as a package of its own and can be installed from melpa. 
   It has a handful of customizations. Maybe most important is the global prefix key `C-c i' for
   the central interactive function `org-index'.  This key-binding `C-c i' is assumed for the
   rest of this screencast.
 
-  Next, to start using org-index, we need some nodes. Probably you already have hundreds of them
-  (or org-index might not make much sense for you anyway), but for this screencast, we only need
-  a handful; lets create them ... {mark}
+  Next, to start using org-index, we need some nodes. Probably you already have hundreds of
+  them, but for this screencast we only need a handful; lets create them ... {mark}
 
 * one two
 * one three
 * two three
 * one four
 
-  {return}done.
+  {return}done.{dosleep}
 
   Now, when you invoke org-index for the first time it will ask you some questions and create
-  your index.{recenter -4}
+  your index within a node of its own. {recenter -4}
   {sleep 1}{kbd M-x~o~r~g~-~i~n~d~e~x~RET~c~r~e~a~t~e~-~i~n~d~e~x~10~RET~10~d~e~m~o~.~o~r~g~10~RET~I~n~d~e~x~10~RET~-~-~\1~-~-~10~RET~y~10~RET~y~10~RET~C~-~c~SPC~i~10~RET~y~10~RET}{sleep 1}{return}
-  Done ! Your index has been created and is now visible just at the bottom of this window.{sleep 1}
+  Done ! Your index has been created and is now visible as a separate node with the 
+  heading '--1-- Index' just at the bottom of this window.{sleep 1}
+
   However, the new index only contains a single line ... So lets add nodes, simply by pressing
   `C-c i a' on each of our headlines. Nodes are referenced by their IDs, so each node gains a
   property-drawer with its ID. Note also, how the index table grows by one line for each 
   node added.{sleep 1}{recenter 5}
-  {mark}{search * one two}{sleep 0.2}{kbd C-c i C - c~SPC~i~SPC~a~4~RET~5~TAB}{sleep 0.5}{search * one three}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{search * two three}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{search * one four}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{return}{sleep 1}
+  {mark}{search * one two}{sleep 0.4}{kbd C-c i C - c~SPC~i~SPC~a~4~RET~5~TAB}{sleep 0.5}{search * one three}{sleep 0.3}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{search * two three}{sleep 0.3}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{search * one four}{sleep 0.3}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{return}{sleep 1}
   Now our index contains 5 lines. We had to add each node to the index manually, but this is
   intended, because the index should contain only the nodes we choose.
 
@@ -81,7 +74,7 @@ C:\Users\Marc-Oliver\Desktop\FLV Extract
   Just watch another search for the node 'one two'; this time the desired line already appears
   first in the index.  So we only need to hit RET, which increments its count to 3 ... {sleep 0.5}{kbd C-c i C - c~SPC~i~SPC~o~4~RET~~~8~RET~<down>~<down>~<down>~RET~<up>~SPC~SPC,H,e,r,e,SPC,a,g,a,i,n,.~~~}done.{sleep 1}
 
-  So now, we have seen the main features of org-index: How to add nodes to the index and how to
+  With this, we have seen the main features of org-index: How to add nodes to the index and how to
   search. But of course org-index has more commands: Most notably to remove lines from the index
   and to edit their content.{sleep 0.5}
 
@@ -110,3 +103,4 @@ This screencast is fully scripted and has been recorded without human interventi
 
 
 {return}
+{sleep 5}

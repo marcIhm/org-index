@@ -30,7 +30,7 @@
  '(c-basic-offset 4)
  '(diff-switches "-u")
  '(menu-bar-mode nil)
- '(org-index-id "b2e3bb96-e2e9-42a6-88ff-a50fddeff895")
+ '(org-index-id "d165348e-0874-4ec3-a6c5-a813ffd51fab")
  '(org-index-key "i"))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
