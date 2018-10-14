@@ -1,0 +1,14 @@
+
+To record and upload the screencast:
+
+- rm org-index.cast ; asciinema rec org-index.cast -c ./screencast.sh
+- With the resulting org-index.cast
+  - Remove the line containing: "\u001b[>4;1m" (prevents underscores)
+  - Or: Remove from first appearance of status line "(Fundamental)"
+    (remove this line) up "\u001b[H" (keep this line) just before status line "demo.org"
+  - Remove tail according to timestamp
+- Cut of start-time:
+#+BEGIN_SRC 
+  ruby -i -n -e 'if $_=~/^\[([0-9.]+)(.+)$/ then t=$1.to_f; if t>0.5 then t=t-2 end; puts "[" + t.to_s + $2 else puts $_.chomp end' org-index.cast
+#+END_SRC
+- asciinema upload org-index.cast
