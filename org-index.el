@@ -1430,30 +1430,6 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
       (oidx--go-below-hline))))
 
 
-(defun oidx--verify-ids ()
-  "Check, that ids really point to a node."
-  
-  (let ((marker t) id)
-    
-    (goto-char oidx--below-hline)
-    
-    (while (and marker (org-at-table-p))
-      
-      (when (setq id (oidx--get-or-set-field 'id))
-        
-        ;; check, if id is valid
-        (setq marker (org-id-find id t)))
-
-      (when marker (forward-line)))
-    
-    (if marker
-        (progn
-          (goto-char oidx--below-hline)
-          "All ids of index are valid")
-      (org-table-goto-column 1)
-      "The id of this row cannot be found; please fix and check again for rest of index")))
-
-
 
 ;; Edit, add or kill lines
 (defun oidx--do-edit ()
@@ -2448,11 +2424,15 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 (defun oidx--find-duplicates-helper (column)
   "Helper for `oidx--find-duplicates': Go through table and count given COLUMN."
-  (let (counts duplicates field found)
+  (let (counts duplicates field found (clines 0) preporter)
 
     ;; go through table
     (goto-char oidx--below-hline)
+    (setq preporter (make-progress-reporter (format "Collecting values for column %s from index-table..." column) 1 (oidx--count-lines-table)))
     (while (org-at-table-p)
+
+      (cl-incf clines)
+      (progress-reporter-update preporter clines)
 
       ;; get column
       (setq field (oidx--get-or-set-field column))
@@ -2468,18 +2448,24 @@ Optional argument NO-INC skips automatic increment on maxref."
     (mapc (lambda (x) (if (and (> (cdr x) 1)
                                (car x))
                           (setq duplicates (cons (car x) duplicates)))) counts)
+
+    (progress-reporter-done preporter)
     
     duplicates))
 
 
 (defun oidx--check-maximum ()
   "Check maximum reference."
-  (let (ref-field ref-num (max 0) (max-prop))
+  (let (ref-field ref-num (max 0) (max-prop) (clines 0) preporter)
 
     (goto-char oidx--below-hline)
+    (setq preporter (make-progress-reporter "Finding maximum value in index-table..." 1 (oidx--count-lines-table)))
     (setq max-prop (oidx--extract-refnum (org-entry-get oidx--point "max-ref")))
 
     (while (org-at-table-p)
+
+      (cl-incf clines)
+      (progress-reporter-update preporter clines)
 
       (setq ref-field (oidx--get-or-set-field 'ref))
       (setq ref-num (if ref-field (oidx--extract-refnum ref-field) 0))
@@ -2488,6 +2474,8 @@ Optional argument NO-INC skips automatic increment on maxref."
 
       (forward-line))
 
+    (progress-reporter-done preporter)
+    
     (goto-char oidx--below-hline)
     
     (cond ((< max-prop max)
@@ -2495,6 +2483,45 @@ Optional argument NO-INC skips automatic increment on maxref."
           ((> max-prop max)
            (format  "Maximum ref from property max-ref (%d) is larger than maximum ref from table (%d); you may correct this" max-prop max))
           (t (format "Maximum ref from property max-ref and maximum ref from table are equal (%d); as expected" max-prop)))))
+
+
+(defun oidx--verify-ids ()
+  "Check, that ids really point to a node."
+  
+  (let ((marker t)
+        (clines 0)
+        preporter
+        id)
+    
+    (goto-char oidx--below-hline)
+    (setq preporter (make-progress-reporter "Verifying each id in index-table..." 1 (oidx--count-lines-table)))
+    
+    (while (and marker (org-at-table-p))
+
+      (cl-incf clines)
+      (progress-reporter-update preporter clines)
+      (when (setq id (oidx--get-or-set-field 'id))
+        
+        ;; check, if id is valid
+        (setq marker (org-id-find id t)))
+
+      (when marker (forward-line)))
+
+    (progress-reporter-done preporter)
+    
+    (if marker
+        (progn
+          (goto-char oidx--below-hline)
+          "All ids of index are valid")
+      (org-table-goto-column 1)
+      "The id of this row cannot be found; please fix and check again for rest of index")))
+
+
+(defun oidx--count-lines-table ()
+  "Count the number of lines in index table, assuming we are already below hline."
+  (-
+   (line-number-at-pos (org-table-end))
+   (line-number-at-pos)))
 
 
 (defun oidx--do-statistics ()
