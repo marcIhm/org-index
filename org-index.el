@@ -3467,7 +3467,8 @@ Optional argument ARG, when given does not limit number of lines shown."
     (if (string= key "C-g")
         (progn (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
                (keyboard-quit))
-      (setq unread-command-events (listify-key-sequence key-sequence-raw))
+      (unless (string= key "<escape>")
+        (setq unread-command-events (listify-key-sequence key-sequence-raw)))
       (message key))
     
     (oidx--occur-make-permanent lines-wanted end-of-table)
@@ -3610,7 +3611,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--occur-search-text
-                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count.\n" oidx--usage-note "\n")
+                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count, `c' clocks in, `e' edits and `i' jumps into index; they all work with the prefix `M-' too.\n" oidx--usage-note "\n")
                (length all-lines))
               'face 'org-agenda-dimmed-todo-face))
             oidx--headings)))
@@ -3655,26 +3656,47 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (set-keymap-parent keymap org-mode-map)
     
     (mapc (lambda (x) (define-key keymap (kbd x)
-                        (lambda () (interactive)
-                          (message "%s" (oidx--occur-action)))))
+                   (lambda () (interactive)
+                     (message "%s" (oidx--occur-action)))))
           (list "<return>" "RET"))
     
     (define-key keymap (kbd "<tab>")
       (lambda () (interactive)
         (message (oidx--occur-action t))))
-    
-    (define-key keymap (kbd "e")
-      (lambda () (interactive)
-        (message (oidx--do 'edit))))
+
+    (mapc (lambda (x)
+            (define-key keymap (kbd x)
+              (lambda () (interactive)
+                (message (oidx--do 'edit)))))
+          (list "M-e" "e"))
+
+    (mapc (lambda (x)
+            (define-key keymap (kbd x)
+              (lambda () (interactive)
+                (org-id-goto (oidx--get-or-set-field 'id))
+                (org-with-limited-levels (org-clock-in))
+                (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
+                (message "Clocked into node and rturned to initial position."))))
+          (list "M-c" "c"))
+
+    (mapc (lambda (x)
+            (define-key keymap (kbd x)
+              (lambda () (interactive)
+                (let ((id (oidx--get-or-set-field 'id)))
+                  (switch-to-buffer oidx--buffer)
+                  (oidx--go 'id id)
+                  (beginning-of-line))
+                (message "Jumped to line in index."))))
+          (list "M-i" "i"))
     
     (define-key keymap (kbd "SPC")
       (lambda () (interactive)
         (oidx--refresh-parse-table)
         ;; increment in index
-        (let ((ref (oidx--get-or-set-field 'ref))
+        (let ((id (oidx--get-or-set-field 'id))
               count)
           (oidx--on
-              'ref ref
+              'id id
             (setq count (+ 1 (string-to-number (oidx--get-or-set-field 'count))))
             (oidx--get-or-set-field 'count (number-to-string count))
             (oidx--promote-current-line)
