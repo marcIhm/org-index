@@ -3003,8 +3003,8 @@ Optional argument SILENT does not issue final message."
              ;; Clean up overlay
              (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
              (setq oidx--ws-overlay nil)
-             (if (and  org-index-clock-into-working-set
-                       (not oidx--ws-circle-bail-out))
+             (if (and org-index-clock-into-working-set
+                      (not oidx--ws-circle-bail-out))
                  (let (keys)
                    ;; save and repeat terminating key, because org-clock-in might read interactively
                    (if (input-pending-p) (setq keys (read-key-sequence nil)))
@@ -3315,8 +3315,6 @@ Optional argument ID gives the node to delete."
 
 ;; Variable and Functions for occur; most of them share state
 ;; between the functions of the occur-family of functions
-(defconst oidx--usage-note " NOTE: If you invoke the subcommands edit (`e') or kill (`C-c i k')
-from within this buffer, the index is updated accordingly" "Note on usage in occur buffer.")
 (defvar oidx--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
 (defvar oidx--occur-help-overlay nil "Overlay for help in occur buffer.")
 (defvar oidx--occur-stack nil "Stack with overlays for hiding lines.")
@@ -3513,9 +3511,7 @@ Only collect LINES-WANTED lines."
             (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
            (concat
             (propertize
-             (oidx--wrap
-              (concat
-               "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word; <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index; all other keys end search." oidx--usage-note "\n"))
+             (oidx--wrap "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word. All other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
              'face 'org-agenda-dimmed-todo-face)
             oidx--headings)))
     
@@ -3611,7 +3607,8 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--occur-search-text
-                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count, `c' clocks in, `e' edits and `i' jumps into index; they all work with the prefix `M-' too.\n" oidx--usage-note "\n")
+                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count, `c' clocks in, `e' edits and `i' jumps into index; they all work with the prefix `M-' too.\nNOTE: If you invoke the org-index subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly."
+                       "\n")
                (length all-lines))
               'face 'org-agenda-dimmed-todo-face))
             oidx--headings)))
