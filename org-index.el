@@ -3462,10 +3462,10 @@ Optional argument ARG, when given does not limit number of lines shown."
     (setq oidx--occur-words (cons word words))
 
     ;; put back input event, that caused the loop to end
-    (if (string= key "C-g")
+    (if (string= key "<escape>")
         (progn (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
                (keyboard-quit))
-      (unless (string= key "<escape>")
+      (unless (string= key "C-g")
         (setq unread-command-events (listify-key-sequence key-sequence-raw)))
       (message key))
     
@@ -3511,7 +3511,7 @@ Only collect LINES-WANTED lines."
             (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
            (concat
             (propertize
-             (oidx--wrap "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word. All other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
+             (oidx--wrap "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word, `C-g' ends search. All other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
              'face 'org-agenda-dimmed-todo-face)
             oidx--headings)))
     
@@ -3607,7 +3607,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--occur-search-text
-                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count, `c' clocks in, `e' edits and `i' jumps into index; they all work with the prefix `M-' too.\nNOTE: If you invoke the org-index subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly."
+                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count, <escape> aborts, `c' clocks in, `e' edits and `i' jumps into index; they all work with the prefix `M-' too.\nNOTE: If you invoke the org-index subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly."
                        "\n")
                (length all-lines))
               'face 'org-agenda-dimmed-todo-face))
@@ -3660,6 +3660,11 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (define-key keymap (kbd "<tab>")
       (lambda () (interactive)
         (message (oidx--occur-action t))))
+
+    (define-key keymap (kbd "<escape>")
+      (lambda () (interactive)
+        (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
+        (message "Back to initial state.")))
 
     (mapc (lambda (x)
             (define-key keymap (kbd x)
