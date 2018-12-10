@@ -600,7 +600,7 @@ interactive calls."
         (unless search-ref
           (if oidx--within-index-node
 
-              (if (org-at-table-p)
+              (if (org-match-line org-table-line-regexp)
                   (setq search-ref (oidx--get-or-set-field 'ref)))
             
             (if (and oidx--below-cursor
@@ -617,7 +617,7 @@ interactive calls."
                 (setq search-fingerprint (cl-third r)))
             (unless (and (eq command 'head)
                          oidx--within-index-node
-                         (org-at-table-p))
+                         (org-match-line org-table-line-regexp))
               (setq search-ref (read-from-minibuffer "Search reference number: ")))))
 
         ;; Clean up search string
@@ -631,7 +631,7 @@ interactive calls."
                  (not (eq command 'index))
                  (not (and (eq command 'head)
                            oidx--within-index-node
-                           (org-at-table-p))))
+                           (org-match-line org-table-line-regexp))))
             (error "Command %s needs a reference number" command)))
 
       
@@ -758,7 +758,7 @@ interactive calls."
        ((eq command 'head)
 
         (if (and oidx--within-index-node
-                 (org-at-table-p))
+                 (org-match-line org-table-line-regexp))
             (setq search-id (oidx--get-or-set-field 'id)))
         
         (if (and (not search-id) search-ref)
@@ -882,7 +882,7 @@ interactive calls."
        ((eq command 'column)
 
         (if (and oidx--within-index-node
-                 (org-at-table-p))
+                 (org-match-line org-table-line-regexp))
             (let ((char-choices (list ?r ?k ?c ?y))
                   char col num)
               (setq char (read-char-choice "Please specify, which column to go to (r=ref, k=keywords, c=category, y=yank): " char-choices))
@@ -1742,7 +1742,7 @@ CREATE-REF and TAG-WITH-REF if given."
     (if oidx--within-index-node
 
         (progn
-          (unless (org-at-table-p)
+          (unless (org-match-line org-table-line-regexp)
             (error "Within index node but not on table"))
 
           (setq id (oidx--get-or-set-field 'id))
@@ -1864,7 +1864,7 @@ CREATE-REF and TAG-WITH-REF if given."
           (set-buffer oidx--occur-buffer-name)
           (delete-region (line-beginning-position) (line-beginning-position 2))
           ;; correct positions
-          (while (org-at-table-p)
+          (while (org-match-line org-table-line-regexp)
             (put-text-property (line-beginning-position) (line-end-position) 'org-index-lbp
                                (- (get-text-property (point) 'org-index-lbp) chars-deleted-index))
             (forward-line))
@@ -2144,7 +2144,7 @@ Optional argument NO-ERROR suppresses error."
     (setq end (line-beginning-position 2))
 
     (forward-line -1)
-    (while (and (org-at-table-p)
+    (while (and (org-match-line org-table-line-regexp)
                 (not (org-at-table-hline-p))
                 (string< (oidx--get-sort-key) key))
 
@@ -2193,23 +2193,23 @@ Optional argument NO-ERROR suppresses error."
     (forward-line 1)
 
     ;; go to first table, but make sure we do not get into another node
-    (while (and (not (org-at-table-p))
+    (while (and (not (org-match-line org-table-line-regexp))
                 (not (org-at-heading-p))
                 (not (eobp)))
       (forward-line))
 
     ;; check, if there really is a table
-    (unless (org-at-table-p)
+    (unless (org-match-line org-table-line-regexp)
       (oidx--create-missing-index "Cannot find %s." errstring))
 
     ;; go just after hline
     (while (and (not (org-at-table-hline-p))
-                (org-at-table-p))
+                (org-match-line org-table-line-regexp))
       (forward-line))
     (forward-line)
 
     ;; and check
-    (unless (org-at-table-p)
+    (unless (org-match-line org-table-line-regexp)
       (oidx--report-index-error "Cannot find a hline within %s" errstring))
 
     (org-table-goto-column 1)
@@ -2429,7 +2429,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     ;; go through table
     (goto-char oidx--below-hline)
     (setq preporter (make-progress-reporter (format "Collecting values for column %s from index-table..." column) 1 (oidx--count-lines-table)))
-    (while (org-at-table-p)
+    (while (org-match-line org-table-line-regexp)
 
       (cl-incf clines)
       (progress-reporter-update preporter clines)
@@ -2462,7 +2462,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (setq preporter (make-progress-reporter "Finding maximum value in index-table..." 1 (oidx--count-lines-table)))
     (setq max-prop (oidx--extract-refnum (org-entry-get oidx--point "max-ref")))
 
-    (while (org-at-table-p)
+    (while (org-match-line org-table-line-regexp)
 
       (cl-incf clines)
       (progress-reporter-update preporter clines)
@@ -2496,7 +2496,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (goto-char oidx--below-hline)
     (setq preporter (make-progress-reporter "Verifying each id in index-table..." 1 (oidx--count-lines-table)))
     
-    (while (and marker (org-at-table-p))
+    (while (and marker (org-match-line org-table-line-regexp))
 
       (cl-incf clines)
       (progress-reporter-update preporter clines)
@@ -2531,7 +2531,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
     ;; go through table
     (goto-char oidx--below-hline)
-    (while (org-at-table-p)
+    (while (org-match-line org-table-line-regexp)
 
       ;; get ref
       (setq ref-field (oidx--get-or-set-field 'ref))
@@ -2568,7 +2568,7 @@ Optional argument NO-INC skips automatic increment on maxref."
   (let ((max-ref-num 0)
         ref-field ref-num)
     (message "One-time migration to set index-property maxref...")
-    (while (org-at-table-p)
+    (while (org-match-line org-table-line-regexp)
       (setq ref-field (oidx--get-or-set-field 'ref))
       (when ref-field
         (unless oidx--head (oidx--get-decoration-from-ref-field ref-field))
@@ -2610,7 +2610,7 @@ Optional argument NO-INC skips automatic increment on maxref."
         id kvs)
     
     (goto-char oidx--below-hline)
-    (while (org-at-table-p)
+    (while (org-match-line org-table-line-regexp)
       
       ;; update single line
       (when (setq id (oidx--get-or-set-field 'id))
@@ -2791,7 +2791,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
       (setq buffer-save-without-query t)
       (basic-save-buffer)
 
-      (while (not (org-at-table-p)) (forward-line -1))
+      (while (not (org-match-line org-table-line-regexp)) (forward-line -1))
       (unless buffer-read-only (org-table-align))
       (while (not (org-at-heading-p)) (forward-line -1))
 
@@ -3583,7 +3583,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (when (fboundp 'font-lock-ensure)
       (font-lock-ensure))
     (when all-lines-lbp
-      (while (not (org-at-table-p))
+      (while (not (org-match-line org-table-line-regexp))
         (forward-line -1))
       (while all-lines-lbp
         (put-text-property (line-beginning-position) (line-end-position) 'org-index-lbp (car all-lines-lbp))
@@ -3634,7 +3634,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
 	(with-current-buffer oidx--buffer
 	  (save-excursion
             (goto-char oidx--below-hline)
-            (while (org-at-table-p)
+            (while (org-match-line org-table-line-regexp)
               (if (oidx--test-words oidx--occur-words) (cl-incf expected-matches))
               (forward-line 1))))
 	(setq assertion-text (format "Number of lines collected incrementally (%d) should be equal to number collected in one pass (%d)" lines-collected expected-matches))
@@ -3754,7 +3754,7 @@ To skip highlighted letters set KEEP-PLACES."
 
 (defun oidx--occur-action (&optional other)
   "Helper for `oidx--occur', find heading with ref or id; if OTHER, in other window; or copy yank column."
-  (if (org-at-table-p)
+  (if (org-match-line org-table-line-regexp)
       (let ((id (oidx--get-or-set-field 'id))
             (ref (oidx--get-or-set-field 'ref))
             (yank (oidx--get-or-set-field 'yank)))
