@@ -1585,7 +1585,7 @@ Optional argument KEYS-VALUES specifies content of new line."
   (with-current-buffer oidx--buffer
     (goto-char oidx--point)
 
-    ;; check arguments early; they might come from userland
+    ;; check arguments early, before we create anything
     (let ((kvs keys-values)
           k v)
       (while kvs
@@ -3326,6 +3326,7 @@ Optional argument ID gives the node to delete."
 (defvar oidx--occur-buffer nil "Buffer, where occur takes place.")
 (defvar oidx--occur-search-text nil "Description of text to search for.")
 (defvar oidx--occur-words nil "Final list of match words.")
+(defconst oidx--occur-more-lines-text "\n(more lines omitted)\n" "Note stating, that not all lines are display.")
 
 
 (defun oidx--do-occur (&optional arg)
@@ -3401,7 +3402,7 @@ Optional argument ARG, when given does not limit number of lines shown."
             (setq in-c-backspace nil))
 
           ;; free top list of overlays and remove list
-          (oidx--unhide)
+          (oidx--unhide lines-wanted)
 
           ;; make sure, point is still visible
           (goto-char oidx--occur-point-begin)))
@@ -3442,9 +3443,10 @@ Optional argument ARG, when given does not limit number of lines shown."
           (mapc (lambda (x) (delete-overlay (cl-first x)))
                 (cdr (assoc :overlays-with-borders (car oidx--occur-stack))))
 
-          ;; move overlay to cover untested rest of table
           (let ((last-visible (cdr (assoc :last-visible hide-frame))))
-            (move-overlay oidx--occur-tail-overlay (or last-visible oidx--occur-last-visible-initial) (point-max))))
+            ;; move overlay to cover untested rest of table
+            (move-overlay oidx--occur-tail-overlay (or last-visible oidx--occur-last-visible-initial) (point-max))
+            (oidx--occur-update-tail-text lines-wanted hide-frame)))
         
         (setq oidx--occur-stack (cons hide-frame oidx--occur-stack))
         
@@ -3453,7 +3455,6 @@ Optional argument ARG, when given does not limit number of lines shown."
         ;; make sure, point is on a visible line
         (line-move -1 t)
         (line-move 1 t))
-
 
        ;; anything else terminates input loop
        (t (setq done t))))
@@ -3527,6 +3528,8 @@ Only collect LINES-WANTED lines."
     (goto-char oidx--occur-point-begin)
     (overlay-put oidx--occur-tail-overlay 'invisible t)
 
+    (oidx--occur-update-tail-text lines-wanted)
+    
     end-of-table))
 
 
@@ -3574,7 +3577,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (save-excursion
       (apply 'insert (reverse all-lines))
       (if (= lines-collected lines-wanted)
-          (insert "\n(more lines omitted)\n")))
+          (insert oidx--occur-more-lines-text)))
     (setq oidx--occur-lines-collected lines-collected)
     
     (org-mode)
@@ -3740,6 +3743,18 @@ To skip highlighted letters set KEEP-PLACES."
               (cdr (assoc :highlights frame)))))))
 
 
+(defun oidx--occur-update-tail-text (lines-wanted &optional hide-frame)
+  "Update text displayed and end of list of matches."
+
+  (let ((lines-found (or (and hide-frame (cdr (assoc :last-visible hide-frame)))
+                         (save-excursion
+                           (goto-char oidx--occur-point-begin)
+                           (vertical-motion lines-wanted)))))
+
+    (overlay-put oidx--occur-tail-overlay 'display
+                 (if (> lines-wanted lines-found) "" oidx--occur-more-lines-text))))
+
+
 (defun oidx--occur-test-stale (pos)
   "Test, if current line in occur buffer has become stale at POS."
   (let (here there)
@@ -3849,10 +3864,11 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
     (and overlays-csced-wb
          (list (cons :overlays-with-borders overlays-csced-wb)
                (cons :last-visible last-visible)
-	       (cons :highlights all-places)))))
+	       (cons :highlights all-places)
+               (cons :lines-found lines-found)))))
 
 
-(defun oidx--unhide ()
+(defun oidx--unhide (lines-wanted)
   "Unhide text that has been hidden by `oidx--hide-with-overlays'."
   (when oidx--occur-stack
 
@@ -3874,7 +3890,8 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
 
     ;; move tail overlay to cover untested rest of table
     (let ((last-visible (cdr (assoc :last-visible (car oidx--occur-stack)))))
-      (move-overlay oidx--occur-tail-overlay (or last-visible oidx--occur-last-visible-initial) (point-max)))))
+      (move-overlay oidx--occur-tail-overlay (or last-visible oidx--occur-last-visible-initial) (point-max))
+      (oidx--occur-update-tail-text lines-wanted (car oidx--occur-stack)))))
 
 
 (defun oidx--test-words (words)
