@@ -2983,7 +2983,7 @@ Optional argument SILENT does not issue final message."
     (define-key kmap (kbd "<escape>")
       (lambda () (interactive)
         (if org-index-clock-into-working-set
-            (oidx--ws-message "Bailing out of circle"))
+            (oidx--ws-message "Bailing out of circle, no clock in"))
         (oidx--ws-circle-cancel-helper)))
     (define-key kmap (kbd "C-g")
       (lambda () (interactive)
@@ -3111,7 +3111,7 @@ See `oidx--ws-menu-rebuld' for a list of commands."
     (mapc (lambda (x) (define-key keymap (kbd x)
                    (lambda () (interactive)
                      (oidx--ws-menu-action x))))
-          (list "<return>" "RET" "<tab>" "h" "H" "b" "B"))
+          (list "<return>" "<S-return>" "RET" "<tab>" "<S-tab>" "h" "H" "b" "B"))
 
     (define-key keymap (kbd "p")
       (lambda () (interactive)
@@ -3154,22 +3154,23 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 (defun oidx--ws-menu-action (key)
   "Perform some actions for working-set menu.
 Argument KEY has been pressed to trigger this function."
-  (setq key (intern key))
-  (let (id)
-    (setq id (oidx--ws-menu-get-id))
-    (cl-case key
-      ((<return> RET h b)
-       (delete-window)
-       (oidx--ws-goto-id id)
-       (recenter 1))
-      ((<tab> H B)
-       (other-window 1)
-       (oidx--ws-goto-id id)))
-    (if (or (memq key '(b B))
-            (and (memq key '(<return> RET))
-                 org-index-goto-bottom-in-working-set)) (oidx--ws-bottom-of-node))
-    (setq oidx--ws-id-last-goto id)
-    (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))))
+  (let ((no-clock-in (memq key '(<S-return> <S-tab>))))
+    (setq key (intern key))
+    (let (id)
+      (setq id (oidx--ws-menu-get-id))
+      (cl-case key
+        ((<return> <S-return> RET h b)
+         (delete-window)
+         (oidx--ws-goto-id id)
+         (recenter 1))
+        ((<tab> <S-tab> H B)
+         (other-window 1)
+         (oidx--ws-goto-id id)))
+      (if (or (memq key '(b B))
+              (and (memq key '(<return> <S-return> RET))
+                   org-index-goto-bottom-in-working-set)) (oidx--ws-bottom-of-node))
+      (setq oidx--ws-id-last-goto id)
+      (if (and (not no-clock-in) org-index-clock-into-working-set) (org-with-limited-levels (org-clock-in))))))
 
 
 (defun oidx--ws-menu-get-id ()
@@ -3186,7 +3187,7 @@ Optional argument RESIZE adjusts window size."
       (setq buffer-read-only nil)
       (erase-buffer)
       (insert (propertize (if oidx--ws-short-help-wanted
-                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content.")
+                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock in, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content.")
                             "Press <return>,<tab>,h,H,b,B,p,d,u,q,r or ? to toggle short help.")
                           'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
