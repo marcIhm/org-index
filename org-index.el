@@ -3154,8 +3154,9 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 (defun oidx--ws-menu-action (key)
   "Perform some actions for working-set menu.
 Argument KEY has been pressed to trigger this function."
-  (let ((no-clock-in (memq key '(<S-return> <S-tab>))))
+  (let (no-clock-in)
     (setq key (intern key))
+    (setq no-clock-in (memq key '(<S-return> <S-tab>)))
     (let (id)
       (setq id (oidx--ws-menu-get-id))
       (cl-case key
