@@ -1,4 +1,12 @@
-* 5.9 until 2018-08-20 Mo
+* 5.10 until 2019-01-06 Su
+
+  - Pressing shift prevents clocking into working set
+  - Occur shows '(more lines omitted)' if appropriate
+  - replaced (org-at-table-p) with (org-match-line org-table-line-regexp)
+    throughout for preformance reasons
+  - Offer direct clock-in from result-buffer of occur
+
+* 5.9 until 2019-01-06 Su
 
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
   - Added special buffer to manage the working-set

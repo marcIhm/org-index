@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 5.9.3.
+  The current version is 5.10.0.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -109,7 +109,7 @@
     - (byte-compile-file "org-index.el")
     - elint-current-buffer
     - checkdoc
-    - package-lint ;; ignore messages about oidx-prefix
+    - package-lint-current-buffer ;; ignore messages about oidx-prefix
 
 *** Preparing
 
@@ -118,11 +118,20 @@
     - Check and Update Commentary in org-index.el
     - Run rake to copy those pieces of information into 
       README.org and ChangeLog.org
+    - git tag -a -m x.y.z x.y.z ; git push --tags
 
 ** Latest Change Log
 
    See ChangeLog.org for older notes.
 
+*** 5.10
+
+    - Pressing shift prevents clocking into working set
+    - Occur shows '(more lines omitted)' if appropriate
+    - replaced (org-at-table-p) with (org-match-line org-table-line-regexp)
+      throughout for preformance reasons
+    - Offer direct clock-in from result-buffer of occur
+  
 *** 5.9
 
     - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.

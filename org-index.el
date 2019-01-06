@@ -1,10 +1,10 @@
 ;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2019 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.9.3
+;; Version: 5.10.0
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -79,6 +79,14 @@
 
 ;;; Change Log:
 
+;;   Version 5.10
+;;
+;;   - Pressing shift prevents clocking into working set
+;;   - Occur shows '(more lines omitted)' if appropriate
+;;   - replaced (org-at-table-p) with (org-match-line org-table-line-regexp)
+;;     throughout for preformance reasons
+;;   - Offer direct clock-in from result-buffer of occur
+;;
 ;;   Version 5.9
 ;; 
 ;;   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
@@ -186,7 +194,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "5.9.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.10.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -252,7 +260,7 @@ This can be helpful to speed up occur."
   :type 'integer)
 
 (defcustom org-index-key nil
-  "Key to invoke ‘org-index’, which is the central entry function for ‘org-index’. When setting with customize: do not type the key-sequence but its description, e.g. `C-c i' as five ordinary characters."
+  "Key to invoke ‘org-index’, which is the central entry function for ‘org-index’.  When setting with customize: do not type the key-sequence but its description, e.g. `C-c i' as five ordinary characters."
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
@@ -406,7 +414,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.9.3 of org-index.el.
+This is version 5.10.0 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -688,6 +696,14 @@ interactive calls."
                            (match-string 1 org-index-version))))
          ;; For Rake: Insert Change Log here
          (insert "
+* 5.10
+
+  - Pressing shift prevents clocking into working set
+  - Occur shows '(more lines omitted)' if appropriate
+  - replaced (org-at-table-p) with (org-match-line org-table-line-regexp)
+    throughout for preformance reasons
+  - Offer direct clock-in from result-buffer of occur
+
 * 5.9
 
   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
@@ -3701,9 +3717,10 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
         (oidx--refresh-parse-table)
         ;; increment in index
         (let ((id (oidx--get-or-set-field 'id))
+	      (ref (oidx--get-or-set-field 'ref))
               count)
           (oidx--on
-              'id id
+              (if id 'id 'ref) (if id id ref)
             (setq count (+ 1 (string-to-number (oidx--get-or-set-field 'count))))
             (oidx--get-or-set-field 'count (number-to-string count))
             (oidx--promote-current-line)
@@ -3746,7 +3763,9 @@ To skip highlighted letters set KEEP-PLACES."
 
 
 (defun oidx--occur-update-tail-text (lines-wanted &optional hide-frame)
-  "Update text displayed and end of list of matches."
+  "Update text displayed and end of list of matches.
+Argument LINES-WANTED is compared with lines found.
+Optional argument HIDE-FRAME may contain info about the number of lines found."
 
   (let ((lines-found (or (and hide-frame (cdr (assoc :last-visible hide-frame)))
                          (save-excursion
@@ -3871,7 +3890,8 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
 
 
 (defun oidx--unhide (lines-wanted)
-  "Unhide text that has been hidden by `oidx--hide-with-overlays'."
+  "Unhide text that has been hidden by `oidx--hide-with-overlays'.
+Argument LINES-WANTED is compared with number of lines found."
   (when oidx--occur-stack
 
     ;; remove top of overlay-stack to make visible and remove highlights
