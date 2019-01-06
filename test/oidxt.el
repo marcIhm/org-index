@@ -151,6 +151,11 @@
 	    (sleep-for 2)
 	    (should (not (org-clock-is-active)))
 	    
+	    (oidxt-do "w o r k i n g - s e t <return> w")
+            (execute-kbd-macro (kbd "<S-return>"))
+	    (sleep-for 2)
+	    (should (not (org-clock-is-active)))
+	    
 	    (setq org-index-clock-into-working-set t)
 	    (should (not (org-clock-is-active)))
 	    (oidxt-do "o c c u r <return> z w e i <down> <return>")
@@ -296,18 +301,19 @@
 (ert-deftest oidxt-test-no-id ()
   (oidxt-with-test-setup
     (oidxt-save-and-set-state nil)
+    (setq org-index-id nil)
     (condition-case result
-        (oidxt-do "c r e a t e <return> y o i d x - e r t - w o r k . o r g <return> f o o <return> # 1 # <return> n n")
-      (error (should (string-match "^Did not make the id of this new index permanent" (second result))))) 
+        (oidxt-do "c r e a t e <return> o i d x t - e r t - i n d e x . o r g <return> f o o <return> # 1 # <return> n n")
+      (error (should (string-match "^Did not make the id of this new index permanent" (cdr result)))))
+    (switch-to-buffer "oidxt-ert-work.org")
+    (goto-char (point-max))
+    (org-reveal)
     (forward-line -1)
-    (org-reveal)
-    (oidxt-do "a d d <return>" "C-u") 
-    (forward-char 2)
-    (org-reveal)
+    (forward-char 3)
+    (oidxt-do "a d d <return> f o o <return> b a r <return>" "C-u")
     (yank)
     (forward-line 0)
-    (org-reveal)
-    (should (looking-at ".*#2#  neun"))))
+    (should (looking-at "\\*\\* #2# neun"))))
 
 
 (ert-deftest oidxt-test-example ()
