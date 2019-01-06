@@ -11,7 +11,7 @@ def compare_semver one,two
     [md[1],md[2]]
   end.transpose
 
-  vers.inject(0) {|s,x| 2*s+(x[0]<=>x[1])} <=> 0
+  vers.inject(0) {|s,x| 2*s+(x[0].to_i<=>x[1].to_i)} <=> 0
 end
 
 def accept fname,nname
@@ -135,7 +135,7 @@ task :copy_info_pieces do
   nname = fname + ".new"
   version_dates = Hash.new
   rest_of_change_log = ""
-  version_latest = nil
+  version_latest = version_latest_cl = nil
   puts "  Latest Change log"
   File.open(fname) do |file|
     while line = file.gets do
@@ -143,7 +143,7 @@ task :copy_info_pieces do
       if mdata
         if change_log[mdata[1]].length > 0
           version_dates[mdata[1]] = mdata[2]
-          version_latest = mdata[1] if !version_latest || compare_semver(mdata[1],version_latest) > 0
+          version_latest_cl = mdata[1] if !version_latest_cl || compare_semver(mdata[1],version_latest_cl) > 0
         else
           rest_of_change_log = line + file.read
         end
@@ -152,7 +152,9 @@ task :copy_info_pieces do
   end
 
   version_short = version.sub(/.\d+$/,'')
+  change_log.each_key { |ver|  version_latest = ver if !version_latest || compare_semver(ver,version_latest) > 0}
   version_dates[version_latest] = Time.now.strftime("%Y-%m-%d %a")[0..-2]
+  version_dates[version_latest_cl] = version_dates[version_latest] if version_latest != version_latest_cl 
   File.open(nname,'w') do |nfile|
     change_log.each do |ver,log|
       nfile.puts "* " + ver + " until " + version_dates[ver] + "\n\n" + log + "\n"
