@@ -3321,12 +3321,14 @@ Optional argument ID gives the node to delete."
 (defun oidx--ws-ids-up-to-top ()
   "Get list of all ids from current node up to top level."
   (when (string= major-mode "org-mode")
-    (let (ids id)
+    (let (ids id pt)
       (save-excursion
         (ignore-errors
           (while (progn (and (setq id (org-id-get))
                              (setq ids (cons id ids)))
-                        (outline-up-heading 1)))))
+                        (setq pt (point))
+                        (outline-up-heading 1)
+                        (/= pt (point))))))
       ids)))
 
 
