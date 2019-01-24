@@ -2893,12 +2893,13 @@ This command is available as a subcommand of ‘org-index’,
 but may also be bound to its own key-sequence.
 Optional argument SILENT does not issue final message."
   (interactive)
-  (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ?g ? ))
+  (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ?g ? ??))
         id text more-text char prompt ids-up-to-top)
 
     (oidx--verify-id)
     (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,u,m,w,c,space,g or ? for short help) - " (length oidx--ws-ids)))
-    (while (not (memq char char-choices))
+    (while (or (not (memq char char-choices))
+               (= char ??))
       (setq char (read-char-choice prompt char-choices))
       (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circle (same as space),  g)o to bottom position in current node.  Please choose - " (length oidx--ws-ids))))
     (setq text
@@ -3221,7 +3222,7 @@ Optional argument RESIZE adjusts window size."
                              (setq star "*")
                              (setq cursor-here (point)))
                            (insert (format "%s %s" star head)))
-                         (put-text-property (line-beginning-position) (line-end-position) 'org-index-id id)
+                         (put-text-property (line-beginning-position) (+ 1 (line-end-position)) 'org-index-id id)
                          (insert "\n")))
                      oidx--ws-ids
                      "\n")
