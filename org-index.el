@@ -3200,7 +3200,7 @@ Argument KEY has been pressed to trigger this function."
 (defun oidx--ws-menu-rebuild (&optional resize)
   "Rebuild content of working-set menu-buffer.
 Optional argument RESIZE adjusts window size."
-  (let (cursor-here)
+  (let (cursor-here lb)
     (with-current-buffer (get-buffer-create oidx--ws-menu-buffer-name)
       (setq buffer-read-only nil)
       (erase-buffer)
@@ -3222,8 +3222,9 @@ Optional argument RESIZE adjusts window size."
                              (setq star "*")
                              (setq cursor-here (point)))
                            (insert (format "%s %s" star head)))
-                         (put-text-property (line-beginning-position) (+ 1 (line-end-position)) 'org-index-id id)
-                         (insert "\n")))
+                         (setq lb (line-beginning-position))
+                         (insert "\n")
+                         (put-text-property lb (point) 'org-index-id id)))
                      oidx--ws-ids
                      "\n")
         (insert "  No nodes in working-set.\n"))
