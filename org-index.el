@@ -145,6 +145,7 @@
 (defvar oidx--headings nil "Headlines of index-table as a string.")
 (defvar oidx--headings-visible nil "Visible part of headlines of index-table as a string.")
 (defvar oidx--ws-ids nil "Ids of working-set nodes (if any).")
+(defvar oidx--ws-ids-do-not-track nil "Subset of `oidx--ws-ids', that are not tracked.")
 (defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
 (defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
 (defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle.")
@@ -1265,6 +1266,7 @@ Optional argument KEYS-VALUES specifies content of new line."
         (save-excursion
           (goto-char oidx--point)
           (setq oidx--ws-ids (split-string (or (org-entry-get nil "working-set-nodes") "")))
+          (setq oidx--ws-ids-do-not-track (split-string (or (org-entry-get nil "working-set-nodes-do-not-track") "")))
           ;; migrate (kind of) from previous versions
           (org-entry-delete (point) "ids-working-set-nodes"))))))
 
@@ -2893,28 +2895,37 @@ This command is available as a subcommand of ‘org-index’,
 but may also be bound to its own key-sequence.
 Optional argument SILENT does not issue final message."
   (interactive)
-  (let ((char-choices (list ?s ?a ?d ?u ?w ?m ?c ?g ? ??))
+  (let ((char-choices (list ?s ?S ?a ?A ?d ?u ?w ?m ?c ?g ? ??))
         id text more-text char prompt ids-up-to-top)
 
     (oidx--verify-id)
-    (setq prompt (format "Please specify action on working-set of %d nodes (s,a,d,u,m,w,c,space,g or ? for short help) - " (length oidx--ws-ids)))
+    (setq prompt (format "Please specify action on working-set of %d nodes (s,S,a,A,d,u,m,w,c,space,g or ? for short help) - " (length oidx--ws-ids)))
     (while (or (not (memq char char-choices))
                (= char ??))
       (setq char (read-char-choice prompt char-choices))
-      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  a)ppend this node to set,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circle (same as space),  g)o to bottom position in current node.  Please choose - " (length oidx--ws-ids))))
+      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  S)et but do not track,  a)ppend this node to set,  A)ppend but do not track,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circle (same as space),  g)o to bottom position in current node.  Please choose - " (length oidx--ws-ids))))
+
+    (when (and (memq char (list ?s ?S ?a ?A ?d))
+               (not (string= major-mode "org-mode")))
+      (error "Current buffer is not in org-mode"))
+
     (setq text
           (cond
 
-           ((eq char ?s)
+           ((or (eq char ?s)
+                (eq char ?S))
             (setq id (org-id-get-create))
             (setq oidx--ws-ids-saved oidx--ws-ids)
             (setq oidx--ws-ids (list id))
-            (setq oidx--ws-id-last-goto id)
+            (if (eq char ?S)
+                (setq oidx--ws-ids-do-not-track (list id))
+              (setq oidx--ws-id-last-goto id))
             (oidx--update-line id t)
             (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))
             "working-set has been set to current node (1 node)")
 
-           ((eq char ?a)
+           ((or (eq char ?a)
+                (eq char ?A))
             (setq id (org-id-get-create))
             (unless (member id oidx--ws-ids)
               ;; remove any children, that are already in working-set
@@ -2934,9 +2945,11 @@ Optional argument SILENT does not issue final message."
                 (setq oidx--ws-ids (seq-difference oidx--ws-ids ids-up-to-top))
                 (setq more-text (concat more-text ", replacing its parent")))
               (setq oidx--ws-ids (cons id oidx--ws-ids)))
-            (setq oidx--ws-id-last-goto id)
+            (if (eq char ?A)
+                (setq oidx--ws-ids-do-not-track (cons id oidx--ws-ids-do-not-track))                
+              (setq oidx--ws-id-last-goto id)
+              (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in))))
             (oidx--update-line id t)
-            (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))
             "current node has been appended to working-set%s (%d node%s)")
 
            ((eq char ?d)
@@ -3171,24 +3184,24 @@ See `oidx--ws-menu-rebuld' for a list of commands."
 (defun oidx--ws-menu-action (key)
   "Perform some actions for working-set menu.
 Argument KEY has been pressed to trigger this function."
-  (let (no-clock-in)
-    (setq key (intern key))
-    (setq no-clock-in (memq key '(<S-return> <S-tab>)))
-    (let (id)
-      (setq id (oidx--ws-menu-get-id))
-      (cl-case key
-        ((<return> <S-return> RET h b)
-         (delete-window)
-         (oidx--ws-goto-id id)
-         (recenter 1))
-        ((<tab> <S-tab> H B)
-         (other-window 1)
-         (oidx--ws-goto-id id)))
-      (if (or (memq key '(b B))
-              (and (memq key '(<return> <S-return> RET))
-                   org-index-goto-bottom-in-working-set)) (oidx--ws-bottom-of-node))
+  (setq key (intern key))
+  (let (id)
+    (setq id (oidx--ws-menu-get-id))
+    (cl-case key
+      ((<return> <S-return> RET h b)
+       (delete-window)
+       (oidx--ws-goto-id id)
+       (recenter 1))
+      ((<tab> <S-tab> H B)
+       (other-window 1)
+       (oidx--ws-goto-id id)))
+    (if (or (memq key '(b B))
+            (and (memq key '(<return> <S-return> RET))
+                 org-index-goto-bottom-in-working-set)) (oidx--ws-bottom-of-node))
+    (when (and (not (memq key '(<S-return> <S-tab>)))
+               (not (memq id oidx--ws-ids-do-not-track)))
       (setq oidx--ws-id-last-goto id)
-      (if (and (not no-clock-in) org-index-clock-into-working-set) (org-with-limited-levels (org-clock-in))))))
+      (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in))))))
 
 
 (defun oidx--ws-menu-get-id ()
@@ -3205,8 +3218,8 @@ Optional argument RESIZE adjusts window size."
       (setq buffer-read-only nil)
       (erase-buffer)
       (insert (propertize (if oidx--ws-short-help-wanted
-                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock in, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content.")
-                            "Press <return>,<tab>,h,H,b,B,p,d,u,q,r or ? to toggle short help.")
+                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock do not track, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content. Markers on nodes are: '*' for last visited and '~' do not track.")
+                            "Press <return>,<S-return>,<tab>,<S-tab>,h,H,b,B,p,d,u,q,r or ? to toggle short help.")
                           'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
       (setq cursor-here (point))
@@ -3217,11 +3230,13 @@ Optional argument RESIZE adjusts window size."
                            (save-excursion
                              (org-id-goto id)
                              (setq head (substring-no-properties (org-get-heading)))))
-                         (let ((star " "))
+                         (let ((prefix " "))
+                           (if (memq id oidx--ws-ids-do-not-track)
+                               (setq prefix "~"))
                            (when (eq id oidx--ws-id-last-goto)
-                             (setq star "*")
+                             (setq prefix "*")
                              (setq cursor-here (point)))
-                           (insert (format "%s %s" star head)))
+                           (insert (format "%s %s" prefix head)))
                          (setq lb (line-beginning-position))
                          (insert "\n")
                          (put-text-property lb (point) 'org-index-id id)))
@@ -3302,7 +3317,11 @@ Optional argument UPCASE modifies the returned message."
 (defun oidx--ws-nodes-persist ()
   "Write working-set to property."
   (with-current-buffer oidx--buffer
-    (org-entry-put oidx--point "working-set-nodes" (mapconcat 'identity oidx--ws-ids " "))))
+    (setq oidx--ws-ids-no-remember (cl-intersection oidx--ws-ids-do-not-track oidx--ws-ids))
+    (setq oidx--ws-ids (cl-remove-duplicates oidx--ws-ids :test (lambda (x y) (string= x y))))
+    (setq oidx--ws-ids-do-not-track (cl-remove-duplicates oidx--ws-ids-do-not-track :test (lambda (x y) (string= x y))))
+    (org-entry-put oidx--point "working-set-nodes" (mapconcat 'identity oidx--ws-ids " "))
+    (org-entry-put oidx--point "working-set-nodes-do-not-track" (mapconcat 'identity oidx--ws-ids-do-not-track " "))))
 
 
 (defun oidx--ws-delete-from (&optional id)
