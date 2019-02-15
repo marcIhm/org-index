@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 5.10.0.
+  The current version is 5.10.1.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -131,6 +131,7 @@
     - replaced (org-at-table-p) with (org-match-line org-table-line-regexp)
       throughout for preformance reasons
     - Offer direct clock-in from result-buffer of occur
+    - Various fixes
   
 *** 5.9
 
