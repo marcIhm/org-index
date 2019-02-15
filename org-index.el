@@ -2919,9 +2919,9 @@ Optional argument SILENT does not issue final message."
             (setq oidx--ws-ids (list id))
             (if (eq char ?S)
                 (setq oidx--ws-ids-do-not-track (list id))
-              (setq oidx--ws-id-last-goto id))
+              (setq oidx--ws-id-last-goto id)
+              (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in))))
             (oidx--update-line id t)
-            (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in)))
             "working-set has been set to current node (1 node)")
 
            ((or (eq char ?a)
@@ -3034,6 +3034,7 @@ Optional argument SILENT does not issue final message."
              (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
              (setq oidx--ws-overlay nil)
              (if (and org-index-clock-into-working-set
+                      (not (memq (org-id-get) oidx--ws-ids-do-not-track))
                       (not oidx--ws-circle-bail-out))
                  (let (keys)
                    ;; save and repeat terminating key, because org-clock-in might read interactively
@@ -3079,7 +3080,8 @@ Optional argument STAY prevents changing location."
                                  (funcall oidx--cancel-ws-wait-function)))))
 
     (oidx--ws-goto-id target-id)
-    (setq oidx--ws-id-last-goto target-id)
+    (unless (memq target-id oidx--ws-ids-do-not-track)
+      (setq oidx--ws-id-last-goto target-id))
 
     ;; tooltip-overlay to show current heading
     (setq head (org-with-limited-levels (org-get-heading t t t t)))
