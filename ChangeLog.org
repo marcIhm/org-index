@@ -1,4 +1,9 @@
-* 5.10 until 2019-01-26 Sa
+* 5.11 until 2019-02-15 Fr
+
+  - Implemented do-not-track commands and behaviour in working-set
+  - Fixes
+
+* 5.10 until 2019-02-15 Fr
 
   - Pressing shift prevents clocking into working set
   - Occur shows '(more lines omitted)' if appropriate

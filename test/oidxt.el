@@ -201,6 +201,14 @@
     (should (looking-at ".* --8--"))))
 
 
+(ert-deftest oidxt-test-working-do-not-track ()
+  (oidxt-with-test-setup
+    (oidxt-do "o c c u r <return> z w e i <down> <return>")
+    (should (not oidx--ws-ids-do-not-track))
+    (oidxt-do "w o r k i n g - s e t <return> S")
+    (should oidx--ws-ids-do-not-track)))
+
+
 (ert-deftest oidxt-test-working-set-restore ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> z w e i <down> <return>")

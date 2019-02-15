@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.10.1
+;; Version: 5.11.0
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -79,6 +79,11 @@
 
 ;;; Change Log:
 
+;;   Version 5.11
+;;
+;;   - Implemented do-not-track commands and behaviour in working-set
+;;   - Fixes
+;;
 ;;   Version 5.10
 ;;
 ;;   - Pressing shift prevents clocking into working set
@@ -196,7 +201,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "5.10.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.11.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -416,7 +421,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.10.1 of org-index.el.
+This is version 5.11.0 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -698,6 +703,11 @@ interactive calls."
                            (match-string 1 org-index-version))))
          ;; For Rake: Insert Change Log here
          (insert "
+* 5.11
+
+  - Implemented do-not-track commands and behaviour in working-set
+  - Fixes
+
 * 5.10
 
   - Pressing shift prevents clocking into working set
@@ -3162,6 +3172,16 @@ See `oidx--ws-menu-rebuld' for a list of commands."
         (oidx--ws-nodes-persist)
         (oidx--ws-menu-rebuild)))
 
+    (define-key keymap (kbd "t")
+      (lambda () (interactive)
+        (let ((id (oidx--ws-menu-get-id)))
+          (setq oidx--ws-ids-do-not-track
+                (if (memq id oidx--ws-ids-do-not-track)
+                    (delete id oidx--ws-ids-do-not-track)
+                  (cons id oidx--ws-ids-do-not-track)))
+          (oidx--ws-nodes-persist)
+          (oidx--ws-menu-rebuild))))
+
     (define-key keymap (kbd "u")
       (lambda () (interactive)
         (message (oidx--ws-nodes-restore))
@@ -3220,13 +3240,13 @@ Optional argument RESIZE adjusts window size."
   (let (cursor-here lb)
     (with-current-buffer (get-buffer-create oidx--ws-menu-buffer-name)
       (setq buffer-read-only nil)
+      (setq cursor-here (point))
       (erase-buffer)
       (insert (propertize (if oidx--ws-short-help-wanted
-                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock do not track, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content. Markers on nodes are: '*' for last visited and '~' do not track.")
-                            "Press <return>,<S-return>,<tab>,<S-tab>,h,H,b,B,p,d,u,q,r or ? to toggle short help.")
+                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock do not track, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content, 't' toggles tracking. Markers on nodes are: '*' for last visited and '~' do not track.")
+                            "Press <return>,<S-return>,<tab>,<S-tab>,h,H,b,B,p,d,u,q,r,t or ? to toggle short help.")
                           'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
-      (setq cursor-here (point))
       (if oidx--ws-ids
           (mapconcat (lambda (id)
                        (let (head)
