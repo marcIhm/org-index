@@ -1,4 +1,4 @@
-;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
+i;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2011-2019 Free Software Foundation, Inc.
 
@@ -496,10 +496,7 @@ of subcommands to choose from:
   maintain: [m] Index maintainance.
      Offers some choices to check, update or fix your index.
 
-If you invoke `org-index' for the first time, an assistant will be
-invoked, that helps you to create your own index.
-
-Invoke `org-customize' to tweak the behaviour of `org-index'.
+Use `org-customize' to tweak the behaviour of `org-index'.
 
 This includes the global key `org-index-key' to invoke
 the most important subcommands with one additional key.
