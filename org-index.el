@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.11.0
+;; Version: 5.11.1
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -81,7 +81,7 @@
 
 ;;   Version 5.11
 ;;
-;;   - Implemented do-not-track commands and behaviour in working-set
+;;   - Implemented do-not-clock commands and behaviour in working-set
 ;;   - Fixes
 ;;
 ;;   Version 5.10
@@ -151,7 +151,7 @@
 (defvar oidx--headings nil "Headlines of index-table as a string.")
 (defvar oidx--headings-visible nil "Visible part of headlines of index-table as a string.")
 (defvar oidx--ws-ids nil "Ids of working-set nodes (if any).")
-(defvar oidx--ws-ids-do-not-track nil "Subset of `oidx--ws-ids', that are not tracked.")
+(defvar oidx--ws-ids-do-not-clock nil "Subset of `oidx--ws-ids', that are not clocked.")
 (defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
 (defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
 (defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle.")
@@ -201,7 +201,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "5.11.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.11.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -421,7 +421,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.11.0 of org-index.el.
+This is version 5.11.1 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -705,7 +705,7 @@ interactive calls."
          (insert "
 * 5.11
 
-  - Implemented do-not-track commands and behaviour in working-set
+  - Implemented do-not-clock commands and behaviour in working-set
   - Fixes
 
 * 5.10
@@ -1278,7 +1278,7 @@ Optional argument KEYS-VALUES specifies content of new line."
         (save-excursion
           (goto-char oidx--point)
           (setq oidx--ws-ids (split-string (or (org-entry-get nil "working-set-nodes") "")))
-          (setq oidx--ws-ids-do-not-track (split-string (or (org-entry-get nil "working-set-nodes-do-not-track") "")))
+          (setq oidx--ws-ids-do-not-clock (split-string (or (org-entry-get nil "working-set-nodes-do-not-clock") "")))
           ;; migrate (kind of) from previous versions
           (org-entry-delete (point) "ids-working-set-nodes"))))))
 
@@ -2915,7 +2915,7 @@ Optional argument SILENT does not issue final message."
     (while (or (not (memq char char-choices))
                (= char ??))
       (setq char (read-char-choice prompt char-choices))
-      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  S)et but do not track,  a)ppend this node to set,  A)ppend but do not track,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circle (same as space),  g)o to bottom position in current node.  Please choose - " (length oidx--ws-ids))))
+      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  S)et but do not clock,  a)ppend this node to set,  A)ppend but do not clock,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circle (same as space),  g)o to bottom position in current node.  Please choose - " (length oidx--ws-ids))))
 
     (when (and (memq char (list ?s ?S ?a ?A ?d))
                (not (string= major-mode "org-mode")))
@@ -2930,7 +2930,7 @@ Optional argument SILENT does not issue final message."
             (setq oidx--ws-ids-saved oidx--ws-ids)
             (setq oidx--ws-ids (list id))
             (if (eq char ?S)
-                (setq oidx--ws-ids-do-not-track (list id))
+                (setq oidx--ws-ids-do-not-clock (list id))
               (setq oidx--ws-id-last-goto id)
               (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in))))
             (oidx--update-line id t)
@@ -2958,7 +2958,7 @@ Optional argument SILENT does not issue final message."
                 (setq more-text (concat more-text ", replacing its parent")))
               (setq oidx--ws-ids (cons id oidx--ws-ids)))
             (if (eq char ?A)
-                (setq oidx--ws-ids-do-not-track (cons id oidx--ws-ids-do-not-track))                
+                (setq oidx--ws-ids-do-not-clock (cons id oidx--ws-ids-do-not-clock))                
               (setq oidx--ws-id-last-goto id)
               (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in))))
             (oidx--update-line id t)
@@ -3046,7 +3046,7 @@ Optional argument SILENT does not issue final message."
              (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
              (setq oidx--ws-overlay nil)
              (if (and org-index-clock-into-working-set
-                      (not (memq (org-id-get) oidx--ws-ids-do-not-track))
+                      (not (memq (org-id-get) oidx--ws-ids-do-not-clock))
                       (not oidx--ws-circle-bail-out))
                  (let (keys)
                    ;; save and repeat terminating key, because org-clock-in might read interactively
@@ -3092,7 +3092,7 @@ Optional argument STAY prevents changing location."
                                  (funcall oidx--cancel-ws-wait-function)))))
 
     (oidx--ws-goto-id target-id)
-    (unless (memq target-id oidx--ws-ids-do-not-track)
+    (unless (memq target-id oidx--ws-ids-do-not-clock)
       (setq oidx--ws-id-last-goto target-id))
 
     ;; tooltip-overlay to show current heading
@@ -3172,13 +3172,13 @@ See `oidx--ws-menu-rebuld' for a list of commands."
         (oidx--ws-nodes-persist)
         (oidx--ws-menu-rebuild)))
 
-    (define-key keymap (kbd "t")
+    (define-key keymap (kbd "c")
       (lambda () (interactive)
         (let ((id (oidx--ws-menu-get-id)))
-          (setq oidx--ws-ids-do-not-track
-                (if (memq id oidx--ws-ids-do-not-track)
-                    (delete id oidx--ws-ids-do-not-track)
-                  (cons id oidx--ws-ids-do-not-track)))
+          (setq oidx--ws-ids-do-not-clock
+                (if (memq id oidx--ws-ids-do-not-clock)
+                    (delete id oidx--ws-ids-do-not-clock)
+                  (cons id oidx--ws-ids-do-not-clock)))
           (oidx--ws-nodes-persist)
           (oidx--ws-menu-rebuild))))
 
@@ -3223,7 +3223,7 @@ Argument KEY has been pressed to trigger this function."
             (and (memq key '(<return> <S-return> RET))
                  org-index-goto-bottom-in-working-set)) (oidx--ws-bottom-of-node))
     (when (and (not (memq key '(<S-return> <S-tab>)))
-               (not (memq id oidx--ws-ids-do-not-track)))
+               (not (memq id oidx--ws-ids-do-not-clock)))
       (setq oidx--ws-id-last-goto id)
       (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in))))))
 
@@ -3243,8 +3243,8 @@ Optional argument RESIZE adjusts window size."
       (setq cursor-here (point))
       (erase-buffer)
       (insert (propertize (if oidx--ws-short-help-wanted
-                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock do not track, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content, 't' toggles tracking. Markers on nodes are: '*' for last visited and '~' do not track.")
-                            "Press <return>,<S-return>,<tab>,<S-tab>,h,H,b,B,p,d,u,q,r,t or ? to toggle short help.")
+                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock do not clock, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content, 'c' toggles clocking. Markers on nodes are: '*' for last visited and '~' do not clock.")
+                            "Press <return>,<S-return>,<tab>,<S-tab>,h,H,b,B,p,d,u,q,r,c or ? to toggle short help.")
                           'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
       (if oidx--ws-ids
@@ -3255,7 +3255,7 @@ Optional argument RESIZE adjusts window size."
                              (org-id-goto id)
                              (setq head (substring-no-properties (org-get-heading)))))
                          (let ((prefix " "))
-                           (if (memq id oidx--ws-ids-do-not-track)
+                           (if (memq id oidx--ws-ids-do-not-clock)
                                (setq prefix "~"))
                            (when (eq id oidx--ws-id-last-goto)
                              (setq prefix "*")
@@ -3341,11 +3341,11 @@ Optional argument UPCASE modifies the returned message."
 (defun oidx--ws-nodes-persist ()
   "Write working-set to property."
   (with-current-buffer oidx--buffer
-    (setq oidx--ws-ids-no-remember (cl-intersection oidx--ws-ids-do-not-track oidx--ws-ids))
+    (setq oidx--ws-ids-no-remember (cl-intersection oidx--ws-ids-do-not-clock oidx--ws-ids))
     (setq oidx--ws-ids (cl-remove-duplicates oidx--ws-ids :test (lambda (x y) (string= x y))))
-    (setq oidx--ws-ids-do-not-track (cl-remove-duplicates oidx--ws-ids-do-not-track :test (lambda (x y) (string= x y))))
+    (setq oidx--ws-ids-do-not-clock (cl-remove-duplicates oidx--ws-ids-do-not-clock :test (lambda (x y) (string= x y))))
     (org-entry-put oidx--point "working-set-nodes" (mapconcat 'identity oidx--ws-ids " "))
-    (org-entry-put oidx--point "working-set-nodes-do-not-track" (mapconcat 'identity oidx--ws-ids-do-not-track " "))))
+    (org-entry-put oidx--point "working-set-nodes-do-not-clock" (mapconcat 'identity oidx--ws-ids-do-not-clock " "))))
 
 
 (defun oidx--ws-delete-from (&optional id)

@@ -201,12 +201,14 @@
     (should (looking-at ".* --8--"))))
 
 
-(ert-deftest oidxt-test-working-do-not-track ()
+(ert-deftest oidxt-test-working-do-not-clock ()
   (oidxt-with-test-setup
+    (should (not (org-clock-is-active)))
     (oidxt-do "o c c u r <return> z w e i <down> <return>")
-    (should (not oidx--ws-ids-do-not-track))
+    (should (not oidx--ws-ids-do-not-clock))
     (oidxt-do "w o r k i n g - s e t <return> S")
-    (should oidx--ws-ids-do-not-track)))
+    (should oidx--ws-ids-do-not-clock)
+    (should (not (org-clock-is-active)))))
 
 
 (ert-deftest oidxt-test-working-set-restore ()
@@ -741,6 +743,8 @@
   (oidxt-create-work-buffer)
   (oidxt-prepare-test-index)
   (setq oidx--last-sort org-index-sort-by)
+  (setq oidx--ws-ids nil)
+  (setq oidx--ws-ids-do-not-track nil)
   (switch-to-buffer oidxt-work-buffer)
   (basic-save-buffer)
   (org-agenda-file-to-front oidxt-ert-work-file)

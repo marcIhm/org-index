@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 5.11.0.
+  The current version is 5.11.1.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -126,7 +126,7 @@
 
 *** 5.11
 
-    - Implemented do-not-track commands and behaviour in working-set
+    - Implemented do-not-clock commands and behaviour in working-set
     - Fixes
   
 *** 5.10

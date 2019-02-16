@@ -1,6 +1,6 @@
-* 5.11 until 2019-02-15 Fr
+* 5.11 until 2019-02-16 Sa
 
-  - Implemented do-not-track commands and behaviour in working-set
+  - Implemented do-not-clock commands and behaviour in working-set
   - Fixes
 
 * 5.10 until 2019-02-15 Fr
