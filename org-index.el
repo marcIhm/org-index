@@ -1,4 +1,4 @@
-i;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
+;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2011-2019 Free Software Foundation, Inc.
 
