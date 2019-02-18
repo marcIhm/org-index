@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.11.1
+;; Version: 5.11.2
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -201,7 +201,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "5.11.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.11.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -421,7 +421,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.11.1 of org-index.el.
+This is version 5.11.2 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
