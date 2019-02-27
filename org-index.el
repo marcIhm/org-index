@@ -3043,7 +3043,7 @@ Optional argument SILENT does not issue final message."
              (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
              (setq oidx--ws-overlay nil)
              (if (and org-index-clock-into-working-set
-                      (not (memq (org-id-get) oidx--ws-ids-do-not-clock))
+                      (not (member (org-id-get) oidx--ws-ids-do-not-clock))
                       (not oidx--ws-circle-bail-out))
                  (let (keys)
                    ;; save and repeat terminating key, because org-clock-in might read interactively
@@ -3089,8 +3089,7 @@ Optional argument STAY prevents changing location."
                                  (funcall oidx--cancel-ws-wait-function)))))
 
     (oidx--ws-goto-id target-id)
-    (unless (memq target-id oidx--ws-ids-do-not-clock)
-      (setq oidx--ws-id-last-goto target-id))
+    (setq oidx--ws-id-last-goto target-id)
 
     ;; tooltip-overlay to show current heading
     (setq head (org-with-limited-levels (org-get-heading t t t t)))
@@ -3173,7 +3172,7 @@ See `oidx--ws-menu-rebuld' for a list of commands."
       (lambda () (interactive)
         (let ((id (oidx--ws-menu-get-id)))
           (setq oidx--ws-ids-do-not-clock
-                (if (memq id oidx--ws-ids-do-not-clock)
+                (if (member id oidx--ws-ids-do-not-clock)
                     (delete id oidx--ws-ids-do-not-clock)
                   (cons id oidx--ws-ids-do-not-clock)))
           (oidx--ws-nodes-persist)
@@ -3220,7 +3219,7 @@ Argument KEY has been pressed to trigger this function."
             (and (memq key '(<return> <S-return> RET))
                  org-index-goto-bottom-in-working-set)) (oidx--ws-bottom-of-node))
     (when (and (not (memq key '(<S-return> <S-tab>)))
-               (not (memq id oidx--ws-ids-do-not-clock)))
+               (not (member id oidx--ws-ids-do-not-clock)))
       (setq oidx--ws-id-last-goto id)
       (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in))))))
 
@@ -3251,13 +3250,12 @@ Optional argument RESIZE adjusts window size."
                            (save-excursion
                              (org-id-goto id)
                              (setq head (substring-no-properties (org-get-heading)))))
-                         (let ((prefix " "))
-                           (if (memq id oidx--ws-ids-do-not-clock)
-                               (setq prefix "~"))
+                         (let ((prefix1 " ") (prefix2 " "))
+                           (if (member id oidx--ws-ids-do-not-clock)
+                               (setq prefix2 "~"))
                            (when (eq id oidx--ws-id-last-goto)
-                             (setq prefix "*")
-                             (setq cursor-here (point)))
-                           (insert (format "%s %s" prefix head)))
+                             (setq prefix1 "*"))
+                           (insert (format "%s%s %s" prefix1 prefix2 head)))
                          (setq lb (line-beginning-position))
                          (insert "\n")
                          (put-text-property lb (point) 'org-index-id id)))
