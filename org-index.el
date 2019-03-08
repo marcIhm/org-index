@@ -911,7 +911,7 @@ interactive calls."
                  (org-match-line org-table-line-regexp))
             (let ((char-choices (list ?r ?k ?c ?y))
                   char col num)
-              (setq char (read-char-choice "Please specify, which column to go to (r=ref, k=keywords, c=category, y=yank): " char-choices))
+              (setq char (read-char-choice "Please specify which column to go to (r=ref, k=keywords, c=category, y=yank): " char-choices))
               (unless (memq char char-choices)
                 (error (format "Invalid char '%c', cannot goto this column" char)))
               (setq col (cdr (assoc char '((?r . ref) (?k . keywords) (?c . category) (?y . yank)))))
@@ -1210,7 +1210,7 @@ Optional argument KEYS-VALUES specifies content of new line."
   (let (char prompt search-ref search-id search-fingerprint)
     
     ;; start with short prompt but give more help on next iteration
-    (setq prompt "Please specify, where to go in index (0-9,.,space,backspace,return or ? for short help) - ")
+    (setq prompt "Please specify where to go in index (0-9,.,space,backspace,return or ? for short help) - ")
     
     ;; read one character
     (while (not (memq char (append (number-sequence ?0 ?9) (list ?\d ?\b ?\r ?\j ?\s ?.))))
