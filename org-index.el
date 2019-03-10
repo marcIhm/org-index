@@ -1213,6 +1213,7 @@ Optional argument KEYS-VALUES specifies content of new line."
     (setq prompt "Please specify where to go in index (0-9,.,space,backspace,return or ? for short help) - ")
     
     ;; read one character
+    (message "")
     (while (not (memq char (append (number-sequence ?0 ?9) (list ?\d ?\b ?\r ?\j ?\s ?.))))
       (setq char (read-char prompt))
       (setq prompt "Go to specific position in index table. Digits specify a reference number, <space> goes to top of index, <backspace> or <delete> to last line created and <return> or `.' to index line of current node.  Please choose - "))
@@ -3168,15 +3169,16 @@ See `oidx--ws-menu-rebuld' for a list of commands."
         (oidx--ws-nodes-persist)
         (oidx--ws-menu-rebuild)))
 
-    (define-key keymap (kbd "c")
-      (lambda () (interactive)
-        (let ((id (oidx--ws-menu-get-id)))
-          (setq oidx--ws-ids-do-not-clock
-                (if (member id oidx--ws-ids-do-not-clock)
-                    (delete id oidx--ws-ids-do-not-clock)
-                  (cons id oidx--ws-ids-do-not-clock)))
-          (oidx--ws-nodes-persist)
-          (oidx--ws-menu-rebuild))))
+    (mapc (lambda (x) (define-key keymap (kbd x)
+                   (lambda () (interactive)
+                     (let ((id (oidx--ws-menu-get-id)))
+                       (setq oidx--ws-ids-do-not-clock
+                             (if (member id oidx--ws-ids-do-not-clock)
+                                 (delete id oidx--ws-ids-do-not-clock)
+                               (cons id oidx--ws-ids-do-not-clock)))
+                       (oidx--ws-nodes-persist)
+                       (oidx--ws-menu-rebuild)))))
+          (list "c" "~"))
 
     (define-key keymap (kbd "u")
       (lambda () (interactive)
@@ -3239,8 +3241,8 @@ Optional argument RESIZE adjusts window size."
       (setq cursor-here (point))
       (erase-buffer)
       (insert (propertize (if oidx--ws-short-help-wanted
-                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock do not clock, 'h' and 'b' jump to bottom of node unconditionally (with capital letter in other windows), 'p' peeks into node from current line, 'd' deletes node from working-set immediately, 'u' undoes last delete, 'q' aborts and deletes this buffer, 'r' rebuilds its content, 'c' toggles clocking. Markers on nodes are: '*' for last visited and '~' do not clock.")
-                            "Press <return>,<S-return>,<tab>,<S-tab>,h,H,b,B,p,d,u,q,r,c or ? to toggle short help.")
+                              (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock do not clock, `h' and `b' jump to bottom of node unconditionally (with capital letter in other windows), `p' peeks into node from current line, `d' deletes node from working-set immediately, `u' undoes last delete, `q' aborts and deletes this buffer, `r' rebuilds its content, `c' or `~' toggles clocking. Markers on nodes are: `*' for last visited and `~' do not clock.")
+                            "Press <return>,<S-return>,<tab>,<S-tab>,h,H,b,B,p,d,u,q,r,c,~,* or ? to toggle short help.")
                           'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
       (if oidx--ws-ids
@@ -3670,7 +3672,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--occur-search-text
-                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count, <escape> aborts, `c' clocks in, `e' edits and `i' jumps into index; they all work with the prefix `M-' too.\nNOTE: If you invoke the org-index subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly."
+                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count, <escape> or `q' aborts, `c' clocks in, `e' edits and `i' jumps into index; they all work with the prefix `M-' too.\nNOTE: If you invoke the org-index subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly."
                        "\n")
                (length all-lines))
               'face 'org-agenda-dimmed-todo-face))
@@ -3724,10 +3726,11 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
       (lambda () (interactive)
         (message (oidx--occur-action t))))
 
-    (define-key keymap (kbd "<escape>")
-      (lambda () (interactive)
-        (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
-        (message "Back to initial state.")))
+    (mapc (lambda (x) (define-key keymap (kbd x)
+                   (lambda () (interactive)
+                     (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
+                     (message "Back to initial state."))))
+          (list "<escape>" "q"))
 
     (mapc (lambda (x)
             (define-key keymap (kbd x)
