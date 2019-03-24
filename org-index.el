@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.11.2
+;; Version: 5.12.0
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -79,6 +79,11 @@
 
 ;;; Change Log:
 
+;;   Version 5.12
+;;
+;;   - Do-not-clock is shown in working-set menu
+;;   - Fixes
+;;
 ;;   Version 5.11
 ;;
 ;;   - Implemented do-not-clock commands and behaviour in working-set
@@ -106,19 +111,6 @@
 ;;     overall stability
 ;;   - Limited the number of lines to display in occur for better performance,
 ;;     see 'org-index-occur-max-lines'
-;; 
-;;   Version 5.8
-;; 
-;;   - Timeout in prompt for additional focus-command
-;;   - Popup to show current node during after focus change
-;;   - Various changes to become ready for melpa
-;;   - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
-;;   - Restructured source code, grouping related functions together; groups are separated as
-;;     usual by ^L
-;;   - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'.
-;;     Functions and variables starting with 'org-index-' are left untouched.
-;;   - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable
-;;     org-index-dispatch-key to org-index-key
 ;; 
 ;;  See https://github.com/marcIhm/org-index/ChangeLog.org for older news
 ;;
@@ -201,7 +193,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "5.11.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "5.12.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -421,7 +413,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.11.2 of org-index.el.
+This is version 5.12.0 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -700,6 +692,11 @@ interactive calls."
                            (match-string 1 org-index-version))))
          ;; For Rake: Insert Change Log here
          (insert "
+* 5.12
+
+  - Do-not-clock is shown in working-set menu
+  - Fixes
+
 * 5.11
 
   - Implemented do-not-clock commands and behaviour in working-set
@@ -727,19 +724,6 @@ interactive calls."
     overall stability
   - Limited the number of lines to display in occur for better performance,
     see 'org-index-occur-max-lines'
-
-* 5.8
-
-  - Timeout in prompt for additional focus-command
-  - Popup to show current node during after focus change
-  - Various changes to become ready for melpa
-  - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
-  - Restructured source code, grouping related functions together; groups are separated as
-    usual by ^L
-  - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'.
-    Functions and variables starting with 'org-index-' are left untouched.
-  - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable
-    org-index-dispatch-key to org-index-key
 
 ")
          (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.\n")
@@ -2956,7 +2940,7 @@ Optional argument SILENT does not issue final message."
                 (setq more-text (concat more-text ", replacing its parent")))
               (setq oidx--ws-ids (cons id oidx--ws-ids)))
             (if (eq char ?A)
-                (setq oidx--ws-ids-do-not-clock (cons id oidx--ws-ids-do-not-clock))                
+                (setq oidx--ws-ids-do-not-clock (cons id oidx--ws-ids-do-not-clock))
               (setq oidx--ws-id-last-goto id)
               (if org-index-clock-into-working-set (org-with-limited-levels (org-clock-in))))
             (oidx--update-line id t)
@@ -3238,13 +3222,13 @@ Optional argument RESIZE adjusts window size."
   (let (cursor-here lb)
     (with-current-buffer (get-buffer-create oidx--ws-menu-buffer-name)
       (setq buffer-read-only nil)
-      (setq cursor-here (point))
       (erase-buffer)
       (insert (propertize (if oidx--ws-short-help-wanted
                               (oidx--wrap "List of working-set nodes. Pressing <return> on a list element jumps to node in other window and deletes this window, <tab> does the same but keeps this window, <S-return> and <S-tab> do not clock do not clock, `h' and `b' jump to bottom of node unconditionally (with capital letter in other windows), `p' peeks into node from current line, `d' deletes node from working-set immediately, `u' undoes last delete, `q' aborts and deletes this buffer, `r' rebuilds its content, `c' or `~' toggles clocking. Markers on nodes are: `*' for last visited and `~' do not clock.")
                             "Press <return>,<S-return>,<tab>,<S-tab>,h,H,b,B,p,d,u,q,r,c,~,* or ? to toggle short help.")
                           'face 'org-agenda-dimmed-todo-face))
       (insert "\n\n")
+      (setq cursor-here (point))
       (if oidx--ws-ids
           (mapconcat (lambda (id)
                        (let (head)
@@ -3338,7 +3322,7 @@ Optional argument UPCASE modifies the returned message."
 (defun oidx--ws-nodes-persist ()
   "Write working-set to property."
   (with-current-buffer oidx--buffer
-    (setq oidx--ws-ids-no-remember (cl-intersection oidx--ws-ids-do-not-clock oidx--ws-ids))
+    (setq oidx--ws-ids-do-not-clock (cl-intersection oidx--ws-ids-do-not-clock oidx--ws-ids))
     (setq oidx--ws-ids (cl-remove-duplicates oidx--ws-ids :test (lambda (x y) (string= x y))))
     (setq oidx--ws-ids-do-not-clock (cl-remove-duplicates oidx--ws-ids-do-not-clock :test (lambda (x y) (string= x y))))
     (org-entry-put oidx--point "working-set-nodes" (mapconcat 'identity oidx--ws-ids " "))

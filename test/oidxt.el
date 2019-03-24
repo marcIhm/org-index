@@ -201,7 +201,7 @@
     (should (looking-at ".* --8--"))))
 
 
-(ert-deftest oidxt-test-working-do-not-clock ()
+(ert-deftest oidxt-test-working-set-do-not-clock ()
   (oidxt-with-test-setup
     (should (not (org-clock-is-active)))
     (oidxt-do "o c c u r <return> z w e i <down> <return>")
@@ -254,6 +254,16 @@
     (should (= (length oidx--ws-ids) 2))
     (oidxt-do "w o r k i n g - s e t <return> m <down> d q")
     (should (= (length oidx--ws-ids) 1))))
+
+
+(ert-deftest oidxt-test-working-set-menu-toggle-clocking ()
+  (oidxt-with-test-setup
+    (oidxt-do "o c c u r <return> z w e i <down> <return>")
+    (oidxt-do "w o r k i n g - s e t <return> s")
+    (oidxt-do "w o r k i n g - s e t <return> m ~")
+    (should (looking-at "\\*~"))
+    (execute-kbd-macro (kbd "c"))
+    (should (looking-at "\\* "))))
 
 
 (ert-deftest oidxt-test-double-working-set ()

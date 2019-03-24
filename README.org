@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 5.11.1.
+  The current version is 5.12.0.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -14,7 +14,7 @@
 
    - [[#about-this-package][About this Package]]
    - [[#files][Files]]
-   - [[#making-a-new-release][Making a new Release]]
+   - [[#releasing-a-new-version][Releasing a new version]]
    - [[#latest-change-log][Latest Change Log]]
 
 ** About this Package
@@ -101,7 +101,7 @@
     - merge-org-index.rb :: Simple ruby script to aid during git merges of your index table;
       see the comments within the file for instructions	 
 
-** Making a new Release
+** Releasing a new version
 
 *** Testing and checking
 
@@ -124,6 +124,11 @@
 
    See ChangeLog.org for older notes.
 
+*** 5.12
+
+    - Do-not-clock is shown in working-set menu
+    - Fixes
+  
 *** 5.11
 
     - Implemented do-not-clock commands and behaviour in working-set
@@ -151,18 +156,5 @@
       overall stability
     - Limited the number of lines to display in occur for better performance,
       see 'org-index-occur-max-lines'
-  
-*** 5.8
-
-    - Timeout in prompt for additional focus-command
-    - Popup to show current node during after focus change
-    - Various changes to become ready for melpa
-    - Refactored org-index--do-occur (now named oidx--do-occur), creating various new functions
-    - Restructured source code, grouping related functions together; groups are separated as
-      usual by ^L
-    - Introduced the secondary prefix 'oidx--' and renamed everything starting with 'org-index--'.
-      Functions and variables starting with 'org-index-' are left untouched.
-    - Renamed functions org-index-dispatch to org-index, org-index to oidx--do and variable
-      org-index-dispatch-key to org-index-key
   
 
