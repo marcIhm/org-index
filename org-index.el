@@ -82,6 +82,8 @@
 ;;   Version 5.12
 ;;
 ;;   - Do-not-clock is shown in working-set menu
+;;   - Switching from working set circle into menu is possible
+;;   - Pressing RET in working-set circle finished and clocks in immediately
 ;;   - Fixes
 ;;
 ;;   Version 5.11
@@ -2897,7 +2899,7 @@ Optional argument SILENT does not issue final message."
     (while (or (not (memq char char-choices))
                (= char ??))
       (setq char (read-char-choice prompt char-choices))
-      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  S)et but do not clock,  a)ppend this node to set,  A)ppend but do not clock,  d)elete this node from list,  u)ndo last modification of working set, m)enu to edit working set (same as 'w'), c) enter working set circle (same as space),  g)o to bottom position in current node.  Please choose - " (length oidx--ws-ids))))
+      (setq prompt (format "Actions on working-set of %d nodes:  s)et working-set to this node alone,  S)et but do not clock,  a)ppend this node to set,  A)ppend but do not clock,  d)elete this node from list,  u)ndo last modification of working set,  w),m)enu to edit working set (same as 'w'),  c),space) enter working set circle,  g)o to bottom position in current node.  Please choose - " (length oidx--ws-ids))))
 
     (when (and (memq char (list ?s ?S ?a ?A ?d))
                (not (string= major-mode "org-mode")))
@@ -2984,6 +2986,25 @@ Optional argument SILENT does not issue final message."
                 (setq this-command last-command)
                 (oidx--ws-message (oidx--ws-circle-continue)))))
           (list ?c ? ))
+    (mapc (lambda (x)
+            (define-key kmap (kbd x)
+              (lambda () (interactive)
+                (oidx--ws-message "Circle done")
+                (oidx--ws-circle-finished-helper nil))))
+          (list "RET" "<return>"))
+    (mapc (lambda (x)
+            (define-key kmap (kbd x)
+              (lambda () (interactive)
+                (setq this-command last-command)
+                (oidx--ws-message (oidx--ws-circle-continue nil t)))))
+          (list "DEL" "<backspace>"))
+    (mapc (lambda (x)
+            (define-key kmap (kbd x)
+              (lambda () (interactive)
+                (oidx--ws-message "Switching to menu")
+                (oidx--ws-circle-finished-helper t)
+                (run-with-timer 0 nil 'oidx--ws-menu))))
+          (list "w" "m"))
     (define-key kmap (vector ?h)
       (lambda () (interactive)
         (oidx--ws-head-of-node)
@@ -2996,6 +3017,7 @@ Optional argument SILENT does not issue final message."
       (lambda () (interactive)
         (setq oidx--ws-short-help-wanted t)
         (message (oidx--ws-circle-continue t))
+        (setq oidx--cancel-ws-wait-function nil)
         (setq oidx--ws-short-help-wanted nil)))
     (define-key kmap (vector ?d)
       (lambda () (interactive)
@@ -3008,7 +3030,7 @@ Optional argument SILENT does not issue final message."
       (lambda () (interactive)
         (if org-index-clock-into-working-set
             (oidx--ws-message "Bailing out of circle, no clock in"))
-        (oidx--ws-circle-cancel-helper)))
+        (oidx--ws-circle-finished-helper t)))
     (define-key kmap (kbd "C-g")
       (lambda () (interactive)
         (if oidx--ws-circle-before-marker
@@ -3016,7 +3038,7 @@ Optional argument SILENT does not issue final message."
         (if oidx--ws-circle-win-config
             (set-window-configuration oidx--ws-circle-win-config))
         (message "Quit")
-        (oidx--ws-circle-cancel-helper)))
+        (oidx--ws-circle-finished-helper)))
     
     (setq oidx--cancel-ws-wait-function
           (set-transient-map
@@ -3044,18 +3066,18 @@ Optional argument SILENT does not issue final message."
     (oidx--ws-message (oidx--ws-circle-continue t))))
 
 
-(defun oidx--ws-circle-cancel-helper ()
-  "Common steps on bailing out of working set circle."
+(defun oidx--ws-circle-finished-helper (bail-out)
+  "Common steps on finishing of working set circle. Argument bail-out, if t, avoids clocking in."
   (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
   (setq oidx--ws-overlay nil)
-  (setq oidx--ws-circle-bail-out t)
+  (setq oidx--ws-circle-bail-out bail-out)
   (setq oidx--cancel-ws-wait-function nil))
 
 
-(defun oidx--ws-circle-continue (&optional stay)
+(defun oidx--ws-circle-continue (&optional stay back)
   "Continue with working set circle after start.
 Optional argument STAY prevents changing location."
-  (let (last-id following-id target-id parent-ids head)
+  (let (last-id following-id previous-id target-id parent-ids head)
 
     ;; compute target
     (setq last-id (or oidx--ws-id-last-goto
@@ -3063,13 +3085,17 @@ Optional argument STAY prevents changing location."
     (setq following-id (car (or (cdr-safe (member last-id
                                                   (append oidx--ws-ids oidx--ws-ids)))
                                 oidx--ws-ids)))
-    (setq target-id (if stay last-id following-id))
+    (if back
+        (setq previous-id (car (or (cdr-safe (member last-id
+                                                     (reverse (append oidx--ws-ids oidx--ws-ids))))
+                                   oidx--ws-ids))))
+    (setq target-id (if stay last-id (if back previous-id following-id)))
     (setq parent-ids (oidx--ws-ids-up-to-top)) ; remember this before changing location
     
     ;; bail out on inactivity
     (if oidx--ws-cancel-timer (cancel-timer oidx--ws-cancel-timer))
     (setq oidx--ws-cancel-timer
-          (run-at-time 8 nil
+          (run-at-time 30 nil
                        (lambda () (if oidx--cancel-ws-wait-function
                                  (funcall oidx--cancel-ws-wait-function)))))
 
@@ -3089,7 +3115,7 @@ Optional argument STAY prevents changing location."
                             (1+ (- (length oidx--ws-ids)
                                    (length (member target-id oidx--ws-ids))))
                             (length oidx--ws-ids))
-                    'face 'highlight))
+                    'face 'match))
       (overlay-put oidx--ws-overlay 'priority most-positive-fixnum))
 
     ;; Compose return message:
@@ -3102,7 +3128,7 @@ Optional argument STAY prevents changing location."
                    ((member target-id parent-ids)
                     "staying below %scurrent")
                    (t
-                    "at %snext"))
+                    (concat "at %s" (if back "previous" "next"))))
              (if org-index-goto-bottom-in-working-set "bottom of " ""))
      ;; count of nodes
      (if (cdr oidx--ws-ids)
@@ -3110,8 +3136,8 @@ Optional argument STAY prevents changing location."
        (format " single node"))
      ;; help text
      (if oidx--ws-short-help-wanted
-         "; type 'c' or space to jump to next node in circle; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; escape skips clocking in; C-g returns to initial position"
-       "; type c,space,h,b,d,esc or ? for short help"))))
+         "; type 'c' or space to jump to next node in circle; 'h' for heading, 'b' for bottom of node; type 'd' to delete this node from list; <return> accepts current position and clocks in, <escape> skips clocking in; <backspace> proceeds in reverse order, 'm' or 'w' switch to working set menu, C-g returns to initial position"
+       "; type c,space,h,b,d,ret,esc,bs,m,w or ? for short help"))))
 
 
 (defun oidx--ws-menu ()
