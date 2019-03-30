@@ -1,6 +1,8 @@
-* 5.12 until 2019-03-24 Su
+* 5.12 until 2019-03-30 Sa
 
   - Do-not-clock is shown in working-set menu
+  - Switching from working set circle into menu
+  - RET in working-set circle ends and clocks in immediately
   - Fixes
 
 * 5.11 until 2019-03-24 Su

@@ -82,7 +82,7 @@ task :copy_info_pieces do
   end
 
   nname = fname + ".new"
-  puts "\nPut info pieces into #{nname}:"
+  puts "\n\n\e[33mPut info pieces into #{nname}:\e[0m"
   seen = Hash.new
   [:version, :purpose, :change_log].each {|piece| seen[piece] = false}
   File.open(nname,'w') do |nfile| 
@@ -131,7 +131,7 @@ task :copy_info_pieces do
   accept fname,nname
 
   fname = 'ChangeLog.org'
-  puts "\nPut info pieces into #{fname}:"
+  puts "\n\n\e[33mPut info pieces into #{fname}:\e[0m"
   nname = fname + ".new"
   version_dates = Hash.new
   rest_of_change_log = ""
@@ -164,7 +164,7 @@ task :copy_info_pieces do
   accept fname,nname
 
   fname = 'README.org'
-  puts "\nPut info pieces into #{fname}:"
+  puts "\n\n\e[33mPut info pieces into #{fname}:\e[0m"
   nname = fname + ".new"
   toc = Array.new
   seen = Hash.new

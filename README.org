@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 5.12.0.
+  The current version is 5.12.1.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -118,7 +118,8 @@
     - Check and Update Commentary in org-index.el
     - Run rake to copy those pieces of information into 
       README.org and ChangeLog.org
-    - git tag -a -m x.y.z x.y.z ; git push --tags
+    - git add/commit as appropriate 
+    - git tag -a -m x.y.z x.y.z ; git push ; git push --tags
 
 ** Latest Change Log
 
@@ -127,6 +128,8 @@
 *** 5.12
 
     - Do-not-clock is shown in working-set menu
+    - Switching from working set circle into menu
+    - RET in working-set circle ends and clocks in immediately
     - Fixes
   
 *** 5.11
