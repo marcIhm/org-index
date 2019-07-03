@@ -2421,17 +2421,18 @@ Optional argument NO-INC skips automatic increment on maxref."
            (get-buffer-create "*org-index-duplicates*"))
           (erase-buffer)
           (insert "\n")
+          (org-mode)
           (if ref-duplicates
               (progn
-                (insert " These references appear more than once:\n")
-                (mapc (lambda (x) (insert "   " x "\n")) ref-duplicates)
+                (insert "- These references appear more than once in index table:\n")
+                (mapc (lambda (x) (insert "  - " x "\n")) ref-duplicates)
                 (insert "\n\n"))
-            (insert " No references appear more than once.\n"))
+            (insert "- No references appear more than once in index table.\n\n"))
           (if id-duplicates
               (progn
-                (insert " These ids appear more than once:\n")
-                (mapc (lambda (x) (insert "   " x "\n")) id-duplicates))
-            (insert " No ids appear more than once."))
+                (insert "- These ids appear more than once in index table:\n")
+                (mapc (lambda (x) (insert "  - " x "\n")) id-duplicates))
+            (insert "- No ids appear more than once in index table."))
           (insert "\n")
 
           "Some references or ids are duplicate")
