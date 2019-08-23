@@ -3264,7 +3264,10 @@ Optional argument RESIZE adjusts window size."
                          (save-window-excursion
                            (save-excursion
                              (org-id-goto id)
-                             (setq head (substring-no-properties (org-get-heading)))))
+                             (setq head (concat (substring-no-properties (org-get-heading))
+                                                (propertize (concat " / "
+                                                                    (org-format-outline-path (reverse (org-get-outline-path)) most-positive-fixnum nil " / "))
+                                                            'face 'org-agenda-dimmed-todo-face)))))
                          (let ((prefix1 " ") (prefix2 " "))
                            (if (member id oidx--ws-ids-do-not-clock)
                                (setq prefix2 "~"))
