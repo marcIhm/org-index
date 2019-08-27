@@ -64,6 +64,40 @@
 
 ;;; Code:
 
+(defvar oidx--ws-ids nil "Ids of working-set nodes (if any).")
+(defvar oidx--ws-ids-do-not-clock nil "Subset of `oidx--ws-ids', that are not clocked.")
+(defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
+(defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
+(defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle.")
+(defvar oidx--ws-circle-win-config nil "Window configuration before entry into circle.")
+(defvar oidx--ws-last-message nil "Last message issued by working-set commands.")
+(defvar oidx--ws-circle-bail-out nil "Set, if bailing out of working-set circle.")
+(defvar oidx--ws-cancel-wait-function nil "Function to call on timeout for working-set commands.")
+(defvar oidx--ws-cancel-timer nil "Timer to cancel waiting for key.")
+(defvar oidx--ws-overlay nil "Overlay to display name of current working-set node.")
+(defvar oidx--ws-short-help-wanted nil "Non-nil, if short help should be displayed in working-set menu.")
+
+(defconst oidx--ws-menu-buffer-name "*org-index working-set of nodes*" "Name of buffer with list of working-set nodes.")
+
+(defcustom org-index-clock-into-working-set nil
+  "Clock into nodes of working-set ?"
+  :group 'org-index
+  :type 'boolean)
+
+(define-obsolete-variable-alias 'org-index-show-focus-overlay 'org-index-show-working-set-overlay)
+
+(defcustom org-index-show-working-set-overlay t
+  "Show overlay text when traversing the working-set."
+  :group 'org-index
+  :type 'boolean)
+
+(define-obsolete-variable-alias 'org-index-goto-bottom-after-focus 'org-index-goto-bottom-in-working-set)
+
+(defcustom org-index-goto-bottom-in-working-set nil
+  "After visiting a node from the working-set; position cursor at bottom of node (as opposed to heading) ?"
+  :group 'org-index
+  :type 'boolean)
+
 
 (defun org-index-working-set (&optional silent)
   ;; Do NOT edit the part of this help-text before version number. It will
@@ -215,7 +249,7 @@ Optional argument SILENT does not issue final message."
       (lambda () (interactive)
         (setq oidx--ws-short-help-wanted t)
         (message (oidx--ws-circle-continue t))
-        (setq oidx--cancel-ws-wait-function nil)
+        (setq oidx--ws-cancel-wait-function nil)
         (setq oidx--ws-short-help-wanted nil)))
     (define-key kmap (vector ?d)
       (lambda () (interactive)
@@ -223,7 +257,7 @@ Optional argument SILENT does not issue final message."
         (oidx--ws-nodes-persist)
         (oidx--ws-message (concat (oidx--ws-delete-from) " "
                                   (oidx--ws-circle-continue)))
-        (setq oidx--cancel-ws-wait-function nil)))
+        (setq oidx--ws-cancel-wait-function nil)))
     (define-key kmap (kbd "<escape>")
       (lambda () (interactive)
         (if org-index-clock-into-working-set
@@ -238,7 +272,7 @@ Optional argument SILENT does not issue final message."
         (message "Quit")
         (oidx--ws-circle-finished-helper)))
     
-    (setq oidx--cancel-ws-wait-function
+    (setq oidx--ws-cancel-wait-function
           (set-transient-map
            kmap t
            ;; this is run (in any case) on leaving the map
@@ -269,7 +303,7 @@ Optional argument SILENT does not issue final message."
   (if oidx--ws-overlay (delete-overlay oidx--ws-overlay))
   (setq oidx--ws-overlay nil)
   (setq oidx--ws-circle-bail-out bail-out)
-  (setq oidx--cancel-ws-wait-function nil))
+  (setq oidx--ws-cancel-wait-function nil))
 
 
 (defun oidx--ws-circle-continue (&optional stay back)
@@ -294,8 +328,8 @@ Optional argument STAY prevents changing location."
     (if oidx--ws-cancel-timer (cancel-timer oidx--ws-cancel-timer))
     (setq oidx--ws-cancel-timer
           (run-at-time 30 nil
-                       (lambda () (if oidx--cancel-ws-wait-function
-                                 (funcall oidx--cancel-ws-wait-function)))))
+                       (lambda () (if oidx--ws-cancel-wait-function
+                                 (funcall oidx--ws-cancel-wait-function)))))
 
     (oidx--ws-goto-id target-id)
     (setq oidx--ws-id-last-goto target-id)
@@ -499,8 +533,8 @@ Optional argument RESIZE adjusts window size."
 
 (defun oidx--ws-message (message)
   "Issue given MESSAGE and append string '(again)' if appropriate."
-  (let ((again (if (string= message oidx--last-ws-message) " (again)" "")))
-    (setq oidx--last-ws-message message)
+  (let ((again (if (string= message oidx--ws-last-message) " (again)" "")))
+    (setq oidx--ws-last-message message)
     (message (concat message again "."))))
 
 

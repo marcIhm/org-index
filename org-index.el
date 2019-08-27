@@ -149,12 +149,6 @@
 (defvar oidx--columns nil "Columns of index-table.")
 (defvar oidx--headings nil "Headlines of index-table as a string.")
 (defvar oidx--headings-visible nil "Visible part of headlines of index-table as a string.")
-(defvar oidx--ws-ids nil "Ids of working-set nodes (if any).")
-(defvar oidx--ws-ids-do-not-clock nil "Subset of `oidx--ws-ids', that are not clocked.")
-(defvar oidx--ws-ids-saved nil "Backup for ‘oidx--ws-ids’.")
-(defvar oidx--ws-id-last-goto nil "Id of last node from working-set, that has been visited.")
-(defvar oidx--ws-circle-before-marker nil "Marker for position before entry into circle.")
-(defvar oidx--ws-circle-win-config nil "Window configuration before entry into circle.")
 
 ;; Variables to hold context and state
 (defvar oidx--buffer nil "Buffer, that contains index.")
@@ -180,20 +174,13 @@
 (defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
 (defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
 (defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
-(defvar oidx--last-ws-message nil "Last message issued by working-set commands.")
-(defvar oidx--ws-circle-bail-out nil "Set, if bailing out of working-set circle.")
-(defvar oidx--cancel-ws-wait-function nil "Function to call on timeout for working-set commands.")
-(defvar oidx--ws-cancel-timer nil "Timer to cancel waiting for key.")
-(defvar oidx--ws-overlay nil "Overlay to display name of current working-set node.")
-(defvar oidx--ws-short-help-wanted nil "Non-nil, if short help should be displayed in working-set menu.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
-(defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news working-set example sort find-ref highlight maintain) "List of commands available.")
+(defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news example sort find-ref highlight maintain) "List of commands available.")
 (defconst oidx--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
-(defconst oidx--ws-menu-buffer-name "*org-index working-set of nodes*" "Name of buffer with list of working-set nodes.")
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defconst oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
@@ -340,26 +327,6 @@ those pieces."
                   (const category)
                   (const keywords))))
 
-(define-obsolete-variable-alias 'org-index-clock-into-focus 'org-index-clock-into-working-set)
-
-(defcustom org-index-clock-into-working-set nil
-  "Clock into nodes of working-set ?"
-  :group 'org-index
-  :type 'boolean)
-
-(define-obsolete-variable-alias 'org-index-show-focus-overlay 'org-index-show-working-set-overlay)
-
-(defcustom org-index-show-working-set-overlay t
-  "Show overlay text when traversing the working-set."
-  :group 'org-index
-  :type 'boolean)
-
-(define-obsolete-variable-alias 'org-index-goto-bottom-after-focus 'org-index-goto-bottom-in-working-set)
-
-(defcustom org-index-goto-bottom-in-working-set nil
-  "After visiting a node from the working-set; position cursor at bottom of node (as opposed to heading) ?"
-  :group 'org-index
-  :type 'boolean)
 
 (defmacro oidx--on (column value &rest body)
   "Execute the forms in BODY with point on index line whose COLUMN is VALUE.
