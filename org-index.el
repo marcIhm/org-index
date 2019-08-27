@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2011-2019 Free Software Foundation, Inc.
 
-;; Author: Marc Ihm <org-index@2484.de>
+;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
 ;; Version: 5.12.1
 ;; Package-Requires: ((emacs "24.4"))
@@ -42,16 +42,10 @@
 ;;  Please note, that org-index uses org-id throughout and therefore adds
 ;;  an id-property to all nodes in the index.
 ;;
-;;  In the addition to the index table, org-index introduces these
-;;  supplemental concepts:
-;;
-;;  - 'References' are decorated numbers (e.g. 'R237' or '--455--'); they are
-;;     well suited to be used outside of org, e.g. in folder names,
-;;     ticket systems or on printed documents.
-;;  - 'Working set' (short: ws) is a small set of nodes for your daily work;
-;;     it can be managed easily and traversed very fast.  All related tasks
-;;     are also available through the interactive function
-;;     org-index-working-set, which see.
+;;  In the addition to the index table, org-index introduces the concept of
+;;  references: These are decorated numbers (e.g. 'R237' or '--455--'); they are
+;;  well suited to be used outside of org, e.g. in folder names,
+;;  ticket systems or on printed documents.
 ;;
 ;;  On first invocation org-index will assist you in creating the index
 ;;  table.
@@ -430,11 +424,6 @@ of subcommands to choose from:
   edit: [e] Present current line in edit buffer.
     Can be invoked from index, from occur or from a headline.
 
-  working-set: [w] Go to first node in working-set; repeat to see all.
-    The Working-set of nodes is a manually managed; it need not be
-    part of the index though.  With a prefix argument, this
-    command offers more options, e.g. to add nodes to the working-set.
-
   help: Show complete help text of `org-index'.
     I.e. this text.
 
@@ -626,7 +615,7 @@ interactive calls."
       ;;
 
       ;; Arrange for beeing able to return
-      (when (and (memq command '(occur head index example sort maintain working-set))
+      (when (and (memq command '(occur head index example sort maintain))
                  (not (string= (buffer-name) oidx--occur-buffer-name)))
         (org-mark-ring-push))
 
@@ -946,16 +935,6 @@ interactive calls."
                 (setq message-text (format "Highlighted references in %s" where)))))))
 
 
-       ((eq command 'working-set)
-        (let ((mt (if arg
-                      (progn
-                        (setq oidx--last-ws-message nil)
-                        (oidx--ws-circle-start))
-                    (let ((oidx--skip-verify-id t))
-                      (org-index-working-set t)))))
-          (setq message-text (concat (upcase (substring mt 0 1)) (substring mt 1)))))
-
-
        ((eq command 'maintain)
         (setq message-text (oidx--do-maintain)))
 
@@ -1228,17 +1207,7 @@ Optional argument KEYS-VALUES specifies content of new line."
       (unless marker (error "Could not create node"))
       (setq oidx--buffer (marker-buffer marker)
             oidx--point (marker-position marker))
-      (move-marker marker nil))
-
-    ;; Get ids of working-set nodes (if any)
-    (unless oidx--ws-ids
-      (with-current-buffer oidx--buffer
-        (save-excursion
-          (goto-char oidx--point)
-          (setq oidx--ws-ids (split-string (or (org-entry-get nil "working-set-nodes") "")))
-          (setq oidx--ws-ids-do-not-clock (split-string (or (org-entry-get nil "working-set-nodes-do-not-clock") "")))
-          ;; migrate (kind of) from previous versions
-          (org-entry-delete (point) "ids-working-set-nodes"))))))
+      (move-marker marker nil))))
 
 
 (defun oidx--retrieve-context ()
