@@ -37,8 +37,8 @@
 ;;  nodes into your working set in order to return easily after any
 ;;  interruption.
 ;;  
-;;  Please note, that org-working-set uses org-id throughout and
-;;  therefore adds an id-property to all nodes in the working-set.
+;;  Please note, that org-working-set adds an id-property to all nodes in
+;;  the working-set.
 ;;
 ;;  The list of ids from the nodes of your working-set is stored within the
 ;;  property-drawer of a distinguished node specified via
@@ -49,7 +49,7 @@
 ;; Setup:
 ;;
 ;;  - org-working-set can be installed with package.el
-;;  - Invoke `M-x org-customize', group 'Org working-set', and
+;;  - Invoke `M-x org-customize', group 'Org Working-set', and
 ;;    set `org-working-set-id'.
 ;;
 
@@ -83,7 +83,7 @@
 ;; customizable options
 (defgroup org-working-set nil
   "Options concerning the optional working-set of org-nodes."
-  :tag "Org working-set"
+  :tag "Org Working-set"
   :group 'org)
 
 (defcustom org-working-set-id nil
