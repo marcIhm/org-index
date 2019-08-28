@@ -4,6 +4,9 @@ require 'pp'
 require 'fileutils'
 include FileUtils
 
+require 'yaml'
+cnf = YAML::load(File.open('rake_config.yml'))
+
 def compare_semver one,two
   vers = [one, two].map do |x|
     md = x.match(/(\d+)\.(\d+)/)
@@ -34,7 +37,7 @@ end
 desc 'Copy info-pieces to various destinations'
 task :copy_info_pieces do
 
-  fname = 'org-index.el'
+  fname = cnf['elisp_source']
   puts "\nCollect info pieces from #{fname}:"
   commentary = Hash.new {""}
   change_log = Hash.new {""}
@@ -64,7 +67,7 @@ task :copy_info_pieces do
       commentary[key].sub!(/\A(\s*\n)+/,'')
       commentary[key].sub!(/(\s*\n)+\Z/,'')
     end
-    fail "Invalid set of keys #{commentary.keys}" unless commentary.keys.eql?(['Purpose','Setup','Further Information'])
+    fail "Invalid set of keys #{commentary.keys}" unless commentary.keys.eql?(cnf['valid_keys'])
 
     puts "  Latest Change Log"
     vkey = nil
@@ -84,12 +87,13 @@ task :copy_info_pieces do
   nname = fname + ".new"
   puts "\n\n\e[33mPut info pieces into #{nname}:\e[0m"
   seen = Hash.new
-  [:version, :purpose, :change_log].each {|piece| seen[piece] = false}
+  seen[:version] = seen[:purpose] = false
+  seen[:changelog] = false if cnf['copy_changelog']
   File.open(nname,'w') do |nfile| 
     File.open(fname) do |file|
       while line = file.gets
 
-        if line.start_with?("(defvar org-index-version")
+        if line.start_with?("(defvar " + cnf['package_name'] + "-version")
           puts "  Version"
           line.sub!(/\d+\.\d+\.\d+/,version)
           seen[:version] = true
@@ -97,7 +101,7 @@ task :copy_info_pieces do
 
         if line['For Rake: Insert purpose here']
           puts "  Commentary"
-          nfile.puts line + "  \"" + commentary['Purpose'] + "\n\nThis is version #{version} of org-index.el."
+          nfile.puts line + "  \"" + commentary['Purpose'] + "\n\nThis is version #{version} of org-working-set.el."
           seen[:purpose] = true
           line = file.gets
           until line.start_with?('This is version')

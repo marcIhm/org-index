@@ -1,0 +1,8 @@
+elisp_source: org-index.el
+package_name: org-index
+copy_changelog: false
+valid_keys:
+  - Purpose
+  - Setup
+  - Further Information
+  
