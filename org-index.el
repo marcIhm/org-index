@@ -3173,7 +3173,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
                      (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
                      (message "Back to initial state."))))
           (list "<escape>" "q"))
-
+    
     (mapc (lambda (x)
             (define-key keymap (kbd x)
               (lambda () (interactive)
