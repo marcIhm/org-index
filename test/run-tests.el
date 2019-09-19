@@ -1,10 +1,8 @@
-(setq load-prefer-newer t)
-(add-to-list 'load-path "c:/org-mode/lisp")
-(add-to-list 'load-path "c:/org/custom")
+org-wo(setq load-prefer-newer t)
 (add-to-list 'load-path "c:/org-index")
 (add-to-list 'load-path "c:/org-index/test")
 
-(setq package-user-dir "c:/org/custom/elpa")
+(setq package-user-dir "c:/org-index/elpa")
 (package-initialize)
 
 (require 'org)
@@ -16,8 +14,7 @@
 
 (setq oidxt-keep-test-state t)
 
-(setq org-id-locations-file "~\\.emacs.d\\.org-id-locations-for-test")
-(setq custom-theme-directory "c:/org/custom/themes")
+(setq org-id-locations-file "c:/org-index/org-id-locations-for-test")
 
 (menu-bar-mode -1)
 (tool-bar-mode -1)

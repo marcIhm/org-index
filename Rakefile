@@ -34,6 +34,15 @@ def accept fname,nname
   end
 end
 
+desc 'Describe building process'
+task :h do
+  within = false
+  doc = File.open(%x{git rev-parse --show-toplevel}.chomp + '/README.org').each do |line|
+    within = line.include?('Preparing') if line.start_with?('*')
+    print line if within
+  end
+end
+
 desc 'Copy info-pieces to various destinations'
 task :copy_info_pieces do
 

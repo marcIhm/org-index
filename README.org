@@ -115,7 +115,7 @@
 
     - Update Version number in org-index.el
     - Update Change Log in org-index.el
-    - Check and Update Commentary in org-index.el
+    - Check and update Commentary in org-index.el
     - Run rake to copy those pieces of information into 
       README.org and ChangeLog.org
     - git add/commit as appropriate 

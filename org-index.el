@@ -124,6 +124,7 @@
 ;;  Code can be folded and browsed with `hs-minor-mode'.
 ;;
 
+(require 'org)
 (require 'org-table)
 (require 'org-id)
 (require 'org-inlinetask)
