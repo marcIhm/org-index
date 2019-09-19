@@ -130,7 +130,6 @@
 (require 'org-inlinetask)
 (require 'cl-lib)
 (require 'widget)
-(require 'org-working-set)
 
 ;; Variables to hold the configuration of the index table
 (defvar oidx--head nil "Header before number (e.g. 'R').")
