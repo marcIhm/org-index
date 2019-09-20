@@ -8,6 +8,7 @@
 
 (setq scroll-conservatively 200)
 (setq scroll-step 1)
+(setq url-proxy-services nil)
 
 (require 'org-index)
 (org-index-default-keybindings)

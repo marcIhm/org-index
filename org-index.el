@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 5.12.1
+;; Version: 6.0.0
 ;; Package-Requires: ((emacs "24.4"))
 
 ;; This file is not part of GNU Emacs.
@@ -181,7 +181,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "5.12.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "6.0.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -358,22 +358,16 @@ org-index creates and updates an index table with keywords; each line
 either points to a heading in org, references a folder outside of org
 or carries an url or a snippet of text.  When searching the index, the
 set of matching lines is updated with every keystroke; results are
-sorted by usage count and date, so that recently or frequently used
+sorted by usage count and date, so that frequently or recently used
 entries appear first in the list of results.
 
 Please note, that org-index uses org-id throughout and therefore adds
 an id-property to all nodes in the index.
 
-In the addition to the index table, org-index introduces these
-supplemental concepts:
-
-- 'References' are decorated numbers (e.g. 'R237' or '--455--'); they are
-   well suited to be used outside of org, e.g. in folder names,
-   ticket systems or on printed documents.
-- 'Working set' (short: ws) is a small set of nodes for your daily work;
-   it can be managed easily and traversed very fast.  All related tasks
-   are also available through the interactive function
-   org-index-working-set, which see.
+In the addition to the index table, org-index introduces the concept of
+references: These are decorated numbers (e.g. 'R237' or '--455--');
+they are well suited to be used outside of org, e.g. in folder names,
+ticket systems or on printed documents.
 
 On first invocation org-index will assist you in creating the index
 table.
@@ -381,7 +375,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 5.12.1 of org-index.el.
+This is version 6.0.0 of org-working-set.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -655,6 +649,10 @@ interactive calls."
                            (match-string 1 org-index-version))))
          ;; For Rake: Insert Change Log here
          (insert "
+* 6.0
+
+  - Moved the working-set feature into its own package org-working-set
+
 * 5.12
 
   - Do-not-clock is shown in working-set menu

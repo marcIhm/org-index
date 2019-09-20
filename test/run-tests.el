@@ -1,4 +1,4 @@
-org-wo(setq load-prefer-newer t)
+(setq load-prefer-newer t)
 (add-to-list 'load-path "c:/org-index")
 (add-to-list 'load-path "c:/org-index/test")
 

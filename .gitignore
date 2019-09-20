@@ -6,3 +6,6 @@ org-index.elc
 org-index.el.backup
 ChangeLog.org.backup
 README.org.backup
+elpa/
+org-id-locations-for-test
+

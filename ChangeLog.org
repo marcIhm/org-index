@@ -1,4 +1,8 @@
-* 5.12 until 2019-03-30 Sa
+* 6.0 until 2019-09-19 Th
+
+  - Moved the working-set feature into its own package org-working-set
+
+* 5.12 until 2019-09-19 Th
 
   - Do-not-clock is shown in working-set menu
   - Switching from working set circle into menu
