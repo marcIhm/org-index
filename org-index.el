@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 6.1.0
+;; Version: 6.1.1
 ;; Package-Requires: ((emacs "25.1"))
 
 ;; This file is not part of GNU Emacs.
@@ -186,7 +186,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "6.1.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "6.1.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -380,7 +380,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 6.1.0 of org-working-set.el.
+This is version 6.1.1 of org-working-set.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -2018,7 +2018,7 @@ Argument COLUMN and VALUE specify line to get."
   "Update columns count and last-accessed in line ID-OR-POS.
 Optional argument NO-ERROR suppresses error."
 
-  (let (initial)
+  (let (initial count)
 
     (with-current-buffer oidx--buffer
       (unless buffer-read-only
@@ -2028,15 +2028,17 @@ Optional argument NO-ERROR suppresses error."
         (if (if (integerp id-or-pos)
                 (goto-char id-or-pos)
               (oidx--go 'id id-or-pos))
-            (oidx--update-current-line)
+            (setq count (oidx--update-current-line))
           (unless no-error (error "Did not find reference or id '%s'" (list id-or-pos))))
         
-        (goto-char initial)))))
+        (goto-char initial)))
+    count))
 
 
 (defun oidx--update-current-line ()
   "Update current lines columns count and last-accessed."
-  (let (newcount (count-field (oidx--get-or-set-field 'count)))
+  (let ((count-field (oidx--get-or-set-field 'count))
+        newcount)
 
     ;; update count field only if number or empty
     (when (or (not count-field)
@@ -2052,7 +2054,9 @@ Optional argument NO-ERROR suppresses error."
 
     ;; move line according to new content
     (oidx--promote-current-line)
-    (oidx--align-and-fontify-current-line)))
+    (oidx--align-and-fontify-current-line)
+
+    newcount))
 
 
 (defun oidx--align-and-fontify-current-line (&optional num)
@@ -3165,7 +3169,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
 (defun oidx--occur-install-keyboard-shortcuts ()
   "Install keyboard shortcuts for result of occur buffer."
 
-  (let (keymap)
+  (let (keymap count)
     (setq keymap (make-sparse-keymap))
     (set-keymap-parent keymap org-mode-map)
     
@@ -3201,19 +3205,11 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
       (lambda () (interactive)
         (oidx--refresh-parse-table)
         ;; increment in index
-        (let ((id (oidx--get-or-set-field 'id))
-	      (ref (oidx--get-or-set-field 'ref))
-              count)
-          (oidx--on
-              (if id 'id 'ref) (if id id ref)
-            (setq count (+ 1 (string-to-number (oidx--get-or-set-field 'count))))
-            (oidx--get-or-set-field 'count (number-to-string count))
-            (oidx--promote-current-line)
-            (oidx--align-and-fontify-current-line))
+        (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
           ;; increment in this buffer
-          (let ((inhibit-read-only t))
-            (oidx--get-or-set-field 'count (number-to-string count)))
-          (message "Incremented count to %d" count))))
+        (let ((inhibit-read-only t))
+          (oidx--get-or-set-field 'count (number-to-string count)))
+        (message "Incremented count to %d" count)))
     
     (mapc (lambda (x) (define-key keymap (kbd x)
                    (lambda () (interactive)
@@ -3240,7 +3236,10 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
               (let (url)
                 (setq url (car (org-offer-links-in-entry (marker-buffer marker) marker)))
                 (if (string= (substring url 0 4) "http")
-                    (browse-url url)
+                    (progn
+                      (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
+                      (oidx--get-or-set-field 'count (number-to-string count))
+                      (browse-url url))
                   (message "No link in node"))
                 (move-marker marker nil))
             (message "Did not find node with id '%s'" id)))))
