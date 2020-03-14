@@ -2,7 +2,7 @@
 (add-to-list 'load-path "c:/org-index")
 (add-to-list 'load-path "c:/org-index/test")
 
-(setq package-user-dir "c:/org-index/elpa")
+(setq package-user-dir "c:/org/elpa")
 (package-initialize)
 
 (require 'org)

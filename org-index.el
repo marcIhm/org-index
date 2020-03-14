@@ -1,11 +1,11 @@
 ;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2019 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2020 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 6.0.0
-;; Package-Requires: ((emacs "24.4"))
+;; Version: 6.1.0
+;; Package-Requires: ((emacs "25.1"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -73,6 +73,11 @@
 
 ;;; Change Log:
 
+;;   Version 6.1
+;;
+;;   - Added new command 'l' in occur to visit links
+;;   - Modified keys in occur-buffer
+;;
 ;;   Version 6.0
 ;;
 ;;   - Moved the working-set feature into its own package org-working-set
@@ -181,7 +186,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "6.0.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "6.1.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -375,7 +380,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 6.0.0 of org-working-set.el.
+This is version 6.1.0 of org-working-set.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -649,6 +654,11 @@ interactive calls."
                            (match-string 1 org-index-version))))
          ;; For Rake: Insert Change Log here
          (insert "
+* 6.1
+
+  - Added new command 'l' in occur to visit links
+  - Modified keys in occur-buffer
+
 * 6.0
 
   - Moved the working-set feature into its own package org-working-set
@@ -2853,6 +2863,7 @@ Optional argument ARG, when given does not limit number of lines shown."
           (oidx--occur-prepare-buffer lines-wanted))
 
     (setq initial-frame (selected-frame))
+    (setq oidx--inhibit-sort-idle t)
     
     ;; main loop
     (while (not done)
@@ -2963,6 +2974,7 @@ Optional argument ARG, when given does not limit number of lines shown."
 
     ;; remember list of words
     (setq oidx--occur-words (cons word words))
+    (setq oidx--inhibit-sort-idle nil)
 
     ;; put back input event, that caused the loop to end
     (if (string= key "<escape>")
@@ -3112,7 +3124,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--occur-search-text
-                       "\". <return> jumps to heading, <tab> jumps to heading in other window, <S-return> jumps to matching line in index, <space> increments count, <escape> or `q' aborts, `c' clocks in, `e' edits and `i' jumps into index; they all work with the prefix `M-' too.\nNOTE: If you invoke the org-index subcommands edit (`e') or kill (`C-c i k') from within this buffer, the index is updated accordingly."
+                       "\". <return> jumps to node of line under cursor, <tab> in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `l' offers links from node to visit; to kill a line from the index use `C-c i k'."
                        "\n")
                (length all-lines))
               'face 'org-agenda-dimmed-todo-face))
@@ -3166,38 +3178,26 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
       (lambda () (interactive)
         (message (oidx--occur-action t))))
 
-    (mapc (lambda (x) (define-key keymap (kbd x)
-                   (lambda () (interactive)
-                     (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
-                     (message "Back to initial state."))))
-          (list "<escape>" "q"))
+    (define-key keymap (kbd "i")
+      (lambda () (interactive)
+        (let ((id (oidx--get-or-set-field 'id)))
+          (switch-to-buffer oidx--buffer)
+          (oidx--go 'id id)
+          (beginning-of-line))
+        (message "Jumped to line in index.")))
     
-    (mapc (lambda (x)
-            (define-key keymap (kbd x)
-              (lambda () (interactive)
-                (message (oidx--do 'edit)))))
-          (list "M-e" "e"))
+    (define-key keymap (kbd "h")
+      (lambda () (interactive)
+        (let ((pos (get-text-property (point) 'org-index-lbp)))
+          (oidx--refresh-parse-table)
+          (oidx--occur-test-stale pos)
+          (pop-to-buffer oidx--buffer)
+          (goto-char pos)
+          (org-reveal t)
+          (oidx--update-current-line)
+          (beginning-of-line))))
 
-    (mapc (lambda (x)
-            (define-key keymap (kbd x)
-              (lambda () (interactive)
-                (org-id-goto (oidx--get-or-set-field 'id))
-                (org-with-limited-levels (org-clock-in))
-                (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
-                (message "Clocked into node and rturned to initial position."))))
-          (list "M-c" "c"))
-
-    (mapc (lambda (x)
-            (define-key keymap (kbd x)
-              (lambda () (interactive)
-                (let ((id (oidx--get-or-set-field 'id)))
-                  (switch-to-buffer oidx--buffer)
-                  (oidx--go 'id id)
-                  (beginning-of-line))
-                (message "Jumped to line in index."))))
-          (list "M-i" "i"))
-    
-    (define-key keymap (kbd "SPC")
+    (define-key keymap (kbd "+")
       (lambda () (interactive)
         (oidx--refresh-parse-table)
         ;; increment in index
@@ -3215,16 +3215,35 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
             (oidx--get-or-set-field 'count (number-to-string count)))
           (message "Incremented count to %d" count))))
     
-    (define-key keymap (kbd "<S-return>")
+    (mapc (lambda (x) (define-key keymap (kbd x)
+                   (lambda () (interactive)
+                     (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
+                     (message "Back to initial state."))))
+          (list "<escape>" "q"))
+    
+    (define-key keymap (kbd "c")
       (lambda () (interactive)
-        (let ((pos (get-text-property (point) 'org-index-lbp)))
-          (oidx--refresh-parse-table)
-          (oidx--occur-test-stale pos)
-          (pop-to-buffer oidx--buffer)
-          (goto-char pos)
-          (org-reveal t)
-          (oidx--update-current-line)
-          (beginning-of-line))))
+        (org-id-goto (oidx--get-or-set-field 'id))
+        (org-with-limited-levels (org-clock-in))
+        (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
+        (message "Clocked into node and returned to initial position.")))
+
+    (define-key keymap (kbd "e")
+      (lambda () (interactive)
+        (message (oidx--do 'edit))))
+
+    (define-key keymap (kbd "l")
+      (lambda () (interactive)
+        (let* ((id (oidx--get-or-set-field 'id))
+               (marker (org-id-find id t)))
+          (if marker
+              (let (url)
+                (setq url (car (org-offer-links-in-entry (marker-buffer marker) marker)))
+                (if (string= (substring url 0 4) "http")
+                    (browse-url url)
+                  (message "No link in node"))
+                (move-marker marker nil))
+            (message "Did not find node with id '%s'" id)))))
 
     (define-key keymap (kbd "?")
       (lambda () (interactive)

@@ -153,7 +153,7 @@
 
 (ert-deftest oidxt-test-occur-increment-count ()
   (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> e i n s <down> SPC")
+    (oidxt-do "o c c u r <return> e i n s <down> +")
     (should (string= (buffer-name) "*org-index-occur*"))
     (should (string= "2" (oidx--get-or-set-field 'count)))))
 
@@ -248,8 +248,9 @@
 
 (ert-deftest oidxt-test-goto-index-from-occur ()
   (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> e i n s <S-return>")
-    (should (string= "2" (oidx--get-or-set-field 'count)))))
+    (oidxt-do "o c c u r <return> e i n s <right> i")
+    (org-table-next-field)
+    (should (looking-at "--13--"))))
 
 
 (ert-deftest oidxt-test-find-head-from-index ()

@@ -1,4 +1,9 @@
-* 6.0 until 2019-09-19 Th
+* 6.1 until 2020-03-14 Sa
+
+  - Added new command 'l' in occur to visit links
+  - Modified keys in occur-buffer
+
+* 6.0 until 2020-03-14 Sa
 
   - Moved the working-set feature into its own package org-working-set
 

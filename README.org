@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 6.0.0.
+  The current version is 6.1.0.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -119,6 +119,11 @@
 
    See ChangeLog.org for older notes.
 
+*** 6.1
+
+    - Added new command 'l' in occur to visit links
+    - Modified keys in occur-buffer
+  
 *** 6.0
 
     - Moved the working-set feature into its own package org-working-set
