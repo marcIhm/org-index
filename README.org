@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 6.1.1.
+  The current version is 6.1.2.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -123,6 +123,7 @@
 
     - Added new command 'l' in occur to visit links
     - Modified keys in occur-buffer
+    - Refactoring
   
 *** 6.0
 

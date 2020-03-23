@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 6.1.1
+;; Version: 6.1.2
 ;; Package-Requires: ((emacs "25.1"))
 
 ;; This file is not part of GNU Emacs.
@@ -77,6 +77,7 @@
 ;;
 ;;   - Added new command 'l' in occur to visit links
 ;;   - Modified keys in occur-buffer
+;;   - Refactoring
 ;;
 ;;   Version 6.0
 ;;
@@ -186,7 +187,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "6.1.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "6.1.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -380,7 +381,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 6.1.1 of org-working-set.el.
+This is version 6.1.2 of org-working-set.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -658,6 +659,7 @@ interactive calls."
 
   - Added new command 'l' in occur to visit links
   - Modified keys in occur-buffer
+  - Refactoring
 
 * 6.0
 
@@ -2926,13 +2928,12 @@ Optional argument ARG, when given does not limit number of lines shown."
 
 
        ;; space or comma: enter an additional search word
-       ((member key (list "SPC" ","))
-
+       ((string= key "SPC")
         ;; push current word and clear, no need to change display
         (unless (string= word "")
           (setq words (cons word words))
           (setq word "")))
-
+       
 
        ;; question mark: toggle display of headlines and help
        ((string= key "?")
@@ -2984,7 +2985,7 @@ Optional argument ARG, when given does not limit number of lines shown."
     (if (string= key "<escape>")
         (progn (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
                (keyboard-quit))
-      (unless (string= key "C-g")
+      (unless (member key (list "SPC" "C-g"))
         (setq unread-command-events (listify-key-sequence key-sequence-raw)))
       (message key))
     
@@ -3030,7 +3031,7 @@ Only collect LINES-WANTED lines."
             (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
            (concat
             (propertize
-             (oidx--wrap "Normal keys add to search word; <space> or <comma> start additional word; <backspace> erases last char, <C-backspace> last word, `C-g' ends search. All other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
+             (oidx--wrap "Normal keys add to search word; <space> starts additional word; <backspace> erases last char, <C-backspace> last word, `C-g', all other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
              'face 'org-agenda-dimmed-todo-face)
             oidx--headings)))
     
@@ -3172,97 +3173,151 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
   (let (keymap count)
     (setq keymap (make-sparse-keymap))
     (set-keymap-parent keymap org-mode-map)
-    
-    (mapc (lambda (x) (define-key keymap (kbd x)
-                   (lambda () (interactive)
-                     (message "%s" (oidx--occur-action)))))
-          (list "<return>" "RET"))
-    
-    (define-key keymap (kbd "<tab>")
-      (lambda () (interactive)
-        (message (oidx--occur-action t))))
 
-    (define-key keymap (kbd "i")
-      (lambda () (interactive)
-        (let ((id (oidx--get-or-set-field 'id)))
-          (switch-to-buffer oidx--buffer)
-          (oidx--go 'id id)
-          (beginning-of-line))
-        (message "Jumped to line in index.")))
-    
-    (define-key keymap (kbd "h")
-      (lambda () (interactive)
-        (let ((pos (get-text-property (point) 'org-index-lbp)))
-          (oidx--refresh-parse-table)
-          (oidx--occur-test-stale pos)
-          (pop-to-buffer oidx--buffer)
-          (goto-char pos)
-          (org-reveal t)
-          (oidx--update-current-line)
-          (beginning-of-line))))
+    (dolist (keys-command
+             '((("<return>" "RET") . oidx--occur-action-goto-node)
+               (("<tab>") . oidx--occur-action-goto-node-other)
+               (("i" "M-i") . oidx--occur-action-goto-line-in-index)
+               (("h" "M-h") . oidx--occur-action-head-of-index)
+               (("+" "M-+") . oidx--occur-action-increment-count)
+               (("<escape>" "q") . oidx--occur-action-quit)
+               (("c" "M-c") . oidx--occur-action-clock-in)
+               (("e" "M-e") . oidx--occur-action-edit)
+               (("l" "M-l") . oidx--occur-action-offer-links)
+               (("?" "M-?") . oidx--occur-action-toggle-help)))
+      (dolist  (key (car keys-command)) (define-key keymap (kbd key) (cdr keys-command))))
 
-    (define-key keymap (kbd "+")
-      (lambda () (interactive)
-        (oidx--refresh-parse-table)
-        ;; increment in index
-        (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
-          ;; increment in this buffer
-        (let ((inhibit-read-only t))
-          (oidx--get-or-set-field 'count (number-to-string count)))
-        (message "Incremented count to %d" count)))
-    
-    (mapc (lambda (x) (define-key keymap (kbd x)
-                   (lambda () (interactive)
-                     (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
-                     (message "Back to initial state."))))
-          (list "<escape>" "q"))
-    
-    (define-key keymap (kbd "c")
-      (lambda () (interactive)
-        (org-id-goto (oidx--get-or-set-field 'id))
-        (org-with-limited-levels (org-clock-in))
-        (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
-        (message "Clocked into node and returned to initial position.")))
-
-    (define-key keymap (kbd "e")
-      (lambda () (interactive)
-        (message (oidx--do 'edit))))
-
-    (define-key keymap (kbd "l")
-      (lambda () (interactive)
-        (let* ((id (oidx--get-or-set-field 'id))
-               (marker (org-id-find id t)))
-          (if marker
-              (let (url)
-                (setq url (car (org-offer-links-in-entry (marker-buffer marker) marker)))
-                (if (string= (substring url 0 4) "http")
-                    (progn
-                      (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
-                      (oidx--get-or-set-field 'count (number-to-string count))
-                      (browse-url url))
-                  (message "No link in node"))
-                (move-marker marker nil))
-            (message "Did not find node with id '%s'" id)))))
-
-    (define-key keymap (kbd "?")
-      (lambda () (interactive)
-        (oidx--refresh-parse-table)
-        (setq-local oidx--occur-help-text (cons (cdr oidx--occur-help-text) (car oidx--occur-help-text)))
-        (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))))
-    
     (use-local-map keymap)))
 
 
+(defun oidx--occur-action-offer-links ()
+  "Offer list of links from node under cursor."
+  (interactive)
+  (let* ((id (oidx--get-or-set-field 'id))
+         (marker (org-id-find id t)))
+    (if marker
+        (let (url)
+          (setq url (car (org-offer-links-in-entry (marker-buffer marker) marker)))
+          (if (string= (substring url 0 4) "http")
+              (progn
+                (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
+                (let  ((inhibit-read-only t))
+                  (oidx--get-or-set-field 'count (number-to-string count)))
+                (browse-url url))
+            (message "No link in node"))
+          (move-marker marker nil))
+      (message "Did not find node with id '%s'" id))))
+
+
+(defun oidx--occur-action-increment-count ()
+  "Increment count of line under cursor and in index."
+  (interactive)
+  (oidx--refresh-parse-table)
+  ;; increment in index
+  (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
+  ;; increment in this buffer
+  (let ((inhibit-read-only t))
+    (oidx--get-or-set-field 'count (number-to-string count)))
+  (message "Incremented count to %d" count))
+
+
+(defun oidx--occur-action-clock-in ()
+  "Clock into node of line under cursor."
+  (interactive)
+  (org-id-goto (oidx--get-or-set-field 'id))
+  (org-with-limited-levels (org-clock-in))
+  (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
+  (message "Clocked into node and returned to initial position.")  )
+
+
+(defun oidx--occur-action-head-of-index ()
+  "Go to head of index."
+  (interactive)
+  (let ((pos (get-text-property (point) 'org-index-lbp)))
+    (oidx--refresh-parse-table)
+    (oidx--occur-test-stale pos)
+    (pop-to-buffer oidx--buffer)
+    (goto-char pos)
+    (org-reveal t)
+    (oidx--update-current-line)
+    (beginning-of-line)))
+
+
+(defun oidx--occur-action-goto-line-in-index ()
+  "Go to matching line in index."
+  (interactive)
+  (let ((id (oidx--get-or-set-field 'id)))
+    (switch-to-buffer oidx--buffer)
+    (oidx--go 'id id)
+    (beginning-of-line))
+  (message "Jumped to line in index."))
+
+
+(defun oidx--occur-action-goto-node-other ()
+  "Find heading with ref or id in other window; or copy yank column."
+  (interactive)
+  (oidx--occur-action-goto t))
+
+
+(defun oidx--occur-action-goto-node (&optional other)
+  "Find heading with ref or id; if OTHER, in other window; or copy yank column."
+  (interactive)
+  (if (org-match-line org-table-line-regexp)
+      (let ((id (oidx--get-or-set-field 'id))
+            (ref (oidx--get-or-set-field 'ref))
+            (yank (oidx--get-or-set-field 'yank)))
+        (if id
+            (oidx--find-id id other)
+          (if ref
+              (progn
+                (org-mark-ring-goto)
+                (message "Found reference %s (no node is associated)" ref))
+            (if yank
+                (progn
+                  (oidx--update-line (get-text-property (point) 'org-index-lbp))
+                  (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
+                  (kill-new yank)
+                  (org-mark-ring-goto)
+                  (if (and (>= (length yank) 4) (string= (substring yank 0 4) "http"))
+                      (progn
+                        (browse-url yank)
+                        (message "Opened '%s' in browser (and copied it too)" yank))
+                    (message "Copied '%s' (no node is associated)" yank)))
+              (error "Internal error, this line contains neither id, nor reference, nor text to yank")))))
+    (message "Not at table")))
+
+
+(defun oidx--occur-action-quit ()
+  "Quit this occur and return to initial state."
+  (interactive)
+  (if oidx--occur-win-config (set-window-configuration oidx--occur-win-config))
+  (message "Back to initial state."))
+
+
+(defun oidx--occur-action-edit ()
+  "Edit index line under cursor."
+  (interactive)
+  (message (oidx--do 'edit)))
+
+
+(defun oidx--occur-action-toggle-help ()
+  "Toggle display of usage and column headers."
+  (interactive)
+  (oidx--refresh-parse-table)
+  (setq-local oidx--occur-help-text (cons (cdr oidx--occur-help-text) (car oidx--occur-help-text)))
+  (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text)))
+
+
 (defun oidx--occur-stack-delete-frame (frame &optional keep-places)
-  "Delete overlays and highlights in FRAME.
+     "Delete overlays and highlights in FRAME.
 To skip highlighted letters set KEEP-PLACES."
-  (when frame
-    (mapc (lambda (x) (delete-overlay (cl-first x)))
-          (cdr (assoc :overlays-with-borders frame)))
-    (unless keep-places
-      (let ((inhibit-read-only t))
-        (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face nil))
-              (cdr (assoc :highlights frame)))))))
+     (when frame
+       (mapc (lambda (x) (delete-overlay (cl-first x)))
+             (cdr (assoc :overlays-with-borders frame)))
+       (unless keep-places
+         (let ((inhibit-read-only t))
+           (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face nil))
+                 (cdr (assoc :highlights frame)))))))
 
 
 (defun oidx--occur-update-tail-text (lines-wanted &optional hide-frame)
@@ -3289,33 +3344,6 @@ Optional argument HIDE-FRAME may contain info about the number of lines found."
       (setq there (oidx--line-in-canonical-form)))
     (unless (string= here there)
       (error "Occur buffer has become stale; please repeat search"))))
-
-
-(defun oidx--occur-action (&optional other)
-  "Helper for `oidx--occur', find heading with ref or id; if OTHER, in other window; or copy yank column."
-  (if (org-match-line org-table-line-regexp)
-      (let ((id (oidx--get-or-set-field 'id))
-            (ref (oidx--get-or-set-field 'ref))
-            (yank (oidx--get-or-set-field 'yank)))
-        (if id
-            (oidx--find-id id other)
-          (if ref
-              (progn
-                (org-mark-ring-goto)
-                (format "Found reference %s (no node is associated)" ref))
-            (if yank
-                (progn
-                  (oidx--update-line (get-text-property (point) 'org-index-lbp))
-                  (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
-                  (kill-new yank)
-                  (org-mark-ring-goto)
-                  (if (and (>= (length yank) 4) (string= (substring yank 0 4) "http"))
-                      (progn
-                        (browse-url yank)
-                        (format "Opened '%s' in browser (and copied it too)" yank))
-                    (format "Copied '%s' (no node is associated)" yank)))
-              (error "Internal error, this line contains neither id, nor reference, nor text to yank")))))
-    (message "Not at table")))
 
 
 (defun oidx--hide-with-overlays (words lines-wanted end-of-table)
