@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 6.1.2
+;; Version: 6.1.3
 ;; Package-Requires: ((emacs "25.1"))
 
 ;; This file is not part of GNU Emacs.
@@ -78,6 +78,7 @@
 ;;   - Added new command 'l' in occur to visit links
 ;;   - Modified keys in occur-buffer
 ;;   - Refactoring
+;;   - Fixes
 ;;
 ;;   Version 6.0
 ;;
@@ -187,7 +188,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "6.1.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "6.1.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -381,7 +382,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 6.1.2 of org-working-set.el.
+This is version 6.1.3 of org-working-set.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -660,6 +661,7 @@ interactive calls."
   - Added new command 'l' in occur to visit links
   - Modified keys in occur-buffer
   - Refactoring
+  - Fixes
 
 * 6.0
 
@@ -1196,12 +1198,13 @@ Optional argument KEYS-VALUES specifies content of new line."
    (mapconcat (lambda (x) (oidx--get-or-set-field x)) '(id ref yank keywords created) "")))
 
 
-(defun oidx--verify-id ()
+(defun oidx--verify-id (&optional silent)
   "Check, that we have a valid id."
 
   (unless oidx--skip-verify-id
     ;; Check id
     (unless org-index-id
+      (if silent (throw 'missing-index t))
       (let ((answer (oidx--completing-read "Cannot find an index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") "read-help")))
         (if (string= answer "create-index")
             (oidx--create-index)
@@ -1211,10 +1214,14 @@ Optional argument KEYS-VALUES specifies content of new line."
     ;; Find node
     (let (marker)
       (setq marker (org-id-find org-index-id 'marker))
-      (unless marker (oidx--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))
+      (unless marker
+        (if silent (throw 'missing-index t))
+        (oidx--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))
       ;; Try again with new node
       (setq marker (org-id-find org-index-id 'marker))
-      (unless marker (error "Could not create node"))
+      (unless marker
+        (if silent (throw 'missing-index t))
+        (error "Could not create node"))
       (setq oidx--buffer (marker-buffer marker)
             oidx--point (marker-position marker))
       (move-marker marker nil))))
@@ -2560,7 +2567,9 @@ Optional argument NO-INC skips automatic increment on maxref."
   "Sort index for default column to remove any effects of temporary sorting."
   (unless oidx--inhibit-sort-idle
     (save-excursion
-      (oidx--verify-id)
+      (when (catch 'missing-index (oidx--verify-id t) nil)
+          (cancel-timer oidx--sort-timer)
+          (error "No index in idle timer"))
       (oidx--parse-table)
       (with-current-buffer oidx--buffer
         (save-excursion
@@ -3256,7 +3265,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
 (defun oidx--occur-action-goto-node-other ()
   "Find heading with ref or id in other window; or copy yank column."
   (interactive)
-  (oidx--occur-action-goto t))
+  (oidx--occur-action-goto-node t))
 
 
 (defun oidx--occur-action-goto-node (&optional other)
