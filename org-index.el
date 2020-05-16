@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 6.1.3
+;; Version: 6.2.1
 ;; Package-Requires: ((org "9.0.0") (dash "2.12.0") (emacs "25.1"))
 
 ;; This file is not part of GNU Emacs.
@@ -196,7 +196,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "6.1.3" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "6.2.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -390,7 +390,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 6.1.3 of org-working-set.el.
+This is version 6.2.1 of org-working-set.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -648,6 +648,13 @@ interactive calls."
                            (match-string 1 org-index-version))))
          ;; For Rake: Insert Change Log here
          (insert "
+* 6.2
+
+  - Require dash and orgmode for package.el
+  - Key 'h' does the same as '?'
+  - Rename command 'head' to 'node' (to free key 'h')
+  - Fixes
+
 * 6.1
 
   - Added new command 'l' in occur to visit links
@@ -1004,7 +1011,8 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 ;; Reading user input
 (defun oidx--read-shortcut-char (arg)
-  "Get a single char that can be interpreted as a shortcut char."
+  "Get a single char that can be interpreted as a shortcut char.
+Argument ARG is prefix argument from user."
   (let* ((c-u arg)
          char command c-u-just)
     (while (not char)
@@ -1212,7 +1220,8 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 
 (defun oidx--verify-id (&optional silent)
-  "Check, that we have a valid id."
+  "Check, that we have a valid id.
+Optional argument SILENT prevents invoking interactive assistant."
 
   (unless oidx--skip-verify-id
     ;; Check id
@@ -1660,7 +1669,7 @@ Optional argument KEYS-VALUES specifies content of new line."
         (setq content (number-to-string (org-outline-level))))
        
        ((eq col 'tags)
-        (setq content (org-get-tags-string))))
+        (setq content (org-make-tag-string (org-get-tags nil t)))))
       
       (unless (string= content "")
         (setq args (plist-put args col content))))
@@ -2639,7 +2648,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 			(string= tag ""))
               (setq new-tags (cons tag new-tags))))
           (org-get-tags))
-    (org-set-tags-to new-tags)))
+    (org-set-tags new-tags)))
 
 
 
@@ -3194,7 +3203,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
 (defun oidx--occur-install-keyboard-shortcuts ()
   "Install keyboard shortcuts for result of occur buffer."
 
-  (let (keymap count)
+  (let (keymap)
     (setq keymap (make-sparse-keymap))
     (set-keymap-parent keymap org-mode-map)
 
@@ -3218,7 +3227,8 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
   "Offer list of links from node under cursor."
   (interactive)
   (let* ((id (oidx--get-or-set-field 'id))
-         (marker (org-id-find id t)))
+         (marker (org-id-find id t))
+         count)
     (if marker
         (let (url)
           (setq url (car (org-offer-links-in-entry (marker-buffer marker) marker)))
@@ -3236,13 +3246,14 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
 (defun oidx--occur-action-increment-count ()
   "Increment count of line under cursor and in index."
   (interactive)
-  (oidx--refresh-parse-table)
-  ;; increment in index
-  (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
-  ;; increment in this buffer
-  (let ((inhibit-read-only t))
-    (oidx--get-or-set-field 'count (number-to-string count)))
-  (message "Incremented count to %d" count))
+  (let (count)
+    (oidx--refresh-parse-table)
+    ;; increment in index
+    (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
+    ;; increment in this buffer
+    (let ((inhibit-read-only t))
+      (oidx--get-or-set-field 'count (number-to-string count)))
+    (message "Incremented count to %d" count)))
 
 
 (defun oidx--occur-action-clock-in ()
@@ -3333,7 +3344,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
 
 
 (defun oidx--occur-stack-delete-frame (frame &optional keep-places)
-     "Delete overlays and highlights in FRAME.
+     "Delete overlays and highlight in FRAME.
 To skip highlighted letters set KEEP-PLACES."
      (when frame
        (mapc (lambda (x) (delete-overlay (cl-first x)))

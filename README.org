@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 6.1.3.
+  The current version is 6.2.1.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -119,6 +119,13 @@
 
    See ChangeLog.org for older notes.
 
+*** 6.2
+
+    - Require dash and orgmode for package.el
+    - Key 'h' does the same as '?'
+    - Rename command 'head' to 'node' (to free key 'h')
+    - Fixes
+  
 *** 6.1
 
     - Added new command 'l' in occur to visit links

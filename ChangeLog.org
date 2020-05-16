@@ -1,4 +1,11 @@
-* 6.1 until 2020-04-13 Mo
+* 6.2 until 2020-05-16 Sa
+
+  - Require dash and orgmode for package.el
+  - Key 'h' does the same as '?'
+  - Rename command 'head' to 'node' (to free key 'h')
+  - Fixes
+
+* 6.1 until 2020-05-16 Sa
 
   - Added new command 'l' in occur to visit links
   - Modified keys in occur-buffer
