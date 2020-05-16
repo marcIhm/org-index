@@ -253,17 +253,17 @@
     (should (looking-at "--13--"))))
 
 
-(ert-deftest oidxt-test-find-head-from-index ()
+(ert-deftest oidxt-test-find-node-from-index ()
   (oidxt-with-test-setup
     (oidxt-do "i n d e x <return> SPC")
     (forward-line 6)
-    (oidxt-do "h e a d <return>")
+    (oidxt-do "n o d e <return>")
     (should (looking-at ".* --8--"))))
 
 
-(ert-deftest oidxt-test-find-head-from-number ()
+(ert-deftest oidxt-test-find-node-from-number ()
   (oidxt-with-test-setup
-    (oidxt-do "h e a d <return> 8 <return>")
+    (oidxt-do "n o d e <return> 8 <return>")
     (should (looking-at ".* --8--"))))
 
 
