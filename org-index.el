@@ -5,7 +5,7 @@
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
 ;; Version: 6.1.3
-;; Package-Requires: ((emacs "25.1"))
+;; Package-Requires: ((org "9.0.0") (dash "2.12.0") (emacs "25.1"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -73,6 +73,13 @@
 
 ;;; Change Log:
 
+;;   Version 6.2
+;;
+;;   - Require dash and orgmode for package.el
+;;   - Key 'h' does the same as '?'
+;;   - Rename command 'head' to 'node' (to free key 'h')
+;;   - Fixes
+;;
 ;;   Version 6.1
 ;;
 ;;   - Added new command 'l' in occur to visit links
@@ -137,6 +144,7 @@
 (require 'org-inlinetask)
 (require 'cl-lib)
 (require 'widget)
+(require 'dash)
 
 ;; Variables to hold the configuration of the index table
 (defvar oidx--head nil "Header before number (e.g. 'R').")
@@ -173,12 +181,12 @@
 (defvar oidx--context-node nil "Buffer and position for node in edit buffer.")
 (defvar oidx--short-help-wanted nil "Non-nil, if short help should be displayed.")
 (defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
-(defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
 (defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
+(defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
-(defconst oidx--commands '(occur add kill head ping index ref yank column edit help short-help news example sort find-ref highlight maintain) "List of commands available.")
+(defconst oidx--commands '(occur add kill node ping index ref yank column edit help short-help news example sort find-ref highlight maintain) "List of commands available.")
 (defconst oidx--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
@@ -399,13 +407,6 @@ of subcommands to choose from:
     So that (e.g.) it can be found through the subcommand
     'occur'.  Update index, if node is already present.
 
-  kill: [k] Kill (delete) the current node from index.
-    Can be invoked from index, from occur or from a headline.
-
-  head: [h] Search for heading, by ref or from index line.
-    If invoked from within index table, go to associated
-    node (if any), otherwise ask for ref to search.
-  
   index: [i] Enter index table and maybe go to a specific reference.
     Use `org-mark-ring-goto' (\\[org-mark-ring-goto]) to go back.
 
@@ -425,14 +426,21 @@ of subcommands to choose from:
   edit: [e] Present current line in edit buffer.
     Can be invoked from index, from occur or from a headline.
 
-  help: Show complete help text of `org-index'.
-    I.e. this text.
-
-  short-help: [?] Show one-line descriptions of each subcommand.
+  node: [n] Go to node, by ref or from index line.
+    If invoked from within index table, go to associated
+    node (if any), otherwise ask for ref to search and go.
+  
+  short-help: [?,h] Show one-line descriptions of each subcommand.
     I.e. from the complete help, show only the first line for each
     subcommand.
 
-  news: [n] Show news for the current point release.
+  help: Show complete help text of `org-index'.
+    I.e. this text.
+
+  news: Show news for the current point release.
+
+  kill: Kill (delete) the current node from index.
+    Can be invoked from index, from occur or from a headline.
 
   example: Create an example index, that will not be saved.
     May serve as an example.
@@ -458,7 +466,7 @@ This includes the global key `org-index-key' to invoke
 the most important subcommands with one additional key.
 
 A numeric prefix argument is used as a reference number for
-commands, that need one (e.g. 'head') or to modify their
+commands, that need one (e.g. 'node') or to modify their
 behaviour (e.g. 'occur').
 
 Also, a single prefix argument may be specified just before the
@@ -472,27 +480,11 @@ interactive calls."
 
   (catch 'new-index
     (oidx--verify-id)
-    (let (char command (c-u-text (if arg " C-u " "")))
-      (while (not char)
-        (if (sit-for 1)
-            (message (concat "org-index (type a shortcut char or <space> or ? for a detailed prompt) -" c-u-text)))
-        (setq char (key-description (read-key-sequence nil)))
-        (if (string= char "C-g") (keyboard-quit))
-        (if (string= char "SPC") (setq char "?"))
-        (when (string= char (upcase char))
-          (setq char (downcase char))
-          (setq arg (or arg '(4))))
-        (when (string= char "C-u")
-          (setq arg (or arg '(4)))
-          (setq c-u-text " C-u ")
-          (setq char nil)))
-      (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
-      (unless command
-        (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
-          (setq command 'short-help)))
 
-      (let ((oidx--skip-verify-id t))
-        (oidx--do command nil arg)))))
+    (let ((oidx--skip-verify-id t)
+          command)
+      (setq command (oidx--read-shortcut-char arg))
+      (oidx--do command nil arg))))
 
 
 (defun oidx--do (&optional command search-ref arg)
@@ -562,7 +554,7 @@ interactive calls."
           (setq search-ref (format "%s%d%s" oidx--head arg oidx--tail)))
       
       ;; These actions really need a search string and may even prompt for it
-      (when (memq command '(index head find-ref))
+      (when (memq command '(index node find-ref))
 
         ;; search from surrounding text ?
         (unless search-ref
@@ -583,7 +575,7 @@ interactive calls."
                 (setq search-ref (cl-first r))
                 (setq search-id (cl-second r))
                 (setq search-fingerprint (cl-third r)))
-            (unless (and (eq command 'head)
+            (unless (and (eq command 'node)
                          oidx--within-index-node
                          (org-match-line org-table-line-regexp))
               (setq search-ref (read-from-minibuffer "Search reference number: ")))))
@@ -597,7 +589,7 @@ interactive calls."
 
         (if (and (not search-ref)
                  (not (eq command 'index))
-                 (not (and (eq command 'head)
+                 (not (and (eq command 'node)
                            oidx--within-index-node
                            (org-match-line org-table-line-regexp))))
             (error "Command %s needs a reference number" command)))
@@ -616,7 +608,7 @@ interactive calls."
       ;;
 
       ;; Arrange for beeing able to return
-      (when (and (memq command '(occur head index example sort maintain))
+      (when (and (memq command '(occur node index example sort maintain))
                  (not (string= (buffer-name) oidx--occur-buffer-name)))
         (org-mark-ring-push))
 
@@ -742,7 +734,7 @@ interactive calls."
         (setq message-text (oidx--do-kill)))
 
 
-       ((eq command 'head)
+       ((eq command 'node)
 
         (if (and oidx--within-index-node
                  (org-match-line org-table-line-regexp))
@@ -1011,6 +1003,32 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 
 ;; Reading user input
+(defun oidx--read-shortcut-char (arg)
+  "Get a single char that can be interpreted as a shortcut char."
+  (let* ((c-u arg)
+         char command c-u-just)
+    (while (not char)
+      (if (or c-u-just
+              (sit-for echo-keystrokes))
+          (message (concat "org-index (type a shortcut char or <space>,h,? for a detailed prompt) -" (if c-u " C-u " ""))))
+      (setq char (key-description (read-key-sequence nil)))
+      (if (string= char "C-g") (keyboard-quit))
+      (if (string= char "SPC") (setq char "?"))
+      (when (string= char (upcase char))
+        (setq char (downcase char))
+        (setq arg (or arg '(4))))
+      (when (string= char "C-u")
+        (setq arg (or arg '(4)))
+        (setq c-u-just (not c-u))
+        (setq c-u t)
+        (setq char nil)))
+    (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
+    (unless command
+      (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
+        (setq command 'short-help)))
+    command))
+
+
 (defun oidx--read-command ()
   "Read subcommand for ‘org-index’ from minibuffer."
   (let (minibuffer-scroll-window
@@ -1026,8 +1044,7 @@ Optional argument KEYS-VALUES specifies content of new line."
                 "Please choose"
                 (if oidx--short-help-wanted "" " (<space> or ? for short help)")
                 ": ")
-               (append (mapcar 'symbol-name oidx--commands)
-                       (mapcar 'upcase-initials (mapcar 'symbol-name oidx--commands)))))
+               (append (mapcar 'symbol-name oidx--commands))))
       (remove-hook 'minibuffer-setup-hook 'oidx--minibuffer-setup-function)
       (remove-hook 'minibuffer-exit-hook 'oidx--minibuffer-exit-function)
       (when command
@@ -1045,14 +1062,13 @@ Optional argument KEYS-VALUES specifies content of new line."
   (setq oidx--minibuffer-saved-key (local-key-binding (kbd "?")))
   (local-set-key (kbd "?") 'oidx--display-short-help)
   (local-set-key (kbd "C-u") (lambda () (interactive)
-			       (setq oidx--prefix-arg t)
-			       (message "C-u")))
+			       (setq oidx--prefix-arg t)))
   (if oidx--short-help-wanted (oidx--display-short-help)))
 
 
 (defun oidx--minibuffer-exit-function ()
   "Restore minibuffer after `oidx--read-command'."
-  (local-set-key (kbd "?") oidx--minibuffer-saved-key)
+  (if oidx--minibuffer-saved-key (local-set-key (kbd "?") oidx--minibuffer-saved-key))
   (local-set-key (kbd "C-u") 'universal-argument)
   (setq oidx--minibuffer-saved-key nil))
 
@@ -1062,7 +1078,7 @@ Optional argument KEYS-VALUES specifies content of new line."
   (interactive)
 
   (with-temp-buffer-window
-   oidx--short-help-buffer-name nil nil
+   oidx--short-help-buffer-name '((display-buffer-at-bottom)) nil
    (setq oidx--short-help-displayed t)
    (princ (or prompt "Short help; shortcuts in []; capital letter acts like C-u.\n"))
    (princ (or choices (oidx--get-short-help-text))))
@@ -1081,15 +1097,12 @@ Optional argument KEYS-VALUES specifies content of new line."
   (or oidx--short-help-text
       (with-temp-buffer
         (insert (documentation 'org-index))
-        (goto-char (point-min))
-        (search-forward (concat "  " (symbol-name (cl-first oidx--commands)) ": "))
-        (forward-line 0)
-        (kill-region (point-min) (point))
-        (search-forward (concat "  " (symbol-name (car (last oidx--commands))) ": "))
-        (forward-line 1)
-        (kill-region (point) (point-max))
         (keep-lines "^  [-a-z]+:" (point-min) (point-max))
+        (unless (= (count-lines (point-min) (point-max))
+                   (length oidx--commands))
+          (error "Internal error: count of lines matched does not equal number of comments"))
         (align-regexp (point-min) (point-max) "\\(\\s-*\\):")
+        (untabify (point-min) (point-max))
         (goto-char (point-min))
         (while (re-search-forward "\\. *$" nil t)
           (replace-match "" nil nil))
@@ -1099,8 +1112,6 @@ Optional argument KEYS-VALUES specifies content of new line."
         (insert " (this text)")
         (delete-blank-lines)
         (goto-char (point-min))
-        (unless (= (line-number-at-pos (point-max)) (1+ (length oidx--commands)))
-          (error "Internal error, unable to properly extract one-line descriptions of subcommands"))
         (setq oidx--short-help-text (buffer-string)))))
 
 
@@ -1111,10 +1122,12 @@ Optional argument KEYS-VALUES specifies content of new line."
         (insert (oidx--get-short-help-text))
         (goto-char (point-min))
         (while (< (point) (point-max))
-          (when (looking-at "^  \\([-a-z]+\\)[ \t]+: +\\[\\([a-z?]\\)\\] ")
-            (setq oidx--shortcut-chars
-                  (cons (cons (match-string 2) (intern (match-string 1)))
-                        oidx--shortcut-chars)))
+          (when (looking-at "^ *\\([-a-z]+\\) *: +\\[\\([a-z,?]+\\)\\] ")
+            (let ((chars (-remove-item "," (mapcar 'char-to-string (match-string 2)))))
+              (dolist (char chars)
+                (setq oidx--shortcut-chars
+                      (cons (cons char (intern (match-string 1)))
+                            oidx--shortcut-chars)))))
           (forward-line 1))
         (unless (> (length oidx--shortcut-chars) 0)
           (error "Internal error, did not find shortcut chars"))
@@ -1707,6 +1720,9 @@ CREATE-REF and TAG-WITH-REF if given."
 
   (let* (id id-from-index ref args yank ret)
 
+    (unless (string-equal major-mode "org-mode")
+      (error "This is not an org-buffer"))
+    
     (oidx--save-positions)
     (unless (or oidx--within-index-node
                 oidx--within-occur)
@@ -2279,8 +2295,7 @@ If OTHER in separate window."
         (progn
           (oidx--update-line id)
           (if other
-              (progn
-                (pop-to-buffer (marker-buffer marker)))
+              (pop-to-buffer (marker-buffer marker))
             (pop-to-buffer-same-window (marker-buffer marker)))
           
           (goto-char marker)
