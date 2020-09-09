@@ -137,7 +137,7 @@
     (execute-kbd-macro (kbd "C-c i ? h e l p <return>"))
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
-      (should (= (line-number-at-pos) 20)))))
+      (should (= (line-number-at-pos) 19)))))
 
 
 (unless (functionp 'org-duration-from-minutes)
@@ -213,13 +213,6 @@
     (should (looking-at "\\*\\* #2# neun"))))
 
 
-(ert-deftest oidxt-test-example ()
-  (oidxt-with-test-setup
-    (oidxt-do "e x a m p l e <return> y e x a m p l e <return> - 1 - <return>")
-    (with-current-buffer "*org-index-example-index*"
-      (should (search-forward "Below you find"))
-      (oidx--go-below-hline)
-      (should (org-at-table-p)))))
 
 
 (ert-deftest oidxt-test-node-above-index ()
@@ -571,18 +564,6 @@
     (should (string= (oidx--get-or-set-field 'keywords) "dreibar"))))
 
 
-(ert-deftest oidxt-test-consistent-versions-in-news ()
-  (oidxt-with-test-setup
-    (let (ver1 ver2)
-      (oidxt-do "n e w s <return>")
-      (with-current-buffer "*org-index news*"
-	(should (looking-at "News for Version \\([0-9]+.[0-9]+\\) "))
-	(setq ver1 (match-string 1))
-	(forward-line 2)
-	(should (looking-at "* \\([0-9]+.[0-9]+\\)$"))
-	(setq ver2 (match-string 1))
-	(should (string= ver1 ver2))))))
-
 ;;
 ;; Helper functions
 ;;
@@ -618,6 +599,7 @@
 
 (defun oidxt-setup-test ()
   (interactive)
+  (message (format "Executing test %S" (ert-test-name (ert--stats-current-test ert--current-run-stats))))
   (if oidx--sort-timer
       (cancel-timer oidx--sort-timer))
   (if (get-buffer "*org-index-occur*") (kill-buffer "*org-index-occur*"))

@@ -4,8 +4,8 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 6.2.1
-;; Package-Requires: ((org "9.0.0") (dash "2.12.0") (emacs "25.1"))
+;; Version: 6.2.2
+;; Package-Requires: ((org "9.0.0") (dash "2.12.0") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -78,6 +78,7 @@
 ;;   - Require dash and orgmode for package.el
 ;;   - Key 'h' does the same as '?'
 ;;   - Rename command 'head' to 'node' (to free key 'h')
+;;   - Removed command 'news'
 ;;   - Fixes
 ;;
 ;;   Version 6.1
@@ -186,12 +187,11 @@
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
-(defconst oidx--commands '(occur add kill node ping index ref yank column edit help short-help news example sort find-ref highlight maintain) "List of commands available.")
+(defconst oidx--commands '(occur add kill node ping index ref yank column edit help short-help example sort find-ref highlight maintain) "List of commands available.")
 (defconst oidx--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
-(defconst oidx--news-buffer-name "*org-index news*" "Name of buffer to display news.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
@@ -210,7 +210,7 @@
   :group 'org-index)
 
 (defcustom org-index-sort-by 'mixed
-  "Strategy for sorting index table (and whence entries in occur).
+  "Criterium for sorting index table (and whence entries in occur).
 Valid values are:
 
 last-access  Sort index by date and time of last access; show
@@ -437,8 +437,6 @@ of subcommands to choose from:
   help: Show complete help text of `org-index'.
     I.e. this text.
 
-  news: Show news for the current point release.
-
   kill: Kill (delete) the current node from index.
     Can be invoked from index, from occur or from a headline.
 
@@ -639,75 +637,6 @@ interactive calls."
         (oidx--display-short-help))
 
        
-       ((eq command 'news)
-        (with-current-buffer-window
-         oidx--news-buffer-name nil nil
-         (insert (format "News for Version %s of org-index:\n"
-                         (progn
-                           (string-match "\\([0-9]+\\.[0-9]+\\)\\." org-index-version)
-                           (match-string 1 org-index-version))))
-         ;; For Rake: Insert Change Log here
-         (insert "
-* 6.2
-
-  - Require dash and orgmode for package.el
-  - Key 'h' does the same as '?'
-  - Rename command 'head' to 'node' (to free key 'h')
-  - Fixes
-
-* 6.1
-
-  - Added new command 'l' in occur to visit links
-  - Modified keys in occur-buffer
-  - Refactoring
-  - Fixes
-
-* 6.0
-
-  - Moved the working-set feature into its own package org-working-set
-
-* 5.12
-
-  - Do-not-clock is shown in working-set menu
-  - Switching from working set circle into menu
-  - RET in working-set circle ends and clocks in immediately
-  - Fixes
-
-* 5.11
-
-  - Implemented do-not-clock commands and behaviour in working-set
-  - Fixes
-
-* 5.10
-
-  - Pressing shift prevents clocking into working set
-  - Occur shows '(more lines omitted)' if appropriate
-  - replaced (org-at-table-p) with (org-match-line org-table-line-regexp)
-    throughout for preformance reasons
-  - Offer direct clock-in from result-buffer of occur
-  - Various fixes
-
-* 5.9
-
-  - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
-  - Added special buffer to manage the working-set
-  - Function org-index-working-set may now be invoked directly
-  - Simplified working-set circle
-  - Introduced org-index-occur-columns to limit matches during occur to specified
-    number of leading columns; this gives better matches
-  - Removed days option from occur command
-  - Fixed and Optimized overlay-handling in occur for better performance and
-    overall stability
-  - Limited the number of lines to display in occur for better performance,
-    see 'org-index-occur-max-lines'
-
-")
-         (insert "\nSee https://github.com/marcIhm/org-index/ChangeLog.org for older news.\n")
-         (org-mode)
-         (org-cycle '(64)))
-        (shrink-window-if-larger-than-buffer (get-buffer-window oidx--news-buffer-name)))
-       
-
        ((eq command 'find-ref)
 
         ;; Construct list of all org-buffers

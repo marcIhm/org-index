@@ -1,11 +1,9 @@
 screencast/org-id-locations-screencast
-org-index.elc
+*.elc
 \#*#
 .#*
 *~
-org-index.el.backup
-ChangeLog.org.backup
-README.org.backup
-elpa/
+elpa
 org-id-locations-for-test
+backup
 

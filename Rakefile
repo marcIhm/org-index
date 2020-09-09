@@ -1,25 +1,69 @@
 #!/usr/bin/ruby
 
-require 'pp'
+#
+# Common Rakefile for multiple elisp-projects; updates itself (if dir exists) from 
+#
+#   ../rakefile-for-elisp/Rakefile
+#
+# and vice versa.
+#
+# Configure via rake_config.yml
+#
+
 require 'fileutils'
 include FileUtils
-
 require 'yaml'
-cnf = YAML::load(File.open('rake_config.yml'))
+require 'set'
+require 'open3'
 
-def compare_semver one,two
-  vers = [one, two].map do |x|
-    md = x.match(/(\d+)\.(\d+)/)
-    fail "Argument '#{x}' does not contain a semantic version number" unless md
-    [md[1],md[2]]
-  end.transpose
+#
+# Global variables
+#
+# Configuration and options
+$conf = YAML::load(File.open('rake_config.yml'))
+$conf.transform_keys!(&:to_sym)
+$conf[:file] = 'rake_config.yml'
+$v = (verbose == true)
 
-  vers.inject(0) {|s,x| 2*s+(x[0].to_i<=>x[1].to_i)} <=> 0
+# Shared information between tasks
+# from lisp-source
+$version_lisp = nil
+$commentary_lisp = Hash.new
+$changelog_lisp = Hash.new
+# from changelog
+$changelog = Hash.new
+$changelog_until = Hash.new
+
+#
+# Helper functions
+#
+def heading text, large = false, warn = false
+  if large
+    puts "\n"
+    print "\e[32m"
+    dash = "==="
+    puts dash * 12
+    puts "#{dash}  #{text}"
+    puts dash * 12
+  else
+    puts if $v
+    print "\e[#{warn ? 35 : 33}m"
+    puts "--- #{text}"
+  end
+  print "\e[0m"
 end
 
+
+def compare_semver one,two
+  vs = [one, two].map do |x|
+    x.match(/(\d+)\.(\d+)/) || abort("Argument '#{x}' does not contain a semantic version number")
+  end
+  ( 2*(vs[0][0]<=>vs[1][0]) + (vs[0][1]<=>vs[1][1]) ) <=> 0
+end
+
+
 def accept fname,nname
-  oname = fname + ".backup"
-  puts "\n"
+  heading "Accept changes to #{fname} ?"
   system "diff #{fname} #{nname}"
   if $? == 0
     puts "No differences between #{fname} and #{nname}."
@@ -27,12 +71,344 @@ def accept fname,nname
   else
     puts "\n\n"
     system "ls -l #{fname} #{nname}"
-    puts "\nChanges to #{fname}.\nPlease review 'diff old new' and output of 'ls'\nType RETURN to accept or ctrl-C ctrl-C to reject:"
-    gets
-    mv fname,oname
+    heading "Changes to #{fname}.\nPlease review 'diff old new' and output of 'ls'\nType RETURN to accept or Ctrl-c Ctrl-c to reject:"
+    $stdin.gets
+    make_backup fname
     mv nname,fname
   end
 end
+
+
+def make_backup file
+  dir = File.dirname(file) + '/backup'
+  mkdir dir,{:verbose => $v} unless File.directory?(dir)
+  backs = [ file ] + (1..5).map {|i| dir + '/' + File.basename(file) + "_backup_" + i.to_s}
+  pairs = backs[0..-2].zip(backs[1..-1]).reverse
+  pairs.each do |p|
+    next unless File.exist?(p[0])
+    cp p[0],p[1],{:verbose => $v}
+  end
+end
+
+
+def maybe_copy from,to
+  puts "Maybe copy #{from} to #{to}" if $v
+  [from, to].each {|f| return false unless File.exist?(f)}
+  return false if File.mtime(to) > File.mtime(from)
+  system("diff -q #{from} #{to} >/dev/null 2>&1")
+  return false if $?.exitstatus == 0
+  make_backup to
+  cp from,to,{:verbose => $v}
+  return true
+end
+
+
+def brushup text
+  text.sub!(/\A[\s\n]+/,'')
+  text.sub!(/[\s\n]+\Z/,'')
+  text.chomp!
+end
+
+
+def write_as_org file, level, hash, &compare
+  keys = hash.keys
+  keys = keys.sort(&compare) if compare
+  keys.each do |key|
+    file.puts '*' * level + " #{key}\n\n"
+    hash[key].lines.each {|l| file.puts ' ' * (level+1) + l}
+    file.puts "\n"
+  end
+  pp hash if $v
+end
+
+
+def forward_to file, text
+  line = nil
+  begin
+    line = file.gets
+  end until !line || line.start_with?(text)
+  line
+end
+
+#
+# Individual tasks
+#
+#
+# Tasks, that collect information, no desc to avoid them beeing listed with -T
+#
+# Check, if this rakefile is and should be a symlink (and shared with other projects) or a plain file
+# Compare with rakefile in other dir and update 
+task :update_rake do
+  this_rf = __FILE__
+  parent_rf = File.expand_path('..', File.dirname(this_rf)) + '/rakefile-for-elisp/Rakefile'
+  system("touch -t 190001010000 #{parent_rf} >/dev/null 2>&1") unless File.exist?(parent_rf)
+
+  if maybe_copy this_rf, parent_rf
+    heading "Updated #{parent_rf} from #{this_rf}"
+  end
+
+  if maybe_copy parent_rf, this_rf
+    heading "This rakefile #{this_rf} has been updated from #{parent_rf}; please rerun"
+    exit
+  end
+end
+
+
+
+# Extract version from sourcefile
+task :extract_version => [:update_rake] do
+
+  heading "Extract version from #{$conf[:source]}"
+
+  File.open($conf[:source]).each do |line|
+    if line.match(/^;; Version: (\d+\.\d+\.\d+)\s*/)
+      $version_lisp = Regexp.last_match[1]
+      puts $version_lisp
+      break
+    end
+  end
+end
+
+
+# Extract commentary from sourcefile
+task :extract_commentary => [:update_rake] do
+
+  heading "Extract commentary from #{$conf[:source]}"
+
+  commentary_keys_matcher = Regexp.new('^;; (' + $conf[:required_pieces_commentary].join('|') + '):\s*$')
+  key = nil
+
+  File.open($conf[:source]).
+    drop_while { |line| !line.start_with?(';;; Commentary:') }.
+    drop(2).take_while { |line| line.start_with?(';;') }.each do |line|
+    if line.match(commentary_keys_matcher)
+      key = Regexp.last_match[1]
+      $commentary_lisp[key] = ''
+      puts key
+    else
+      $commentary_lisp[key] += line.sub(/^;;(  )?/,'') if key
+    end
+  end
+
+  $commentary_lisp.each_key do |key|
+    brushup $commentary_lisp[key]
+  end
+  pp $commentary_lisp if $v
+
+  pieces_seen = Set.new($commentary_lisp.keys)
+  pieces_required = Set.new($conf[:required_pieces_commentary])
+  abort "ERROR: Pieces of commentary seen #{pieces_seen} does not equal pieces of commentary required #{pieces_required}" unless pieces_seen == pieces_required
+end
+
+
+# Extract change log from sourcefile
+task :extract_changelog_lisp => [:extract_version] do
+
+  heading "Extract Changelog from #{$conf[:source]}"
+  version = offset = nil
+
+  File.open($conf[:source]).each.
+    drop_while { |line| !line.start_with?(';;; Change Log:') }.
+    drop(2).take_while { |line| line.start_with?(';;') }.each do |line|
+    if line.match(/^(;;\s+)Version (\d+\.\d+)\s*/) 
+      version = Regexp.last_match[2]
+      $changelog_lisp[version] = ''
+      offset = Regexp.last_match[1]
+      puts version
+    elsif version
+      $changelog_lisp[version] += line[offset.length..-1] || ''
+    end
+  end
+
+  $changelog_lisp.each_key do |version|
+    brushup $changelog_lisp[version]
+  end
+
+  pp $changelog_lisp if $v
+  
+  version_lisp_latest = $changelog_lisp.keys.max {|a,b| compare_semver(a,b)}
+  abort "Mismatch in #{$conf[:source]}: Latest version from Changelog #{version_lisp_latest} does not fit version specified explicitly #{$version_lisp}" unless $version_lisp.sub(/\.\d+$/,'') == version_lisp_latest
+
+end
+
+
+# Extract change log from changelog
+task :extract_changelog => [:extract_changelog_lisp] do
+
+  fname = 'ChangeLog.org'
+  heading "Extract Changelog from #{fname}"
+
+  version = nil
+  
+  File.open(fname).each do |line|
+    if mdata = line.match(/^\* (\d+\.\d+) until (\S.*\S)/)
+      version = mdata[1]
+      $changelog[version] = ''
+      $changelog_until[version] = mdata[2]
+      puts version
+    else
+      $changelog[version] += line[2..-1] || '' if version
+    end
+  end
+
+  now = Time.now.strftime("%Y-%m-%d %a")[0..-2]
+  $changelog_lisp.each_key do |version|
+    $changelog[version] = $changelog_lisp[version]
+    $changelog_until[version] ||= now
+  end
+  version_latest = $changelog.keys.max {|a,b| compare_semver(a,b)}
+  $changelog_until[version_latest] = now
+  
+  $changelog.each_key do |version|
+    brushup $changelog[version]
+  end
+  pp $changelog if $v
+  
+end
+
+
+#
+# Tasks, that update files with collected information
+#
+desc 'Update Changelog with information from sourcefile'
+task :update_changelog => [:extract_changelog, :extract_version] do
+
+  fname = 'ChangeLog.org'
+  heading "Update #{fname}",true
+  nname = fname + '.new'
+  
+  File.open(nname,'w') do |nfile|
+    $changelog.keys.sort {|a,b| compare_semver(b,a)}.each do |version|
+      puts version
+      nfile.puts "* #{version} until #{$changelog_until[version]}\n\n"
+      $changelog[version].lines.each {|l| nfile.puts '  ' + l}
+      nfile.puts "\n"
+    end
+  end
+  
+  accept fname,nname
+  
+end
+
+
+desc 'Update Readme with information from sourcefile'
+task :update_readme => [:extract_changelog, :extract_version, :extract_commentary] do
+
+  fname = 'README.org'
+  heading "Update #{fname}",true
+  nname = fname + ".new"
+
+  toc = File.read(fname).lines.select {|l| l.start_with?('** ')}.map {|l| l[3..-1].chomp}
+  unseen = Set.new([:version, :toc, :about, :changelog])
+  tcvi = '  The current version is '
+
+  File.open(nname,'w') do |nfile| 
+    File.open(fname) do |file|
+
+      loop do
+        line ||= file.gets
+        break unless line
+
+        # content of line will in any case written at bottom of loop, until then:
+        # Write something else, replace content of line or leave as is
+
+        if line.start_with?(tcvi)
+          heading 'Version'
+          line = tcvi + $version_lisp + '.'
+          unseen.delete(:version)
+        end
+
+        if line.start_with?('** Table of Contents')
+          heading 'Table of contents'
+          nfile.puts line + "\n"
+          toc.drop(1).each {|t| nfile.puts "   - [[##{t.downcase.tr(' ','-')}][#{t}]]"}
+          nfile.puts "\n"
+          line = forward_to(file,'** ')
+          unseen.delete(:toc)
+        end
+
+        if line.start_with?('** About this Package')
+          heading 'Commentary'
+          nfile.puts line + "\n"
+          write_as_org nfile,3,$commentary_lisp
+          line = forward_to(file,'** ')
+          unseen.delete(:about)
+        end
+
+        if line.start_with?('** Latest Change Log')
+          heading 'Latest Change log'
+          nfile.puts line + "\n   See ChangeLog.org for older notes.\n\n"
+          write_as_org nfile,3,$changelog
+          line = forward_to(file,'* ')
+          unseen.delete(:changelog)
+        end
+
+        # now write whatever current content of line is
+        nfile.puts line if line
+      end
+
+    end
+  end
+  abort "Did not see #{unseen.inspect}" if unseen.length > 0
+
+  accept fname,nname
+
+end
+
+
+desc 'Update sourcefile with information from sourcefile'
+task :update_lisp => [:extract_changelog, :extract_version, :extract_commentary] do
+
+  fname = $conf[:source]
+  heading "Update #{fname}",true
+  nname = fname + ".new"
+
+  unseen = Set.new([:version, :commentary])
+  tiv = 'This is version'
+
+  File.open(nname,'w') do |nfile| 
+    File.open(fname) do |file|
+
+      loop do
+        line ||= file.gets
+        break unless line
+
+        # content of line will in any case written at bottom of loop, until then:
+        # Write something else, replace content of line or leave as is
+
+        if line.start_with?("(defvar #{$conf[:package]}-version")
+          heading 'Version'
+          line.sub!(/\d+\.\d+\.\d+/,$version_lisp)
+          unseen.delete(:version)
+        end
+
+        if line['For Rake: Insert here']
+          heading 'Commentary'
+          nfile.write line
+          first = true
+          $conf[:pieces_for_docstring].each do |piece|
+            abort "ERROR: Configuration item 'pieces_for_docstring' from $conf[:file] has unkonwn docstring-piece #{piece}" unless $commentary_lisp[piece]
+            nfile.print first ? "  \"" : "\n\n#{piece}:\n\n"
+            nfile.print $commentary_lisp[piece]
+            first = false
+          end
+          forward_to(file,tiv)
+          line = "\n\n#{tiv} #{$version_lisp} of #{$conf[:source]}.\n"
+          unseen.delete(:commentary)
+        end
+
+        # now write whatever current content of line is
+        nfile.puts line if line
+      end
+
+    end
+  end
+  abort "Did not see #{unseen.inspect}" if unseen.length > 0
+
+  accept fname,nname
+
+end
+
 
 desc 'Describe building process'
 task :h do
@@ -43,200 +419,55 @@ task :h do
   end
 end
 
-desc 'Copy info-pieces to various destinations'
-task :copy_info_pieces do
 
-  fname = cnf['elisp_source']
-  puts "\nCollect info pieces from #{fname}:"
-  commentary = Hash.new {""}
-  change_log = Hash.new {""}
-  version = nil
-  File.open(fname) do |file|
-    line = ""
-    puts "  Find version"
-    until line.start_with?(";;; Commentary:")
-      line = file.gets
-      mdata = line.match(/^;; Version: (\d+\.\d+\.\d+)\s*/)
-      version ||= mdata[1] if mdata
-    end
-    file.gets
-    key = nil
-    puts "  Pieces of Commentary"
-    while (line = file.gets).start_with?(";;")
-      mdata = line.match(/^;; (\S.*):\s*$/)
-      if mdata
-        key = mdata[1]
-      else
-        line.sub!(/^;;  /,'')
-        line.sub!(/^;; *$/,'')
-        commentary[key] += line if key
+desc 'Run all tests from directory test'
+task :test => [:update_rake] do
+
+  heading "Run tests",true
+  command = <<-END.lines.map {|l| l.strip!}.join(' ')
+  emacs 
+  --batch 
+  --no-init-file        
+  --no-site-file 
+  --no-site-lisp 
+  --eval "(set-variable 'make-backup-files nil)"
+  --eval "(setq load-prefer-newer t)"
+  --eval "(add-to-list 'load-path \\\".\\\")"
+  --eval "(setq package-user-dir \\\"#{File.dirname(__FILE__)+"/elpa"}\\\")"
+  --eval "(package-initialize)"
+  -l ert 
+  -l test/#{$conf[:testfile]}
+  --eval "(ert-run-tests-batch-and-exit)"  
+  END
+
+  puts command
+  at_summary = false
+  Open3.popen2e(command) do |stdin, stdout_stderr, status_thread|
+    stdout_stderr.each_line do |line|
+      at_summary = true if line.match?(/^Ran \d+ /)
+      if at_summary
+        puts line
+      elsif line.lstrip.start_with?('passed')
+        heading line
+        print "\n\n" if $v
+      elsif line.lstrip.start_with?('FAILED')
+        heading line,false,true
+        print "\n\n" if $v
+      elsif $v
+        puts line
       end
     end
-    commentary.each_key do |key|
-      commentary[key].sub!(/\A(\s*\n)+/,'')
-      commentary[key].sub!(/(\s*\n)+\Z/,'')
-    end
-    fail "Invalid set of keys #{commentary.keys}" unless commentary.keys.eql?(cnf['valid_keys'])
-
-    puts "  Latest Change Log"
-    vkey = nil
-    line = file.gets until line.start_with?(";;; Change Log:")
-    line = file.gets
-    while (line = file.gets).start_with?(";;")
-      mdata = line.match(/^;;   Version (\d+\.\d+)\s*/)
-      if mdata 
-        vkey = mdata[1]
-        next
-      end
-      next unless line.start_with?(";;   ")
-      change_log[vkey] += line[3..-1]
-    end
+    abort "ERROR: Command ended with error.\nRerun with '-v' for details." unless status_thread.value.success?
   end
-
-  nname = fname + ".new"
-  puts "\n\n\e[33mPut info pieces into #{nname}:\e[0m"
-  seen = Hash.new
-  seen[:version] = seen[:purpose] = false
-  seen[:changelog] = false if cnf['copy_changelog']
-  File.open(nname,'w') do |nfile| 
-    File.open(fname) do |file|
-      while line = file.gets
-
-        if line.start_with?("(defvar " + cnf['package_name'] + "-version")
-          puts "  Version"
-          line.sub!(/\d+\.\d+\.\d+/,version)
-          seen[:version] = true
-        end
-
-        if line['For Rake: Insert purpose here']
-          puts "  Commentary"
-          nfile.puts line + "  \"" + commentary['Purpose'] + "\n\nThis is version #{version} of org-working-set.el."
-          seen[:purpose] = true
-          line = file.gets
-          until line.start_with?('This is version')
-            line = file.gets
-            fail "Reached end of string: #{line}" if line['"']
-          end
-          line = file.gets
-        end
-
-        if line['For Rake: Insert Change Log here']
-          puts "  Latest Change Log"
-          seen[:change_log] = true
-          nfile.puts line
-          line = file.gets.chomp
-          line.sub!(/\S.*$/,'') # keep only indentation
-          nfile.puts line + "(insert \""
-          change_log.each do |ver,log|
-            nfile.puts "* " + ver + "\n\n" + log + "\n"
-          end
-          line = file.gets
-          until line.start_with?('")')
-            fail "Reached end of string: #{line}" if line['"']
-            line = file.gets
-          end
-        end
-        nfile.puts line
-      end
-    end
-  end
-  seen.each_key {|piece| fail "Did not see #{piece}" unless seen[piece]}
-  accept fname,nname
-
-  fname = 'ChangeLog.org'
-  puts "\n\n\e[33mPut info pieces into #{fname}:\e[0m"
-  nname = fname + ".new"
-  version_dates = Hash.new
-  rest_of_change_log = ""
-  version_latest = version_latest_cl = nil
-  puts "  Latest Change log"
-  File.open(fname) do |file|
-    while line = file.gets do
-      mdata = line.match(/^\* (\d+\.\d+) until (\S.*\S)/)
-      if mdata
-        if change_log[mdata[1]].length > 0
-          version_dates[mdata[1]] = mdata[2]
-          version_latest_cl = mdata[1] if !version_latest_cl || compare_semver(mdata[1],version_latest_cl) > 0
-        else
-          rest_of_change_log = line + file.read
-        end
-      end
-    end
-  end
-
-  version_short = version.sub(/.\d+$/,'')
-  change_log.each_key { |ver|  version_latest = ver if !version_latest || compare_semver(ver,version_latest) > 0}
-  version_dates[version_latest] = Time.now.strftime("%Y-%m-%d %a")[0..-2]
-  version_dates[version_latest_cl] = version_dates[version_latest] if version_latest != version_latest_cl 
-  File.open(nname,'w') do |nfile|
-    change_log.each do |ver,log|
-      nfile.puts "* " + ver + " until " + version_dates[ver] + "\n\n" + log + "\n"
-    end
-    nfile.puts rest_of_change_log
-  end
-  accept fname,nname
-
-  fname = 'README.org'
-  puts "\n\n\e[33mPut info pieces into #{fname}:\e[0m"
-  nname = fname + ".new"
-  toc = Array.new
-  seen = Hash.new
-  [:version, :toc, :about, :change_log].each {|piece| seen[piece] = false}
-  File.open(fname) do |file|
-    while line = file.gets
-      toc << line[3..-2] if line.start_with?('** ')
-    end
-  end
-
-  File.open(nname,'w') do |nfile| 
-    File.open(fname) do |file|
-      while line = file.gets
-        if line.start_with?("  The current version is")
-          puts "  Version number"
-          line.sub!(/\s\S+\s*$/,'')
-          line += " " + version + "."
-          seen[:version] = true
-        end
-        if line.start_with?("** Table of Contents")
-          puts "  Table of contents"
-          nfile.puts line + "\n"
-          toc.shift
-          toc.each {|t| nfile.puts "   - [[##{t.downcase.tr(" ","-")}][#{t}]]"}
-          nfile.puts "\n"
-          seen[:toc] = true
-          line = file.gets
-          line = file.gets until line.start_with?("** ")
-        end
-        if line.start_with?("** About this Package")
-          puts "  Commentary"
-          nfile.puts line + "\n"
-          commentary.each do |head,text|
-            nfile.puts "*** " + head + "\n\n"
-            nfile.puts "    " + text.gsub(/\n/,"\n    ").chomp + "\n\n"
-          end
-          seen[:about] = true
-          line = file.gets
-          line = file.gets until line.start_with?("** ")
-        end
-        if line.start_with?("** Latest Change Log")
-          puts "  Latest Change log"
-          nfile.puts line + "\n   See ChangeLog.org for older notes.\n\n"
-          change_log.each do |ver,log|
-            nfile.puts "*** " + ver + "\n\n  " + log.gsub(/\n/,"\n  ").chomp + "\n"
-          end
-          seen[:change_log] = true
-          line = file.gets
-          line = file.gets until !line || line.start_with?("** ")
-        end
-        nfile.puts line
-      end
-    end
-  end
-  seen.each_key {|piece| fail "Did not see #{piece}" unless seen[piece]}
-  accept fname,nname
-
+ 
 end
 
-task :default => [:copy_info_pieces] do
+
+desc 'Update all files'
+task :update => [:update_changelog, :update_readme, :update_lisp, :test] do
 end
 
+
+desc 'Update all files and run tests'
+task :default => [:update, :test] do
+end

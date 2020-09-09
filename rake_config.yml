@@ -1,8 +1,6 @@
-elisp_source: org-index.el
-package_name: org-index
-copy_changelog: false
-valid_keys:
+source: org-index.el
+package: org-index
+required_pieces_commentary:
+pieces_for_docstring:
   - Purpose
-  - Setup
-  - Further Information
-  
+testfile: oidxt.el  
