@@ -882,7 +882,7 @@ interactive calls."
        ((eq command 'example)
 
         (if (y-or-n-p "This assistant will help you to create a temporary index with detailed comments.\nDo you want to proceed ? ")
-            (oidx--create-index t)))
+          (oidx--create-index t)))
 
 
        ((not command) (setq message-text "No command given"))
@@ -2643,7 +2643,6 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
             (org-mode)))
 
       (setq buffer (get-buffer (read-buffer "Please choose a buffer, where the new node for the index table will be appended. Buffer: "))))
-
     (setq title (read-from-minibuffer "Please enter the title of the index node (leave empty for default 'index'): "))
     (if (string= title "") (setq title "index"))
     

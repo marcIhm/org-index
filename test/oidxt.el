@@ -200,7 +200,8 @@
     (oidxt-save-and-set-state nil)
     (setq org-index-id nil)
     (condition-case result
-        (oidxt-do "c r e a t e <return> o i d x t - e r t - i n d e x . o r g <return> f o o <return> # 1 # <return> n n")
+        (oidxt-do (format "c r e a t e <return> o i d x t - e r t - i n d e x . o r g <return> f o o <return> # 1 # <return> %s %s"
+                          (oidxt-y-or-n-ans nil) (oidxt-y-or-n-ans nil)))
       (error (should (string-match "^Did not make the id of this new index permanent" (cdr result)))))
     (switch-to-buffer "oidxt-ert-work.org")
     (goto-char (point-max))
@@ -213,6 +214,13 @@
     (should (looking-at "\\*\\* #2# neun"))))
 
 
+(ert-deftest oidxt-test-example ()
+  (oidxt-with-test-setup
+   (oidxt-do (format "e x a m p l e <return> %s e x a m p l e <return> - 1 - <return>" (oidxt-y-or-n-ans t)))
+    (with-current-buffer "*org-index-example-index*"
+      (should (search-forward "Below you find"))
+      (oidx--go-below-hline)
+      (should (org-at-table-p)))))
 
 
 (ert-deftest oidxt-test-node-above-index ()
@@ -402,14 +410,16 @@
   (oidxt-with-test-setup
     (mark-whole-buffer)
     (oidxt-do "h i g h l i g h t <return>")
-    (should (string= oidx--message-text "Highlighted references in region."))))
+    (should (string= oidx--message-text "Highlighted references in buffer."))))
 
 
 (ert-deftest oidxt-test-unhighlight ()
   (oidxt-with-test-setup
     (mark-whole-buffer)
+    (message "--1--")
+    (message oidx--message-text)
     (oidxt-do "SPC h i g h l i g h t <return>" "C-u")
-  (should (string= oidx--message-text "Removed highlights for references in region."))))
+  (should (string= oidx--message-text "Removed highlights for references in buffer."))))
 
 
 (ert-deftest oidxt-test-add-update ()
@@ -697,6 +707,11 @@
   (when oidxt-saved-agenda-files
     (setq org-agenda-files oidxt-saved-agenda-files)
     (setq oidxt-saved-agenda-files)))
+
+
+(defun oidxt-y-or-n-ans (bool)
+  "Create answer suitable for y-or-n-p; different if noninteractive (batch)"
+  (concat (if bool "y" "n") (if noninteractive " <return>" "")))
 
 
 ;;

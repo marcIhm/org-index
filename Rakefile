@@ -46,7 +46,6 @@ def heading text, large = false, warn = false
     puts "#{dash}  #{text}"
     puts dash * 12
   else
-    puts if $v
     print "\e[#{warn ? 35 : 33}m"
     puts "--- #{text}"
   end
@@ -449,10 +448,8 @@ task :test => [:update_rake] do
         puts line
       elsif line.lstrip.start_with?('passed')
         heading line
-        print "\n\n" if $v
       elsif line.lstrip.start_with?('FAILED')
         heading line,false,true
-        print "\n\n" if $v
       elsif $v
         puts line
       end
