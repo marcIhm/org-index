@@ -57,7 +57,7 @@ def compare_semver one,two
   vs = [one, two].map do |x|
     x.match(/(\d+)\.(\d+)/) || abort("Argument '#{x}' does not contain a semantic version number")
   end
-  ( 2*(vs[0][0]<=>vs[1][0]) + (vs[0][1]<=>vs[1][1]) ) <=> 0
+  ( 2*(vs[0][1].to_i<=>vs[1][1].to_i) + (vs[0][2].to_i<=>vs[1][2].to_i) ) <=> 0
 end
 
 
@@ -81,7 +81,7 @@ end
 def make_backup file
   dir = File.dirname(file) + '/backup'
   mkdir dir,{:verbose => $v} unless File.directory?(dir)
-  backs = [ file ] + (1..5).map {|i| dir + '/' + File.basename(file) + "_backup_" + i.to_s}
+  backs = [ file ] + (1..12).map {|i| dir + '/' + File.basename(file) + "_" + i.to_s}
   pairs = backs[0..-2].zip(backs[1..-1]).reverse
   pairs.each do |p|
     next unless File.exist?(p[0])
@@ -114,7 +114,7 @@ def write_as_org file, level, hash, &compare
   keys = keys.sort(&compare) if compare
   keys.each do |key|
     file.puts '*' * level + " #{key}\n\n"
-    hash[key].lines.each {|l| file.puts ' ' * (level+1) + l}
+    hash[key].lines.each {|l| file.puts (' ' * (level+1) + l).rstrip}
     file.puts "\n"
   end
   pp hash if $v
@@ -135,7 +135,7 @@ end
 #
 # Tasks, that collect information, no desc to avoid them beeing listed with -T
 #
-# Check, if this rakefile is and should be a symlink (and shared with other projects) or a plain file
+
 # Compare with rakefile in other dir and update 
 task :update_rake do
   this_rf = __FILE__
@@ -144,9 +144,7 @@ task :update_rake do
 
   if maybe_copy this_rf, parent_rf
     heading "Updated #{parent_rf} from #{this_rf}"
-  end
-
-  if maybe_copy parent_rf, this_rf
+  elsif maybe_copy parent_rf, this_rf
     heading "This rakefile #{this_rf} has been updated from #{parent_rf}; please rerun"
     exit
   end
@@ -185,7 +183,7 @@ task :extract_commentary => [:update_rake] do
       $commentary_lisp[key] = ''
       puts key
     else
-      $commentary_lisp[key] += line.sub(/^;;(  )?/,'') if key
+      $commentary_lisp[key] += line.sub(/^;;(  )?/,'').rstrip + "\n" if key
     end
   end
 
@@ -215,7 +213,7 @@ task :extract_changelog_lisp => [:extract_version] do
       offset = Regexp.last_match[1]
       puts version
     elsif version
-      $changelog_lisp[version] += line[offset.length..-1] || ''
+      $changelog_lisp[version] += (line[offset.length..-1] || '').rstrip + "\n"
     end
   end
 
@@ -246,7 +244,7 @@ task :extract_changelog => [:extract_changelog_lisp] do
       $changelog_until[version] = mdata[2]
       puts version
     else
-      $changelog[version] += line[2..-1] || '' if version
+      $changelog[version] += (line[2..-1] || '').rstrip + "\n" if version
     end
   end
 
@@ -275,16 +273,14 @@ task :update_changelog => [:extract_changelog, :extract_version] do
   fname = 'ChangeLog.org'
   heading "Update #{fname}",true
   nname = fname + '.new'
-  
+
   File.open(nname,'w') do |nfile|
     $changelog.keys.sort {|a,b| compare_semver(b,a)}.each do |version|
-      puts version
       nfile.puts "* #{version} until #{$changelog_until[version]}\n\n"
-      $changelog[version].lines.each {|l| nfile.puts '  ' + l}
+      $changelog[version].lines.each {|l| nfile.puts "  #{l}".rstrip}
       nfile.puts "\n"
     end
   end
-  
   accept fname,nname
   
 end
@@ -337,7 +333,7 @@ task :update_readme => [:extract_changelog, :extract_version, :extract_commentar
         if line.start_with?('** Latest Change Log')
           heading 'Latest Change log'
           nfile.puts line + "\n   See ChangeLog.org for older notes.\n\n"
-          write_as_org nfile,3,$changelog
+          write_as_org nfile,3,$changelog_lisp
           line = forward_to(file,'* ')
           unseen.delete(:changelog)
         end
@@ -348,7 +344,7 @@ task :update_readme => [:extract_changelog, :extract_version, :extract_commentar
 
     end
   end
-  abort "Did not see #{unseen.inspect}" if unseen.length > 0
+  abort "Did not see #{unseen.inspect} in #{fname}" if unseen.length > 0
 
   accept fname,nname
 
@@ -402,7 +398,7 @@ task :update_lisp => [:extract_changelog, :extract_version, :extract_commentary]
 
     end
   end
-  abort "Did not see #{unseen.inspect}" if unseen.length > 0
+  abort "Did not see #{unseen.inspect} in #{fname}" if unseen.length > 0
 
   accept fname,nname
 

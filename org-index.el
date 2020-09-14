@@ -5,7 +5,7 @@
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
 ;; Version: 6.2.2
-;; Package-Requires: ((org "9.0.0") (dash "2.12.0") (emacs "26.3"))
+;; Package-Requires: ((org "9.3") (dash "2.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -127,8 +127,6 @@
 ;;   - Limited the number of lines to display in occur for better performance,
 ;;     see 'org-index-occur-max-lines'
 ;; 
-;;  See https://github.com/marcIhm/org-index/ChangeLog.org for older news
-;;
 
 ;;; Code:
 
@@ -196,7 +194,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "6.2.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "6.2.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -366,7 +364,7 @@ if VALUE cannot be found."
   ;; be overwritten with Commentary-section from beginning of this file.
   ;; Editing after version number is fine.
   ;;
-  ;; For Rake: Insert purpose here
+  ;; For Rake: Insert here
   "Fast search for selected org-nodes and things outside.
 
 org-index creates and updates an index table with keywords; each line
@@ -390,7 +388,7 @@ table.
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 6.2.1 of org-working-set.el.
+This is version 6.2.2 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list

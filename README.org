@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 6.2.1.
+  The current version is 6.2.2.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -22,25 +22,25 @@
 *** Purpose
 
     Fast search for selected org-nodes and things outside.
-    
+
     org-index creates and updates an index table with keywords; each line
     either points to a heading in org, references a folder outside of org
     or carries an url or a snippet of text.  When searching the index, the
     set of matching lines is updated with every keystroke; results are
     sorted by usage count and date, so that frequently or recently used
     entries appear first in the list of results.
-    
+
     Please note, that org-index uses org-id throughout and therefore adds
     an id-property to all nodes in the index.
-    
+
     In the addition to the index table, org-index introduces the concept of
     references: These are decorated numbers (e.g. 'R237' or '--455--');
     they are well suited to be used outside of org, e.g. in folder names,
     ticket systems or on printed documents.
-    
+
     On first invocation org-index will assist you in creating the index
     table.
-    
+
     To start using your index, invoke the subcommand 'add' to create
     index entries and 'occur' to find them.
 
@@ -49,7 +49,7 @@
     - org-index can be installed with package.el
     - Invoke `org-index'; on first run it will assist in creating your
       index table.
-    
+
     - Optionally invoke `M-x org-customize', group 'Org Index', to tune
       its settings.
 
@@ -99,7 +99,7 @@
 
 *** Testing and checking
 
-    - ert
+    - rake test
     - (byte-compile-file "org-index.el")
     - elint-current-buffer
     - checkdoc
@@ -113,7 +113,7 @@
     - Run rake to copy those pieces of information into 
       README.org and ChangeLog.org
     - git add/commit as appropriate 
-    - git tag -a -m x.y.z x.y.z ; git push ; git push --tags
+    - $v=x.y.z ; git tag -a -m $v $v ; git push ; git push --tags
 
 ** Latest Change Log
 
@@ -124,31 +124,32 @@
     - Require dash and orgmode for package.el
     - Key 'h' does the same as '?'
     - Rename command 'head' to 'node' (to free key 'h')
+    - Removed command 'news'
     - Fixes
-  
+
 *** 6.1
 
     - Added new command 'l' in occur to visit links
     - Modified keys in occur-buffer
     - Refactoring
     - Fixes
-  
+
 *** 6.0
 
     - Moved the working-set feature into its own package org-working-set
-  
+
 *** 5.12
 
     - Do-not-clock is shown in working-set menu
     - Switching from working set circle into menu
     - RET in working-set circle ends and clocks in immediately
     - Fixes
-  
+
 *** 5.11
 
     - Implemented do-not-clock commands and behaviour in working-set
     - Fixes
-  
+
 *** 5.10
 
     - Pressing shift prevents clocking into working set
@@ -157,7 +158,7 @@
       throughout for preformance reasons
     - Offer direct clock-in from result-buffer of occur
     - Various fixes
-  
+
 *** 5.9
 
     - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
@@ -171,5 +172,4 @@
       overall stability
     - Limited the number of lines to display in occur for better performance,
       see 'org-index-occur-max-lines'
-  
 

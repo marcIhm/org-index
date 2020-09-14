@@ -1,6 +1,9 @@
 source: org-index.el
 package: org-index
 required_pieces_commentary:
+  - Purpose
+  - Setup
+  - Further Information
 pieces_for_docstring:
   - Purpose
 testfile: oidxt.el  
