@@ -323,10 +323,19 @@
 
 (ert-deftest oidxt-test-edit-from-node ()
   (oidxt-with-test-setup
-    (previous-line)
-    (oidxt-do "e d i t <return>")
-    (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
-    (should (string= (buffer-name) "oidxt-ert-work.org"))))
+   (previous-line)
+   (oidxt-do "e d i t <return>")
+   (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
+   (should (string= (buffer-name) "oidxt-ert-work.org"))))
+
+
+
+(ert-deftest oidxt-test-details-from-occur ()
+  (oidxt-with-test-setup
+   (oidxt-do "o c c u r <return> e i n s <down> d")
+   (other-window 1)
+   (should (string= (buffer-name) oidx--details-buffer-name))
+   (should (looking-at "\s+ref: --11--"))))
 
 
 (ert-deftest oidxt-test-yank ()
@@ -348,11 +357,6 @@
     (oidxt-do "k i l l <return>")
     (oidxt-do "o c c u r <return> f o o <return>")
     (should (= oidx--occur-lines-collected 0))))
-
-
-(ert-deftest oidxt-test-get-line-lisp ()
-  (oidxt-with-test-setup
-    (should (string= (plist-get (org-index-get-line 'ref "--12--") 'keywords) "vier-zwei"))))
 
 
 (ert-deftest oidxt-test-sort-index ()

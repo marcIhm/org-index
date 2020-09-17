@@ -332,7 +332,7 @@ task :update_readme => [:extract_changelog, :extract_version, :extract_commentar
 
         if line.start_with?('** Latest Change Log')
           heading 'Latest Change log'
-          nfile.puts line + "\n   See ChangeLog.org for older notes.\n\n"
+          nfile.puts line + "\n   See ChangeLog.org for older entries.\n\n"
           write_as_org nfile,3,$changelog_lisp
           line = forward_to(file,'* ')
           unseen.delete(:changelog)

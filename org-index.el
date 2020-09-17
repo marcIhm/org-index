@@ -3036,10 +3036,9 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     ;; insert into new buffer
     (apply 'insert (reverse all-lines))
     (goto-line header-lines)
-    (org-mode)
-    (setq truncate-lines t)
+    (fundamental-mode) ; fontification will happen below
     (if all-lines (oidx--align-and-fontify-current-line (length all-lines)))
-    (setq font-lock-mode nil)
+    (setq truncate-lines t)
 
     ;; store properties needed to jump to original location
     (when all-lines-lbp
@@ -3078,24 +3077,9 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     ;; highlight words
     (mapc (lambda (w)
             (when (and w (not (string= w "")))
-              (while (search-forward w nil t)
-                )
-              ;; A simpler approach would be: search for string in a loop and use put-text-property
-              ;; however, I could not make this work;
-              ;; Moreover, I could not even make this work in scratch-buffer:
-              ;; (put-text-property 1 100 'font-lock-face '(:background "red"))
-              ;; with 'face either.
-              (highlight-regexp
-               (if (string= w (downcase w))
-                   ;; if word is all lowercase, construct a regex to match both upper and lower chars
-                   (apply 'concat
-                          (mapcar (lambda (c) (if (string-match "[[:alpha:]]" (char-to-string c))
-                                             (format "[%c%c]" (downcase c) (upcase c))
-                                           (char-to-string c)))
-                                  (regexp-quote w)))
-                 ;; otherwise (word is mixed case) just use word itself
-                 (regexp-quote w))
-               'isearch)))
+              (save-excursion
+                (while (search-forward w nil t)
+                  (put-text-property (match-beginning 0) (match-end 0) 'face 'isearch)))))
           oidx--occur-words)
 
     ;; insert tail text late to avoid highlighting it
