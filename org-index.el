@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 6.2.2
+;; Version: 6.3.0
 ;; Package-Requires: ((org "9.3") (dash "2.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -73,6 +73,13 @@
 
 ;;; Change Log:
 
+;;   Version 6.3
+;;
+;;   - Added new command 'd' to show details in occur-buffer (much like edit)
+;;   - Fixes to occur
+;;   - Code simplifications
+;;   - Removed org-index-get-line
+;;
 ;;   Version 6.2
 ;;
 ;;   - Require dash and orgmode for package.el
@@ -189,6 +196,7 @@
 (defconst oidx--occur-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
+(defconst oidx--details-buffer-name "*org-index-details*" "Name of details buffer.")
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
@@ -642,7 +650,7 @@ interactive calls."
           (dolist (buff (buffer-list))
             (set-buffer buff)
             (if (string= major-mode "org-mode")
-                (setq org-buffers (cons buff org-buffers))))
+                (push buff org-buffers)))
 
           ;; Do multi-occur
           (multi-occur org-buffers (oidx--make-guarded-search search-ref))
@@ -1060,9 +1068,8 @@ Argument ARG is prefix argument from user."
           (when (looking-at "^ *\\([-a-z]+\\) *: +\\[\\([a-z,?]+\\)\\] ")
             (let ((chars (-remove-item "," (mapcar 'char-to-string (match-string 2)))))
               (dolist (char chars)
-                (setq oidx--shortcut-chars
-                      (cons (cons char (intern (match-string 1)))
-                            oidx--shortcut-chars)))))
+                (push (cons char (intern (match-string 1)))
+                      oidx--shortcut-chars))))
           (forward-line 1))
         (unless (> (length oidx--shortcut-chars) 0)
           (error "Internal error, did not find shortcut chars"))
@@ -1333,7 +1340,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
           (oidx--report-index-error
            "'%s' appears two times as column heading" (downcase field))
         ;; add it to list at front, reverse later
-        (setq oidx--columns (cons (cons field-symbol (+ col 1)) oidx--columns)))))
+        (push (cons field-symbol (+ col 1)) oidx--columns))))
 
   (setq oidx--columns (reverse oidx--columns))
 
@@ -1357,7 +1364,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 ;; Edit, add or kill lines
 (defun oidx--do-edit ()
   "Perform command edit."
-  (let ((maxlen 0) cols-vals buffer-keymap field-keymap keywords-pos val)
+  (let (buffer-keymap field-keymap keywords-pos val cols-vals maxlen r)
 
     (setq oidx--context-node nil)
     (setq oidx--context-occur nil)
@@ -1378,15 +1385,6 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
             (unless (and id (oidx--go 'id id))
               (setq oidx--context-node nil)
               (error "This node is not in index")))))
-    
-    ;; retrieve current content of index line
-    (dolist (col (mapcar 'car (reverse oidx--columns)))
-      (if (> (length (symbol-name col)) maxlen)
-          (setq maxlen (length (symbol-name col))))
-      (setq val (oidx--get-or-set-field col))
-      (if (and val (eq col 'yank)) (setq val (replace-regexp-in-string (regexp-quote "\\vert") "|" val nil 'literal)))
-      (setq cols-vals (cons (cons col val)
-                            cols-vals)))
 
     ;; we need two different keymaps
     (setq buffer-keymap (make-sparse-keymap))
@@ -1402,92 +1400,104 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
     ;; prepare buffer
     (setq oidx--context-index (cons (point) (oidx--line-in-canonical-form)))
     (if (get-buffer oidx--edit-buffer-name) (kill-buffer oidx--edit-buffer-name))
-    (switch-to-buffer (get-buffer-create oidx--edit-buffer-name))
 
     ;; create and fill widgets
-    (setq oidx--edit-widgets nil)
-    (widget-insert "Edit this line from index; type C-c C-c when done, C-c C-k to abort.\n\n")
-    (dolist (col-val cols-vals)
-      (if (eq (car col-val) 'keywords) (setq keywords-pos (point)))
-      (setq oidx--edit-widgets (cons
-                                (cons (car col-val)
-                                      (widget-create 'editable-field
-                                                     :format (format  (format "%%%ds: %%%%v" maxlen) (symbol-name (car col-val)))
-                                                     :keymap field-keymap
-                                                     (or (cdr col-val) "")))
-                                oidx--edit-widgets)))
+    (pcase-let ((`(,cols-vals . ,maxlen) (oidx--content-of-current-line)))
+      (switch-to-buffer (get-buffer-create oidx--edit-buffer-name))
+      (setq oidx--edit-widgets nil)
+      (widget-insert "Edit this line from index; type C-c C-c when done, C-c C-k to abort.\n\n")
+      (dolist (col-val cols-vals)
+        (if (eq (car col-val) 'keywords) (setq keywords-pos (+ (point-at-bol) maxlen 2)))
+        (push
+         (cons (car col-val)
+               (widget-create 'editable-field
+                              :format (format  (format "%%%ds: %%%%v" maxlen) (symbol-name (car col-val)))
+                              :keymap field-keymap
+                              (or (cdr col-val) "")))
+         oidx--edit-widgets)))
 
     (widget-setup)
     (goto-char keywords-pos)
-    (beginning-of-line)
-    (forward-char (+  maxlen 2))
     (use-local-map buffer-keymap)
     (setq oidx--inhibit-sort-idle t)
     "Editing a single line from index"))
 
 
+(defun oidx--content-of-current-line ()
+  "Retrieve current content of index line."
+  (let ((maxlen 0) cols-vals)
+    (dolist (col (mapcar 'car (reverse oidx--columns)))
+      (if (> (length (symbol-name col)) maxlen)
+          (setq maxlen (length (symbol-name col))))
+      (setq val (oidx--get-or-set-field col))
+      (if (and val (eq col 'yank)) (setq val (replace-regexp-in-string (regexp-quote "\\vert") "|" val nil 'literal)))
+      (push (cons col val)
+            cols-vals))
+    (cons cols-vals maxlen)))
+
+
 (defun oidx--edit-accept ()
-  "Function to accept editing in Edit buffer."
-  (interactive)
+     "Function to accept editing in Edit buffer."
+     (interactive)
 
-  (let ((obuf (get-buffer oidx--occur-buffer-name))
-        val line)
+     (let ((obuf (get-buffer oidx--occur-buffer-name))
+           val line)
     
-    ;; Time might have passed
-    (oidx--refresh-parse-table)
+       ;; Time might have passed
+       (oidx--refresh-parse-table)
 
-    (with-current-buffer oidx--buffer
+       (with-current-buffer oidx--buffer
       
-      ;; check, if buffer has become stale
-      (save-excursion
-        (goto-char (car oidx--context-index))
-        (unless (string= (cdr oidx--context-index)
-                         (oidx--line-in-canonical-form))
-          (switch-to-buffer oidx--edit-buffer-name)
-          (error "Index table has changed: Cannot find line, that this buffer is editing")))
+         ;; check, if buffer has become stale
+         (save-excursion
+           (goto-char (car oidx--context-index))
+           (unless (string= (cdr oidx--context-index)
+                            (oidx--line-in-canonical-form))
+             (switch-to-buffer oidx--edit-buffer-name)
+             (error "Index table has changed: Cannot find line, that this buffer is editing")))
 
-      (pop-to-buffer-same-window oidx--buffer)
-      (goto-char (car oidx--context-index))
+         (pop-to-buffer-same-window oidx--buffer)
+         (goto-char (car oidx--context-index))
 
-      ;; write back line to index
-      (dolist (col-widget oidx--edit-widgets)
-        (setq val (widget-value (cdr col-widget)))
-        (if (eq (car col-widget) 'yank) (setq val (replace-regexp-in-string "|" (regexp-quote "\\vert") val)))
-        (oidx--get-or-set-field (car col-widget) val))
+         ;; write back line to index
+         (dolist (col-widget oidx--edit-widgets)
+           (setq val (widget-value (cdr col-widget)))
+           (if (eq (car col-widget) 'yank) (setq val (replace-regexp-in-string "|" (regexp-quote "\\vert") val)))
+           (oidx--get-or-set-field (car col-widget) val))
 
-      (setq line (oidx--align-and-fontify-current-line))
-      (beginning-of-line))
+         (setq line (oidx--align-and-fontify-current-line))
+         (beginning-of-line))
 
-    ;; write line to occur if appropriate
-    (if oidx--context-occur
-        (if obuf
-            (if (string= (cdr oidx--context-index)
-                         (cdr oidx--context-occur))
-                (progn
-                  (pop-to-buffer-same-window obuf)
-                  (goto-char (car oidx--context-occur))
-                  (beginning-of-line)
-                  (let ((inhibit-read-only t))
-                    (delete-region (line-beginning-position) (line-end-position))
-                    (insert line)
-                    (put-text-property (line-beginning-position) (line-end-position)
-                                       'org-index-lbp (car oidx--context-index))))
-              (error "Occur buffer and index buffer do not match any longer"))
-          (message "Occur buffer has gone, cannot switch back."))
-      (setq oidx--context-occur nil))
+       ;; write line to occur if appropriate
+       (if oidx--context-occur
+           (if obuf
+               (if (string= (cdr oidx--context-index)
+                            (cdr oidx--context-occur))
+                   (progn
+                     (pop-to-buffer-same-window obuf)
+                     (goto-char (car oidx--context-occur))
+                     (beginning-of-line)
+                     (let ((inhibit-read-only t))
+                       (delete-region (line-beginning-position) (line-end-position))
+                       (insert line)
+                       (put-text-property (line-beginning-position) (line-end-position)
+                                          'org-index-lbp (car oidx--context-index))))
+                 (error "Occur buffer and index buffer do not match any longer"))
+             (message "Occur buffer has gone, cannot switch back."))
+         (setq oidx--context-occur nil))
 
-    ;; return to node, if invoked from there
-    (when oidx--context-node
-      (pop-to-buffer-same-window (car oidx--context-node))
-      (goto-char (cdr oidx--context-node)))
+       ;; return to node, if invoked from there
+       (when oidx--context-node
+         (pop-to-buffer-same-window (car oidx--context-node))
+         (goto-char (cdr oidx--context-node)))
 
-    ;; clean up
-    (kill-buffer oidx--edit-buffer-name)
-    (setq oidx--inhibit-sort-idle nil)
-    (setq oidx--context-index nil)
-    (setq oidx--edit-widgets nil)
-    (beginning-of-line)
-    (message "Index line has been edited.")))
+       ;; clean up
+       (kill-buffer oidx--edit-buffer-name)
+       (setq oidx--inhibit-sort-idle nil)
+       (setq oidx--context-index nil)
+       (setq oidx--edit-widgets nil)
+       (beginning-of-line)
+       (message "Index line has been edited.")))
 
 
 (defun oidx--edit-abort ()
@@ -1775,14 +1785,14 @@ CREATE-REF and TAG-WITH-REF if given."
 
       (oidx--delete-any-ref-from-tags)
       (if ref (oidx--delete-ref-from-heading ref))
-      (setq text-deleted-from (cons "node" text-deleted-from)))
+      (push "node" text-deleted-from))
 
     ;; Delete from index
     (set-buffer oidx--buffer)
     (unless pos-in-index "Internal error, pos-in-index should be defined here")
     (goto-char pos-in-index)
     (setq chars-deleted-index (length (delete-and-extract-region (line-beginning-position) (line-beginning-position 2))))
-    (setq text-deleted-from (cons "index" text-deleted-from))
+    (push "index" text-deleted-from)
     
     ;; Delete from occur only if we started there, accept that it will be stale otherwise
     (if oidx--within-occur
@@ -1794,7 +1804,7 @@ CREATE-REF and TAG-WITH-REF if given."
             (put-text-property (line-beginning-position) (line-end-position) 'org-index-lbp
                                (- (get-text-property (point) 'org-index-lbp) chars-deleted-index))
             (forward-line))
-          (setq text-deleted-from (cons "occur" text-deleted-from))))
+          (push "occur" text-deleted-from)))
 
     (oidx--restore-positions)
     (concat "Deleted from: " (mapconcat 'identity (sort text-deleted-from 'string<) ","))))
@@ -1933,48 +1943,6 @@ CREATE-REF and TAG-WITH-REF if given."
 
 
 ;; Reading, modifying and handling single index line
-(defun org-index-get-line (column value)
-  "Retrieve an existing line within the index table by ref or id.
-Return its contents as a property list.
-
-The function `plist-get' may be used to retrieve specific elements
-from the result.
-
-Example:
-
-  (plist-get (org-index-get-line 'ref \"R12\") 'count)
-
-retrieves the value of the count-column for reference number 12.
-
-Argument COLUMN is a symbol, either ref or id,
-argument VALUE specifies the value to search for."
-  ;; check arguments
-  (unless (memq column '(ref id keywords 'yank))
-    (error "Argument column can only be 'ref', 'id', 'keywords' or 'yank'"))
-
-  (unless value
-    (error "Need a value to search for"))
-  
-  (oidx--verify-id)
-  (oidx--parse-table)
-
-  (oidx--get-line column value))
-
-
-(defun oidx--get-line (column value)
-  "Find a line by ID, return its contents.
-Argument COLUMN and VALUE specify line to get."
-  (let (content)
-    (oidx--on
-        column value
-      (mapc (lambda (x)
-              (if (and (numberp (cdr x))
-                       (> (cdr x) 0))
-                  (setq content (cons (car x) (cons (or (oidx--get-or-set-field (car x)) "") content)))))
-            (reverse oidx--columns)))
-    content))
-
-
 (defun oidx--update-line (&optional id-or-pos no-error)
   "Update columns count and last-accessed in line ID-OR-POS.
 Optional argument NO-ERROR suppresses error."
@@ -2371,13 +2339,13 @@ Optional argument NO-INC skips automatic increment on maxref."
       (setq found (assoc field counts))
       (if found
           (cl-incf (cdr found))
-        (setq counts (cons (cons field 1) counts)))
+        (push (cons field 1) counts))
 
       (forward-line))
 
     (mapc (lambda (x) (if (and (> (cdr x) 1)
                                (car x))
-                          (setq duplicates (cons (car x) duplicates)))) counts)
+                          (push (car x) duplicates))) counts)
 
     (progress-reporter-done preporter)
     
@@ -2573,7 +2541,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (mapc (lambda (tag)
             (unless (or (string-match oidx--ref-regex tag)
 			(string= tag ""))
-              (setq new-tags (cons tag new-tags))))
+              (push tag new-tags)))
           (org-get-tags))
     (org-set-tags new-tags)))
 
@@ -2794,7 +2762,20 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 ;; between the functions of the occur-family of functions
 (defvar oidx--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
 (defvar oidx--occur-help-overlay nil "Overlay for help in occur buffer.")
-(defvar oidx--occur-stack nil "Stack with overlays for hiding lines.")
+(defvar oidx--occur-hide-high-stack nil
+  "Stack with info for hiding lines.
+
+This is the central data structure used with org-index occur. Each keystroke during occur creates a new entry 
+for this stack, wheras deleting a character removes an entry from the stack. One such entry contains:
+
+- All overlays, that are needed to hide the lines that should be invisible
+- The places that should be highlighted, i.e. in each line the first appearance of the character that has been typed
+
+Within the stack, the overlays in each entry are complete, whereas the places are cummulative.
+Therefore, when putting a new entry on the stack, the existing overlays are copied (and coalesced) for the new entry 
+and then deactivated. The places from the new entry just highlight the single char that has been typed and all places
+from all entries of the stack are needed to highlight the complete word, that has been typed so far.
+")
 (defvar oidx--occur-tail-overlay nil "Overlay to cover invisible lines at end of table up to rest of buffer.")
 (defvar oidx--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar oidx--occur-win-config nil "Window configuration stored away during occur.")
@@ -2815,11 +2796,12 @@ Optional argument ARG, when given does not limit number of lines shown."
                           (window-body-height)
                         (min org-index-occur-max-lines (window-body-height))))
         end-of-table
-        hide-frame                     ; hash with information from last last hiding operation
+        hide-high-info                     ; alist with information from last last hiding operation
         words                          ; list words that should match
         done                           ; true, if loop is done
         in-c-backspace                 ; true, while processing C-backspace
         initial-frame                  ; Frame when starting occur
+        tail-overlay-start             ; For saving
         key                            ; input from user in various forms
         key-sequence
         key-sequence-raw)
@@ -2890,7 +2872,7 @@ Optional argument ARG, when given does not limit number of lines shown."
        ((string= key "SPC")
         ;; push current word and clear, no need to change display
         (unless (string= word "")
-          (setq words (cons word words))
+          (push word words)
           (setq word "")))
        
 
@@ -2908,25 +2890,27 @@ Optional argument ARG, when given does not limit number of lines shown."
         ;; append key to word
         (setq word (concat word key))
         
-        ;; move overlay out of the way
+        ;; move overlay out of the way, not to interfer with oidx--hide-with-overlays (which tests for visibility)
+        (setq tail-overlay-start (overlay-start oidx--occur-tail-overlay))
         (move-overlay oidx--occur-tail-overlay (point-max) (point-max))
 
-        ;; make overlays to hide lines, that do not match longer word any more
+        ;; get overlays to hide lines, that do not match longer word any more
         (goto-char oidx--occur-point-begin)
-        (setq hide-frame (oidx--hide-with-overlays (cons word words) lines-wanted end-of-table))
-        ;; put overlays on stack
-        (when hide-frame
-          ;; delete older overlays
-          (mapc (lambda (x) (delete-overlay (cl-first x)))
-                (cdr (assoc :overlays-with-borders (car oidx--occur-stack))))
+        (setq hide-high-info (oidx--hide-with-overlays (cons word words) lines-wanted end-of-table))
+        
+        (when hide-high-info
+          ;; delete older overlays, but keep structure on stack (can be revived by unhide)
+          (oidx--occur-hide-high-clean (car oidx--occur-hide-high-stack) t)
+          ;; put new frame with overlays on stack
+          (push hide-high-info oidx--occur-hide-high-stack))
+        
+        ;; move tail overlay to cover untested rest of table
+        (move-overlay oidx--occur-tail-overlay
+                      (or (alist-get :last-visible hide-high-info)
+                          tail-overlay-start) ; if nothing was hidden at all, use old value
+                      (point-max))
 
-          (let ((last-visible (cdr (assoc :last-visible hide-frame))))
-            ;; move overlay to cover untested rest of table
-            (move-overlay oidx--occur-tail-overlay (or last-visible oidx--occur-last-visible-initial) (point-max))
-            (oidx--occur-update-tail-text lines-wanted hide-frame)))
-        
-        (setq oidx--occur-stack (cons hide-frame oidx--occur-stack))
-        
+        (oidx--occur-update-tail-text lines-wanted hide-high-info)
         (goto-char oidx--occur-point-begin)
         
         ;; make sure, point is on a visible line
@@ -2971,7 +2955,7 @@ Only collect LINES-WANTED lines."
     (toggle-truncate-lines 1)
     
     ;; reset stack of overlays
-    (setq oidx--occur-stack nil)
+    (setq oidx--occur-hide-high-stack nil)
     
     ;; narrow to table rows and one line before
     (goto-char oidx--below-hline)
@@ -3022,7 +3006,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (setq cursor-type t)
     (goto-char oidx--occur-point-begin)
     (let ((inhibit-read-only t))
-      (put-text-property oidx--occur-point-begin end-of-table 'face nil))
+      (put-text-property oidx--occur-point-begin end-of-table 'face 'org-table))
 
     ;; collect all visible lines
     (while (and (not (eobp))
@@ -3035,14 +3019,12 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
       (setq line (buffer-substring-no-properties lbp (line-end-position)))
       (unless (string= line "")
         (cl-incf lines-collected)
-        (setq all-lines (cons (concat line
-                                      "\n")
-                              all-lines))
-        (setq all-lines-lbp (cons lbp all-lines-lbp)))
+        (push (concat line "\n") all-lines)
+        (push lbp all-lines-lbp))
       (forward-line 1))
 
-    (mapc (lambda (x) (oidx--occur-stack-delete-frame x t))
-          oidx--occur-stack)
+    (mapc (lambda (x) (oidx--occur-hide-high-clean x t))
+          oidx--occur-hide-high-stack)
     (kill-buffer oidx--occur-buffer)
 
     ;; create new buffer
@@ -3052,23 +3034,20 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (setq header-lines (line-number-at-pos))
 
     ;; insert into new buffer
-    (save-excursion
-      (apply 'insert (reverse all-lines))
-      (if (= lines-collected lines-wanted)
-          (insert oidx--occur-more-lines-text)))
-    (setq oidx--occur-lines-collected lines-collected)
-    
+    (apply 'insert (reverse all-lines))
+    (goto-line header-lines)
     (org-mode)
     (setq truncate-lines t)
     (if all-lines (oidx--align-and-fontify-current-line (length all-lines)))
-    (when (fboundp 'font-lock-ensure)
-      (font-lock-ensure))
+    (setq font-lock-mode nil)
+
+    ;; store properties needed to jump to original location
     (when all-lines-lbp
       (while (not (org-match-line org-table-line-regexp))
         (forward-line -1))
       (while all-lines-lbp
         (put-text-property (line-beginning-position) (line-end-position) 'org-index-lbp (car all-lines-lbp))
-        (setq all-lines-lbp (cdr all-lines-lbp))
+        (pop all-lines-lbp)
         (forward-line -1)))
 
     ;; prepare help text
@@ -3088,7 +3067,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--occur-search-text
-                       "\". <return> jumps to node of line under cursor, <tab> in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `l' offers links from node to visit; to kill a line from the index use `C-c i k'."
+                       "\". <return> jumps to node of line under cursor, <tab> in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `d' shows details, `l' offers links from node to visit; to kill a line from the index use `C-c i k'."
                        "\n")
                (length all-lines))
               'face 'org-agenda-dimmed-todo-face))
@@ -3097,16 +3076,35 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
 
     ;; highlight words
-    (mapc (lambda (w) (unless (or (not w) (string= w ""))
-                        (highlight-regexp
-                         (if (string= w (downcase w))
-                             (apply 'concat (mapcar (lambda (c) (if (string-match "[[:alpha:]]" (char-to-string c))
-                                                                    (format "[%c%c]" (downcase c) (upcase c))
-                                                                  (char-to-string c)))
-                                                    (regexp-quote w)))
-                           (regexp-quote w)) 'isearch)))
+    (mapc (lambda (w)
+            (when (and w (not (string= w "")))
+              (while (search-forward w nil t)
+                )
+              ;; A simpler approach would be: search for string in a loop and use put-text-property
+              ;; however, I could not make this work;
+              ;; Moreover, I could not even make this work in scratch-buffer:
+              ;; (put-text-property 1 100 'font-lock-face '(:background "red"))
+              ;; with 'face either.
+              (highlight-regexp
+               (if (string= w (downcase w))
+                   ;; if word is all lowercase, construct a regex to match both upper and lower chars
+                   (apply 'concat
+                          (mapcar (lambda (c) (if (string-match "[[:alpha:]]" (char-to-string c))
+                                             (format "[%c%c]" (downcase c) (upcase c))
+                                           (char-to-string c)))
+                                  (regexp-quote w)))
+                 ;; otherwise (word is mixed case) just use word itself
+                 (regexp-quote w))
+               'isearch)))
           oidx--occur-words)
 
+    ;; insert tail text late to avoid highlighting it
+    (goto-char (point-max))
+    (if (= lines-collected lines-wanted)
+        (insert oidx--occur-more-lines-text))
+    (setq oidx--occur-lines-collected lines-collected)
+    (goto-line header-lines)
+    
     ;; typically executed only during tests
     (when (and oidx--occur-assert-result
                (> lines-wanted lines-collected))
@@ -3142,6 +3140,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
                (("<escape>" "q") . oidx--occur-action-quit)
                (("c" "M-c") . oidx--occur-action-clock-in)
                (("e" "M-e") . oidx--occur-action-edit)
+               (("d" "M-d") . oidx--occur-action-details)
                (("l" "M-l") . oidx--occur-action-offer-links)
                (("?" "M-?") . oidx--occur-action-toggle-help)))
       (dolist  (key (car keys-command)) (define-key keymap (kbd key) (cdr keys-command))))
@@ -3261,32 +3260,52 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
   (message (oidx--do 'edit)))
 
 
+(defun oidx--occur-action-details ()
+  "Show details for index line under cursor."
+  (interactive)
+  (pcase-let ((`(,cols-vals . ,maxlen) (oidx--content-of-current-line)))
+    (display-buffer (get-buffer-create oidx--details-buffer-name) '((display-buffer-at-bottom)))
+    (with-current-buffer oidx--details-buffer-name
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (dolist (col-val cols-vals)
+          (insert (format (format "%%%ds: %%s\n" maxlen)
+                          (symbol-name (car col-val))
+                          (or (cdr col-val) ""))))
+        (delete-char -1)
+        (goto-char 0)
+        (fit-window-to-buffer (get-buffer-window))
+        (setq buffer-read-only t))))
+  (message "Details for current index line."))
+
+
 (defun oidx--occur-action-toggle-help ()
   "Toggle display of usage and column headers."
   (interactive)
   (oidx--refresh-parse-table)
+  ; swap short and long help
   (setq-local oidx--occur-help-text (cons (cdr oidx--occur-help-text) (car oidx--occur-help-text)))
   (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text)))
 
 
-(defun oidx--occur-stack-delete-frame (frame &optional keep-places)
-     "Delete overlays and highlight in FRAME.
-To skip highlighted letters set KEEP-PLACES."
+(defun oidx--occur-hide-high-clean (frame &optional keep-highlights)
+     "Delete overlays and highlights in FRAME.
+To keep highlighted letters set KEEP-HIGHLIGHTS."
      (when frame
        (mapc (lambda (x) (delete-overlay (cl-first x)))
-             (cdr (assoc :overlays-with-borders frame)))
-       (unless keep-places
+             (alist-get :overlays-with-borders frame))
+       (unless keep-highlights
          (let ((inhibit-read-only t))
-           (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face nil))
-                 (cdr (assoc :highlights frame)))))))
+           (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face 'org-table))
+                 (alist-get :highlights frame))))))
 
 
-(defun oidx--occur-update-tail-text (lines-wanted &optional hide-frame)
+(defun oidx--occur-update-tail-text (lines-wanted &optional hide-high-info)
   "Update text displayed and end of list of matches.
 Argument LINES-WANTED is compared with lines found.
-Optional argument HIDE-FRAME may contain info about the number of lines found."
+Optional argument HIDE-HIGH-INFO may contain info about the number of lines found."
 
-  (let ((lines-found (or (and hide-frame (cdr (assoc :last-visible hide-frame)))
+  (let ((lines-found (or (and hide-high-info (alist-get :last-visible hide-high-info))
                          (save-excursion
                            (goto-char oidx--occur-point-begin)
                            (vertical-motion lines-wanted)))))
@@ -3308,45 +3327,48 @@ Optional argument HIDE-FRAME may contain info about the number of lines found."
 
 
 (defun oidx--hide-with-overlays (words lines-wanted end-of-table)
-  "Hide lines that are currently visible and do not match WORDS.
-Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
+  "Hide lines in table, that are currently visible and do not match WORDS.
+See `oidx--occur-hide-high-stack' for description of the data-structure involved.
+Leave LINES-WANTED lines visible; END-OF-TABLE specifies end position."
   (let ((lines-found 0)
+        (last-visible (point))
         overlay overlays old-overlay start
-        places all-places last-visible
-        overlays-csced-wb) ; short for overlays-coalesced-with-borders
+        places all-places
+        overlays-csced-wb) ; short for overlays-coalesced-with-borders; part of structure to be returned
 
-    ;; loop over index table and find one line that should be visible during each iteration
+    ;; loop over index table and find lines that should be visible during each iteration
     (while (and (< (point) end-of-table)
                 (< lines-found lines-wanted))
 
       ;; skip invisible lines
       (while (and (< (point) end-of-table)
                   (invisible-p (point)))
-        ;; duplicate already exisiting overlays, so that we have a full set to be coalesced
+        ;; on the way: duplicate already exisiting overlays, so that we have a full set to be coalesced
         (setq old-overlay (car (overlays-at (point))))
-        (setq overlays (cons (copy-overlay old-overlay) overlays))
-        (goto-char (overlay-end old-overlay)))
+        (push (copy-overlay old-overlay) overlays)
+        (goto-char (overlay-end old-overlay))
+        (setq last-visible (point)))
 
-      ;; skip and find stretch of lines, that are currently visible but do
-      ;; not match current words and whence should be invisible now
+      ;; skip stretch of lines, that are currently visible but do
+      ;; not match current words and whence should become invisible
       (setq places nil)
       (setq start (point))
       (while (and (< (point) end-of-table)
                   (not (invisible-p (point)))
                   (not places))
         (setq places (oidx--test-words words))
-        (or places (forward-line 1)))
+        (unless places (forward-line 1)))
 
       ;; create overlay to hide this stretch
       (when (< start (point))
         (setq overlay (make-overlay start (point)))
         (overlay-put overlay 'invisible t)
-        (setq overlays (cons overlay overlays)))
+        (push overlay overlays))
 
-      ;; fontify, skip and count the single line, that matched
+      ;; fontify, skip and count the lines, that matched
       (when places
         (let ((inhibit-read-only t))
-          (put-text-property (line-beginning-position) (line-end-position) 'face nil)
+          (put-text-property (line-beginning-position) (line-end-position) 'face 'org-table)
           (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face 'isearch)) places))
         (forward-line 1)
         (setq last-visible (point))
@@ -3355,20 +3377,22 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
 
     ;; check, if two overlays can be coalesced into one; add borders
     (when overlays
-      (let (this next)
+      (let (this-ov next-ov)
         (while (progn
-                 (setq this (car-safe overlays))
-                 (setq next (car-safe (cdr-safe overlays)))
-                 this)
-          (when (and next (= (overlay-start this) (overlay-end next)))
-            (progn
-              (move-overlay next (overlay-start next) (overlay-end this))
-              (delete-overlay this)
-              (setq this nil)))
-          (if this (setq overlays-csced-wb
-                         (cons (list this (overlay-start this) (overlay-end this))
-                               overlays-csced-wb)))
-          (setq overlays (cdr-safe overlays)))
+                 (setq this-ov (car overlays))
+                 (setq next-ov (car (cdr overlays)))
+                 this-ov)
+          (if (and next-ov (= (overlay-start this-ov) (overlay-end next-ov)))
+              ;; this-ov and next-ov can be coalesced; this-ov will be discarded
+              (progn
+                (move-overlay next-ov (overlay-start next-ov) (overlay-end this-ov))
+                (delete-overlay this-ov))
+            ;; no coalesce or only one overlay left; take this-ov unchanged
+            (push (list this-ov (overlay-start this-ov) (overlay-end this-ov))
+                  overlays-csced-wb))
+          ;; proceed one overlay
+          (setq overlays (cdr overlays)))
+
         (if (> (length overlays-csced-wb) (+ 1 lines-found))
             (error "Assertion failed: '%d overlays' should be <=  1 + '%d lines found'"
                    (length overlays-csced-wb) lines-found))))
@@ -3383,29 +3407,37 @@ Leave LINES-WANTED lines visible; END-OF-TABLE avoids computing it here."
 
 (defun oidx--unhide (lines-wanted)
   "Unhide text that has been hidden by `oidx--hide-with-overlays'.
+See `oidx--occur-hide-high-stack' for description of the data-structure involved.
 Argument LINES-WANTED is compared with number of lines found."
-  (when oidx--occur-stack
+  (if oidx--occur-hide-high-stack
+      (progn
+        ;; remove overlays from within top of overlay-stack to make visible and remove highlights
+        (oidx--occur-hide-high-clean (car oidx--occur-hide-high-stack))
 
-    ;; remove top of overlay-stack to make visible and remove highlights
-    (oidx--occur-stack-delete-frame (car oidx--occur-stack))
+        ;; shorten stack
+        (setq oidx--occur-hide-high-stack (cdr oidx--occur-hide-high-stack))
 
-    ;; shorten stack
-    (setq oidx--occur-stack (cdr oidx--occur-stack))
+        ;; redo older highlights
+        (mapc (lambda (x)
+                (let ((inhibit-read-only t))
+                  (put-text-property (car x) (+ (car x) (cdr x)) 'face 'isearch)))
+              (alist-get :highlights (car oidx--occur-hide-high-stack)))
 
-    ;; redo older highlights
-    (mapc (lambda (x)
-            (let ((inhibit-read-only t))
-              (put-text-property (car x) (+ (car x) (cdr x)) 'face 'isearch)))
-          (cdr (assoc :highlights (car oidx--occur-stack))))
+        ;; revive older overlays
+        (mapc (lambda (x) (move-overlay (cl-first x) (cl-second x) (cl-third x)))
+              (alist-get :overlays-with-borders (car oidx--occur-hide-high-stack)))
 
-    ;; revive older overlays
-    (mapc (lambda (x) (move-overlay (cl-first x) (cl-second x) (cl-third x)))
-          (cdr (assoc :overlays-with-borders (car oidx--occur-stack))))
+        ;; move tail overlay to cover untested rest of table
+        (move-overlay oidx--occur-tail-overlay
+                      (or (alist-get :last-visible (car oidx--occur-hide-high-stack))
+                          oidx--occur-last-visible-initial)
+                      (point-max))
 
-    ;; move tail overlay to cover untested rest of table
-    (let ((last-visible (cdr (assoc :last-visible (car oidx--occur-stack)))))
-      (move-overlay oidx--occur-tail-overlay (or last-visible oidx--occur-last-visible-initial) (point-max))
-      (oidx--occur-update-tail-text lines-wanted (car oidx--occur-stack)))))
+        (oidx--occur-update-tail-text lines-wanted (car oidx--occur-hide-high-stack)))
+
+    ;; no occur stack; simply remove all highlights; buffer is narrowed
+    (let ((inhibit-read-only t))
+      (put-text-property (point-min) (point-max) 'face 'org-table))))
 
 
 (defun oidx--test-words (words)
@@ -3425,7 +3457,7 @@ Argument LINES-WANTED is compared with number of lines found."
     (catch 'not-found
       (dolist (word words)
         (if (setq index (cl-search word (if (string= word (downcase word)) dc-line line)))
-            (setq places (cons (cons (+ lbp index) (length word)) places))
+            (push (cons (+ lbp index) (length word)) places)
           (throw 'not-found nil)))
       ;; return places that matched words
       places)))
