@@ -2762,20 +2762,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 ;; between the functions of the occur-family of functions
 (defvar oidx--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
 (defvar oidx--occur-help-overlay nil "Overlay for help in occur buffer.")
-(defvar oidx--occur-hide-high-stack nil
-  "Stack with info for hiding lines.
-
-This is the central data structure used with org-index occur. Each keystroke during occur creates a new entry 
-for this stack, wheras deleting a character removes an entry from the stack. One such entry contains:
-
-- All overlays, that are needed to hide the lines that should be invisible
-- The places that should be highlighted, i.e. in each line the first appearance of the character that has been typed
-
-Within the stack, the overlays in each entry are complete, whereas the places are cummulative.
-Therefore, when putting a new entry on the stack, the existing overlays are copied (and coalesced) for the new entry 
-and then deactivated. The places from the new entry just highlight the single char that has been typed and all places
-from all entries of the stack are needed to highlight the complete word, that has been typed so far.
-")
+(defvar oidx--occur-stack nil "Stack with info for hiding lines.")
 (defvar oidx--occur-tail-overlay nil "Overlay to cover invisible lines at end of table up to rest of buffer.")
 (defvar oidx--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar oidx--occur-win-config nil "Window configuration stored away during occur.")
@@ -2796,7 +2783,7 @@ Optional argument ARG, when given does not limit number of lines shown."
                           (window-body-height)
                         (min org-index-occur-max-lines (window-body-height))))
         end-of-table
-        hide-high-info                     ; alist with information from last last hiding operation
+        visible                        ; visible text
         words                          ; list words that should match
         done                           ; true, if loop is done
         in-c-backspace                 ; true, while processing C-backspace
