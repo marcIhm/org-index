@@ -2762,11 +2762,10 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 ;; between the functions of the occur-family of functions
 (defvar oidx--occur-help-text nil "Text for help in occur buffer; cons with text short and long.")
 (defvar oidx--occur-help-overlay nil "Overlay for help in occur buffer.")
-(defvar oidx--occur-stack nil "Stack with info for hiding lines.")
+(defvar oidx--occur-matching-lines-stack nil "Stack with list of matching lines; each frame of stack has one complete set of lines for each char typed in search.")
 (defvar oidx--occur-tail-overlay nil "Overlay to cover invisible lines at end of table up to rest of buffer.")
 (defvar oidx--occur-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar oidx--occur-win-config nil "Window configuration stored away during occur.")
-(defvar oidx--occur-point-begin nil "Point of first line of table contents.")
 (defvar oidx--occur-last-visible-initial nil "Initial point of last visibility.")
 (defvar oidx--occur-buffer nil "Buffer, where occur takes place.")
 (defvar oidx--occur-search-text nil "Description of text to search for.")
@@ -2793,11 +2792,11 @@ Optional argument ARG, when given does not limit number of lines shown."
         key-sequence
         key-sequence-raw)
 
-    (setq end-of-table
-          (oidx--occur-prepare-buffer lines-wanted))
 
     (setq initial-frame (selected-frame))
     (setq oidx--inhibit-sort-idle t)
+
+    (oidx--occur-prepare)
     
     ;; main loop
     (while (not done)
@@ -2877,15 +2876,11 @@ Optional argument ARG, when given does not limit number of lines shown."
         ;; append key to word
         (setq word (concat word key))
         
-        ;; move overlay out of the way, not to interfer with oidx--hide-with-overlays (which tests for visibility)
-        (setq tail-overlay-start (overlay-start oidx--occur-tail-overlay))
-        (move-overlay oidx--occur-tail-overlay (point-max) (point-max))
-
         ;; get overlays to hide lines, that do not match longer word any more
         (goto-char oidx--occur-point-begin)
-        (setq hide-high-info (oidx--hide-with-overlays (cons word words) lines-wanted end-of-table))
+        (setq matching-lines (oidx--find-matching-lines (cons word words) lines-wanted end-of-table))
         
-        (when hide-high-info
+        (when matching-lines
           ;; delete older overlays, but keep structure on stack (can be revived by unhide)
           (oidx--occur-hide-high-clean (car oidx--occur-hide-high-stack) t)
           ;; put new frame with overlays on stack
@@ -2924,35 +2919,23 @@ Optional argument ARG, when given does not limit number of lines shown."
     (oidx--occur-install-keyboard-shortcuts)))
 
 
-(defun oidx--occur-prepare-buffer (lines-wanted)
-  "Prepare buffer for 'oidx--do-occur.
+(defun oidx--occur-prepare (lines-wanted)
+  "Prepare buffer with result for 'oidx--do-occur.
 Only collect LINES-WANTED lines."
 
   (let (end-of-table)
-    
-    ;; make and show buffer
-    (if (get-buffer oidx--occur-buffer-name)
-        (kill-buffer oidx--occur-buffer-name))
-    (setq oidx--occur-buffer (make-indirect-buffer oidx--buffer oidx--occur-buffer-name))
-    (setq oidx--occur-win-config (current-window-configuration))
-    (pop-to-buffer-same-window oidx--occur-buffer)
 
-    ;; avoid modifying direct buffer
-    (setq buffer-read-only t)
-    (toggle-truncate-lines 1)
-    
-    ;; reset stack of overlays
-    (setq oidx--occur-hide-high-stack nil)
-    
-    ;; narrow to table rows and one line before
-    (goto-char oidx--below-hline)
-    (setq end-of-table (org-table-end))
-    (forward-line 0)
-    (setq oidx--occur-point-begin (point))
-    (forward-line -1)
-    (narrow-to-region (point) end-of-table)
-    (forward-line)
+    ;; create result buffer
+    (setq oidx--occur-win-config-before (current-window-configuration))
+    (pop-to-buffer-same-window (get-buffer-create oidx--occur-buffer-name))
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert oidx--headings))
+    (insert oidx--headings)
 
+    ;; reset stack
+    (setq oidx--occur-stack nil)
+    
     ;; initialize help text
     (setq oidx--occur-help-text
           (cons
@@ -2966,20 +2949,8 @@ Only collect LINES-WANTED lines."
             oidx--headings)))
     
     ;; overlay for help text
-    (setq oidx--occur-help-overlay (make-overlay (point-min) oidx--occur-point-begin))
-    (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))
-    
-    ;; overlay to cover tail of table
-    (goto-char oidx--occur-point-begin)
-    (forward-line lines-wanted)
-    (setq oidx--occur-last-visible-initial (point))
-    (setq oidx--occur-tail-overlay (make-overlay oidx--occur-last-visible-initial (point-max)))
-    (goto-char oidx--occur-point-begin)
-    (overlay-put oidx--occur-tail-overlay 'invisible t)
-
-    (oidx--occur-update-tail-text lines-wanted)
-    
-    end-of-table))
+    (setq oidx--occur-help-overlay (make-overlay (point-min) (point-max)))
+    (overlay-put oidx--occur-help-overlay 'display (car oidx--occur-help-text))))
 
 
 (defun oidx--occur-make-permanent (lines-wanted end-of-table)
@@ -3299,7 +3270,6 @@ Optional argument HIDE-HIGH-INFO may contain info about the number of lines foun
 
 (defun oidx--hide-with-overlays (words lines-wanted end-of-table)
   "Hide lines in table, that are currently visible and do not match WORDS.
-See `oidx--occur-hide-high-stack' for description of the data-structure involved.
 Leave LINES-WANTED lines visible; END-OF-TABLE specifies end position."
   (let ((lines-found 0)
         (last-visible (point))
@@ -3378,7 +3348,6 @@ Leave LINES-WANTED lines visible; END-OF-TABLE specifies end position."
 
 (defun oidx--unhide (lines-wanted)
   "Unhide text that has been hidden by `oidx--hide-with-overlays'.
-See `oidx--occur-hide-high-stack' for description of the data-structure involved.
 Argument LINES-WANTED is compared with number of lines found."
   (if oidx--occur-hide-high-stack
       (progn
