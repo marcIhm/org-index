@@ -546,7 +546,7 @@ interactive calls."
         ;; If we still do not have a search string, ask user explicitly
         (unless search-ref
           (if (eq command 'index)
-              (-setq ((search-ref search-id search-fingerprint) (oidx--read-search-for-command-index)))
+              (-setq (search-ref search-id search-fingerprint) (oidx--read-search-for-command-index))
             (unless (and (eq command 'node)
                          oidx--within-index-node
                          (org-match-line org-table-line-regexp))
@@ -736,7 +736,7 @@ interactive calls."
        ((eq command 'occur)
 
         (set-buffer oidx--buffer)
-        (oidx--do-occur arg)
+        (oidx--do-occur arg))
 
 
         ((eq command 'ref)
@@ -750,10 +750,10 @@ interactive calls."
 
            (setq kill-new-text newref)
 
-           (setq message-text (format "Added new row with ref '%s'" newref)))))
+           (setq message-text (format "Added new row with ref '%s'" newref))))
 
 
-       ((eq command 'yank)
+        ((eq command 'yank)
 
         (let (args)
 
@@ -793,17 +793,15 @@ interactive calls."
 
        ((eq command 'sort)
 
-        (let (groups-and-counts)
+        (cond
+         ((eq sort-what 'index)
 
-          (cond
-           ((eq sort-what 'index)
+          (oidx--do-sort-index)
+          (setq message-text "Index has been sorted"))
 
-            (oidx--do-sort-index)
-            (setq message-text "Index has been sorted"))
-
-           ((memq sort-what '(region buffer))
-            (oidx--do-sort-lines sort-what)
-            (setq message-text (format "Sorted %s by contained references" sort-what))))))
+         ((memq sort-what '(region buffer))
+          (oidx--do-sort-lines sort-what)
+          (setq message-text (format "Sorted %s by contained references" sort-what)))))
 
 
        ((eq command 'highlight)
@@ -1147,7 +1145,7 @@ Optional argument SILENT prevents invoking interactive assistant."
   (setq oidx--within-occur (string= (buffer-name) oidx--o-buffer-name)))
 
 
-(defun oidx--parse-table (&optional num-lines-to-format check-sort)
+(defun oidx--parse-table (&optional num-lines-to-format)
   "Parse content of index table.
 Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration.
 Optional argument CHECK-SORT triggers sorting if mixed and stale."
@@ -1285,7 +1283,7 @@ Optional argument CHECK-SORT triggers sorting if mixed and stale."
 ;; Edit, add or kill lines
 (defun oidx--do-edit ()
   "Perform command edit."
-  (let (buffer-keymap field-keymap keywords-pos val cols-vals maxlen)
+  (let (buffer-keymap field-keymap keywords-pos cols-vals maxlen)
 
     (setq oidx--context-node nil)
     (setq oidx--context-occur nil)
@@ -1345,7 +1343,7 @@ Optional argument CHECK-SORT triggers sorting if mixed and stale."
 
 (defun oidx--content-of-current-line ()
   "Retrieve current content of index line."
-  (let ((maxlen 0) cols-vals)
+  (let ((maxlen 0) cols-vals val)
     (dolist (col (mapcar 'car (reverse oidx--columns)))
       (if (> (length (symbol-name col)) maxlen)
           (setq maxlen (length (symbol-name col))))
@@ -1777,7 +1775,7 @@ CREATE-REF and TAG-WITH-REF if given."
                      'forward-line
                      'end-of-line
                      (lambda ()
-                       (oidx--get-sort-key sort t sort-time))
+                       (oidx--get-sort-key t sort-time))
                      nil
                      'string<)
           (goto-char (point-min))
@@ -2640,7 +2638,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 ;; between the functions of the occur-family of functions
 (defvar oidx--o-help-text nil "Text for help in occur buffer; cons with text short and long.")
 (defvar oidx--o-help-overlay nil "Overlay for help in occur buffer.")
-(defvar oidx--o-matching-lines-stack nil "Stack with list of matching lines; each frame of stack has one complete set of lines for each char typed in search.")
+(defvar oidx--o-stack nil "Stack with list of matching lines; each frame of stack has one complete set of lines for each char typed in search.")
 (defvar oidx--o-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar oidx--o-win-config nil "Window configuration stored away during occur.")
 (defvar oidx--o-last-visible-initial nil "Initial point of last visibility.")
@@ -2661,19 +2659,17 @@ Optional argument ARG, when given does not limit number of lines shown."
         end-of-table
         omframe            ; old matchframe
         nmframe            ; new matchframe
-        visible            ; visible text
         words              ; list words that should match
         done               ; true, if loop is done
         in-c-backspace     ; true, while processing C-backspace
         initial-frame      ; Frame when starting occur
-        tail-overlay-start ; For saving
         key                ; input from user in various forms
         key-sequence
         key-sequence-raw)
 
 
     (setq initial-frame (selected-frame))
-    (setq oidx--o-win-config-before (current-window-configuration))
+    (setq oidx--o-win-config (current-window-configuration))
     (pop-to-buffer-same-window (get-buffer-create oidx--o-buffer-name))
 
     (oidx--o-prepare-buffer)
@@ -2716,12 +2712,11 @@ Optional argument ARG, when given does not limit number of lines shown."
         ;; if only one char left, c-backspace should end
         (setq in-c-backspace (not (= (length word) 1))) 
         ;; previous frame
-        (setq oidx--o-matching-lines-stack (cdr oidx--o-matching-lines-stack))
+        (setq oidx--o-stack (cdr oidx--o-stack))
         ;; get word and words from frame
-        (-setq (word . words) (plist-get (car oidx--o-matching-lines-stack) :words))
+        (-setq (word . words) (plist-get (car oidx--o-stack) :words))
         ;; display
-        (oidx--o-show-top-of-stack)
-        (goto-char oidx--o-point-begin))
+        (oidx--o-show-top-of-stack))
 
 
        ;; space or comma: enter an additional search word
@@ -2748,13 +2743,13 @@ Optional argument ARG, when given does not limit number of lines shown."
         
         ;; remove lines no longer matching
         (goto-char oidx--o-start-of-lines)
-        (setq omframe (car oidx--o-matching-lines-stack))
+        (setq omframe (car oidx--o-stack))
 
         (let (olines ocount)
           ;; get lines from old frame, that still match
           (setq olines (-non-nil (mapcar (lambda (l) (oidx--o-test-words-and-fontify (cons word words) l))
                                          (plist-get omframe :lines))))
-          (setq ocunt (length olines))
+          (setq ocount (length olines))
           ;; get new stretch of lines
           (setq nmframe (oidx--o-find-matching-lines
                          (cons word words)
@@ -2763,7 +2758,7 @@ Optional argument ARG, when given does not limit number of lines shown."
           (plist-put nmframe :lines (append olines (plist-get nmframe :lines)))
           (plist-put nmframe :count (+ ocount (plist-get nmframe :count)))
           (oidx--o-show-top-of-stack)
-          (push nframe oidx--o-matching-lines-stack)))
+          (push nmframe oidx--o-stack)))
 
        ;; anything else terminates input loop
        (t (setq done t))))
@@ -2814,29 +2809,29 @@ Optional argument ARG, when given does not limit number of lines shown."
 
 
 (defun oidx--o-show-top-of-stack ()
-  "Show top of `oidx--o-matching-lines-stack'."
+  "Show top of `oidx--o-stack'."
   (with-current-buffer oidx--o-buffer-name
     (goto-char oidx--o-start-of-lines)
     (delete-region oidx--o-start-of-lines oidx--o-end-of-lines)
-    (mapc (lambda (x) (insert x)) (plist-get (car oidx--o-matching-lines-stack)))))
+    (mapc (lambda (x) (insert x)) (plist-get (car oidx--o-stack) :lines))))
 
 
-(defun oidx--o-make-permanent (lines-wanted end-of-table)
+(defun oidx--o-make-permanent (lines-wanted)
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is position."
 
   ;; copy visible lines
   (let ((lines-collected 0)
-        line all-lines all-lines-lbp header-lines lbp)
+        all-lines header-lines)
 
     ;; create new buffer
-    (with-current-buffer oidx-o-buffer
+    (with-current-buffer oidx--o-buffer
       (erase-buffer)
       (insert oidx--headings))
     (setq header-lines (line-number-at-pos))
 
     (oidx--o-show-top-of-stack)
-    (goto-line header-lines)
+    (goto-char header-lines)
     (fundamental-mode)
     (setq truncate-lines t)
 
@@ -2870,7 +2865,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (if (= lines-collected lines-wanted)
         (insert oidx--o-more-lines-text))
     (setq oidx--o-lines-collected lines-collected)
-    (goto-line header-lines)
+    (goto-char header-lines)
     
     ;; typically executed only during tests
     (when (and oidx--o-assert-result
@@ -2954,7 +2949,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
   (org-id-goto (oidx--get-or-set-field 'id))
   (org-with-limited-levels (org-clock-in))
   (if oidx--o-win-config (set-window-configuration oidx--o-win-config))
-  (message "Clocked into node and returned to initial position.")  )
+  (message "Clocked into node and returned to initial position."))
 
 
 (defun oidx--o-action-head-of-index ()
@@ -3030,7 +3025,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
 (defun oidx--o-action-details ()
   "Show details for index line under cursor."
   (interactive)
-  (-let ((cols-vals . maxlen) (oidx--content-of-current-line))
+  (-let (((cols-vals . maxlen) (oidx--content-of-current-line)))
     (display-buffer (get-buffer-create oidx--details-buffer-name) '((display-buffer-at-bottom)))
     (with-current-buffer oidx--details-buffer-name
       (let ((inhibit-read-only t))
@@ -3072,7 +3067,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
   "Find WANTED lines from index table, that match WORDS; start at START.
 Returns nil or plist with result"
   (let ((found 0)
-        end lines lbp2 result)
+        end line lines lbp2)
     (with-current-buffer oidx--buffer
       (goto-char start)
       (while (and (org-match-line org-table-line-regexp)
@@ -3081,10 +3076,10 @@ Returns nil or plist with result"
                lbp2 (line-beginning-position 2)
                line (oidx--o-test-words-and-fontify words (buffer-substring (line-beginning-position) lbp2)))
           (push line lines)
-          (incf found)
+          (cl-incf found)
           (setq end lbp2))))
     (if (> found 0)
-      (:end end :count found :lines lines :words (copy-sequence) words))))
+        (list :end end :count found :lines lines :words (copy-sequence words)))))
 
 
 (defun oidx--o-test-words-and-fontify (words line)
