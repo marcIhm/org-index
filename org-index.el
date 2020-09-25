@@ -76,7 +76,7 @@
 ;;   Version 7.0
 ;;
 ;;   - Rewrote parts of occur to reduce complexity
-;;   - Only one sorting strategy is supported now
+;;   - Only one sorting strategy is supported now, removed `org-index-sort-by'
 ;;   - Removed background sorting
 ;;
 ;;   Version 6.3
@@ -182,11 +182,8 @@
 (defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
 (defvar oidx--recording-screencast nil "Set Non-nil, if screencast is beeing recorded to trigger some minor tweaks.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
-(defvar oidx--last-sort-assumed nil "Last column, the index has been sorted after (best guess).")
 (defvar oidx--sort-timer nil "Timer to sort index in correct order.")
-(defvar oidx--inhibit-sort-idle nil "If set, index will not be sorted in idle background.")
-(defvar oidx--aligned 0 "For this Emacs session: remember number of table lines aligned.")
-(defvar oidx--align-interactive most-positive-fixnum "Number of rows to align in ‘oidx--parse-table’.")
+(defvar oidx--aligned-and-sorted nil "For this Emacs session: remember if aligned and sorted.")
 (defvar oidx--edit-widgets nil "List of widgets used to edit.")
 (defvar oidx--context-index nil "Position and line used for index in edit buffer.")
 (defvar oidx--context-occur nil "Position and line used for occur in edit buffer.")
@@ -223,29 +220,6 @@
   "Id of the Org-mode node, which contains the index table."
   :type 'string
   :group 'org-index)
-
-(defcustom org-index-sort-by 'mixed
-  "Criterium for sorting index table (and whence entries in occur).
-Valid values are:
-
-last-access  Sort index by date and time of last access; show
-             more recent entries first.
-count  Sort by usage count; more often used entries first.
-mixed  First, show all index entries, which have been
-       used today; sort them by last access.  Then show
-       older entries sorted by usage count."
-  :group 'org-index
-  :set (lambda (s v)
-         (custom-set-default s v)
-         (if (and org-index-id
-                  oidx--buffer
-                  (functionp 'oidx--sort-silent))
-             (oidx--sort-silent)))
-  :initialize 'custom-initialize-default
-  :type '(choice
-	  (const last-accessed)
-	  (const count)
-	  (const mixed)))
 
 (defcustom org-index-occur-columns 4
   "Number of columns to search during occur.
@@ -521,22 +495,10 @@ interactive calls."
       (oidx--verify-id)
 
       ;; Get configuration of index table
-      (oidx--parse-table oidx--align-interactive t)
+      (oidx--parse-table t)
 
       ;; store context information
       (oidx--retrieve-context)
-
-
-      ;;
-      ;; Arrange for proper sorting of index
-      ;;
-
-      ;; lets assume, that it has been sorted this way (we try hard to make sure)
-      (unless oidx--last-sort-assumed (setq oidx--last-sort-assumed org-index-sort-by))
-      ;; arrange for index beeing sorted into default sort order after 300 secs of idle time
-      (unless oidx--sort-timer
-        (setq oidx--sort-timer
-              (run-with-idle-timer org-index-idle-delay t 'oidx--sort-silent)))
 
 
       ;;
@@ -584,10 +546,7 @@ interactive calls."
         ;; If we still do not have a search string, ask user explicitly
         (unless search-ref
           (if (eq command 'index)
-              (let ((r (oidx--read-search-for-command-index)))
-                (setq search-ref (cl-first r))
-                (setq search-id (cl-second r))
-                (setq search-fingerprint (cl-third r)))
+              (-setq ((search-ref search-id search-fingerprint) (oidx--read-search-for-command-index)))
             (unless (and (eq command 'node)
                          oidx--within-index-node
                          (org-match-line org-table-line-regexp))
@@ -675,10 +634,8 @@ interactive calls."
 
        ((eq command 'add)
 
-        (let ((r (oidx--do-add-or-update (if (equal arg '(4)) t nil)
-                                         (if (numberp arg) arg nil))))
-          (setq message-text (car r))
-          (setq kill-new-text (cdr r))))
+        (-setq (message-text kill-new-text) (oidx--do-add-or-update (if (equal arg '(4)) t nil)
+                                                                    (if (numberp arg) arg nil))))
 
 
        ((eq command 'kill)
@@ -836,36 +793,13 @@ interactive calls."
 
        ((eq command 'sort)
 
-        (let ((sorts (list "count" "last-accessed" "mixed" "id" "ref"))
-              sort groups-and-counts)
+        (let (groups-and-counts)
 
           (cond
            ((eq sort-what 'index)
-            (setq sort
-                  (intern
-                   (oidx--completing-read
-                    "Please choose column to sort index table: "
-                    (cl-copy-list sorts)
-                    (symbol-name org-index-sort-by))))
 
-            (oidx--do-sort-index sort)
-            (org-table-goto-column (oidx--column-num (if (eq sort 'mixed) 'last-access sort)))
-            ;; When saving index, it should again be sorted correctly
-            (with-current-buffer oidx--buffer
-              (add-hook 'before-save-hook 'oidx--sort-silent t))
-            
-            (setq message-text
-                  (format
-                   (concat "Your index has been sorted temporarily by %s and will be sorted again by %s after %d seconds of idle time"
-                           (if groups-and-counts
-                               "; %d groups with equal %s and a total of %d lines have been found"
-                             ""))
-                   (symbol-name sort)
-                   org-index-sort-by
-                   org-index-idle-delay
-                   (cl-second groups-and-counts)
-                   (symbol-name sort)
-                   (cl-third groups-and-counts))))
+            (oidx--do-sort-index)
+            (setq message-text "Index has been sorted"))
 
            ((memq sort-what '(region buffer))
             (oidx--do-sort-lines sort-what)
@@ -1213,10 +1147,10 @@ Optional argument SILENT prevents invoking interactive assistant."
   (setq oidx--within-occur (string= (buffer-name) oidx--o-buffer-name)))
 
 
-(defun oidx--parse-table (&optional num-lines-to-format check-sort-mixed)
+(defun oidx--parse-table (&optional num-lines-to-format check-sort)
   "Parse content of index table.
 Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration.
-Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
+Optional argument CHECK-SORT triggers sorting if mixed and stale."
  
   (let (initial-point
         end-of-headings
@@ -1232,39 +1166,17 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
       (oidx--go-below-hline)
       (org-reveal)
 
-      ;; if table is sorted mixed and it was sorted correctly yesterday, it could still be wrong today; so check
-      (when (and check-sort-mixed (eq org-index-sort-by 'mixed))
+      (unless oidx--aligned-and-sorted
+        ;; align, fontify and sort table once for this emacs session
+        (message "Align, fontify and sort index table (once per emacs session)...")
         (goto-char oidx--below-hline)
-        (let (count-first-line count-second-line)
-          (setq count-first-line (string-to-number (concat (oidx--get-or-set-field 'count) " 0")))
-          (forward-line)
-          (setq count-second-line (string-to-number (concat (oidx--get-or-set-field 'count) " 0")))
-          (forward-line -1)
-          (if (and (string< (oidx--get-or-set-field 'last-accessed)
-                            (oidx--get-mixed-time))
-                   (< count-first-line count-second-line))
-              (oidx--do-sort-index org-index-sort-by)))
-        (oidx--go-below-hline))
+        (oidx--do-sort-index)
 
-      ;; align and fontify table once for this emacs session
-      (when (> num-lines-to-format oidx--aligned)
         (oidx--go-below-hline)
-        (message "Aligning and fontifying %s lines of index table (once per emacs session)..."
-                 (if (= num-lines-to-format most-positive-fixnum) "all" (format "%d" num-lines-to-format)))
-        (save-restriction
-          (let (from to)
-            (forward-line -3)
-            (setq from (point))
-            (setq to (org-table-end))
-            (when (< num-lines-to-format most-positive-fixnum)
-              (forward-line (+ 3 num-lines-to-format))
-              (narrow-to-region from (point))
-              (setq to (min (point) to)))
-            (goto-char oidx--below-hline)
-            (org-table-align)
-            (setq to (min (point-max) to))
-            (font-lock-fontify-region from to)))
-        (setq oidx--aligned num-lines-to-format)
+        (org-table-align)
+        (font-lock-fontify-region (point) (org-table-end))
+
+        (setq oidx--aligned-and-sorted t)
         (oidx--go-below-hline)
         (message "Done."))
 
@@ -1373,7 +1285,7 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 ;; Edit, add or kill lines
 (defun oidx--do-edit ()
   "Perform command edit."
-  (let (buffer-keymap field-keymap keywords-pos val cols-vals maxlen r)
+  (let (buffer-keymap field-keymap keywords-pos val cols-vals maxlen)
 
     (setq oidx--context-node nil)
     (setq oidx--context-occur nil)
@@ -1411,24 +1323,23 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
     (if (get-buffer oidx--edit-buffer-name) (kill-buffer oidx--edit-buffer-name))
 
     ;; create and fill widgets
-    (pcase-let ((`(,cols-vals . ,maxlen) (oidx--content-of-current-line)))
-      (switch-to-buffer (get-buffer-create oidx--edit-buffer-name))
-      (setq oidx--edit-widgets nil)
-      (widget-insert "Edit this line from index; type C-c C-c when done, C-c C-k to abort.\n\n")
-      (dolist (col-val cols-vals)
-        (if (eq (car col-val) 'keywords) (setq keywords-pos (+ (point-at-bol) maxlen 2)))
-        (push
-         (cons (car col-val)
-               (widget-create 'editable-field
-                              :format (format  (format "%%%ds: %%%%v" maxlen) (symbol-name (car col-val)))
-                              :keymap field-keymap
-                              (or (cdr col-val) "")))
-         oidx--edit-widgets)))
+    (-setq (cols-vals . maxlen) (oidx--content-of-current-line))
+    (switch-to-buffer (get-buffer-create oidx--edit-buffer-name))
+    (setq oidx--edit-widgets nil)
+    (widget-insert "Edit this line from index; type C-c C-c when done, C-c C-k to abort.\n\n")
+    (dolist (col-val cols-vals)
+      (if (eq (car col-val) 'keywords) (setq keywords-pos (+ (point-at-bol) maxlen 2)))
+      (push
+       (cons (car col-val)
+             (widget-create 'editable-field
+                            :format (format  (format "%%%ds: %%%%v" maxlen) (symbol-name (car col-val)))
+                            :keymap field-keymap
+                            (or (cdr col-val) "")))
+       oidx--edit-widgets))
 
     (widget-setup)
     (goto-char keywords-pos)
     (use-local-map buffer-keymap)
-    (setq oidx--inhibit-sort-idle t)
     "Editing a single line from index"))
 
 
@@ -1502,7 +1413,6 @@ Optional argument CHECK-SORT-MIXED triggers resorting if mixed and stale."
 
        ;; clean up
        (kill-buffer oidx--edit-buffer-name)
-       (setq oidx--inhibit-sort-idle nil)
        (setq oidx--context-index nil)
        (setq oidx--edit-widgets nil)
        (beginning-of-line)
@@ -1572,12 +1482,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 
   ;; insert ref or id as last or first line, depending on sort-column
   (goto-char oidx--below-hline)
-  (if (eq org-index-sort-by 'count)
-      (progn
-        (goto-char (org-table-end))
-        (forward-line -1)
-        (org-table-insert-row t))
-    (org-table-insert-row))
+  (org-table-insert-row)
 
   ;; insert some of the standard values
   (org-table-goto-column (oidx--column-num 'created))
@@ -1821,31 +1726,30 @@ CREATE-REF and TAG-WITH-REF if given."
 
 
 ;; Sorting
-(defun oidx--get-mixed-time ()
+(defun oidx--get-sort-time ()
   "Get timestamp for sorting order mixed."
   (format-time-string
    (org-time-stamp-format t t)
    (apply 'encode-time (append '(0 0 0) (nthcdr 3 (decode-time))))))
 
 
-(defun oidx--do-sort-index (sort)
-  "Sort index table according to SORT."
+(defun oidx--do-sort-index ()
+  "Sort index table."
 
   (let ((is-modified (buffer-modified-p))
         top
         bottom
-        mixed-time)
+        sort-time)
 
     (unless buffer-read-only
 
-      (message "Sorting index table for %s..." (symbol-name sort))
+      (message "Sorting index table...")
       (undo-boundary)
 
       (let ((message-log-max nil)) ; we have just issued a message, dont need those of sort-subr
 
         ;; if needed for mixed sort
-        (if (eq sort 'mixed)
-            (setq mixed-time (oidx--get-mixed-time)))
+        (setq sort-time (oidx--get-sort-time))
 
         ;; get boundaries of table
         (oidx--go-below-hline)
@@ -1873,15 +1777,13 @@ CREATE-REF and TAG-WITH-REF if given."
                      'forward-line
                      'end-of-line
                      (lambda ()
-                       (oidx--get-sort-key sort t mixed-time))
+                       (oidx--get-sort-key sort t sort-time))
                      nil
                      'string<)
           (goto-char (point-min))
 
           ;; restore modification state
-          (set-buffer-modified-p is-modified)))
-
-      (setq oidx--last-sort-assumed sort))))
+          (set-buffer-modified-p is-modified))))))
 
 
 (defun oidx--do-sort-lines (what)
@@ -1906,16 +1808,13 @@ CREATE-REF and TAG-WITH-REF if given."
                    0)))))
 
 
-(defun oidx--get-sort-key (&optional sort with-ref mixed-time)
-  "Get value for sorting from column SORT, optional WITH-REF; if mixes use MIXED-TIME."
+(defun oidx--get-sort-key (&optional with-ref sort-time)
+  "Get value for sorting, optional WITH-REF."
   (let (ref
         ref-field
         key)
 
-    (unless sort (setq sort oidx--last-sort-assumed)) ; use default value
-
-    (when (or with-ref
-              (eq sort 'ref))
+    (when (or with-ref)
       ;; get reference with leading zeroes, so it can be
       ;; sorted as text
       (setq ref-field (oidx--get-or-set-field 'ref))
@@ -1929,20 +1828,11 @@ CREATE-REF and TAG-WITH-REF if given."
         (setq ref "000000")))
 
     (setq key
-          (cond
-           ((eq sort 'count)
-            (format "%08d" (string-to-number (or (oidx--get-or-set-field 'count) ""))))
-           ((eq sort 'mixed)
-            (let ((last-accessed (oidx--get-or-set-field 'last-accessed)))
-              (unless mixed-time (setq mixed-time (oidx--get-mixed-time)))
-              (concat
-               (if (string< mixed-time last-accessed) last-accessed mixed-time)
-               (format "%08d" (string-to-number (or (oidx--get-or-set-field 'count) ""))))))
-           ((eq sort 'ref)
-            ref)
-           ((memq sort '(id last-accessed created))
-            (oidx--get-or-set-field sort))
-           (t (error "This is a bug: unmatched case '%s'" sort))))
+          (let ((last-accessed (oidx--get-or-set-field 'last-accessed)))
+            (unless sort-time (setq sort-time (oidx--get-sort-time)))
+            (concat
+             (if (string< sort-time last-accessed) last-accessed sort-time)
+             (format "%08d" (string-to-number (or (oidx--get-or-set-field 'count) ""))))))
 
     (if with-ref (setq key (concat key ref)))
 
@@ -2491,27 +2381,6 @@ Optional argument NO-INC skips automatic increment on maxref."
     ref-field))
 
 
-(defun oidx--sort-silent ()
-  "Sort index for default column to remove any effects of temporary sorting."
-  (unless oidx--inhibit-sort-idle
-    (save-excursion
-      (when (catch 'missing-index (oidx--verify-id t) nil)
-          (cancel-timer oidx--sort-timer)
-          (error "No index in idle timer"))
-      (oidx--parse-table)
-      (with-current-buffer oidx--buffer
-        (save-excursion
-          (goto-char oidx--below-hline)
-          (oidx--do-sort-index org-index-sort-by)
-          (remove-hook 'before-save-hook 'oidx--sort-silent))))))
-
-
-(defun oidx--idle-prepare ()
-  "For parsing table when idle."
-  (oidx--verify-id)
-  (oidx--parse-table most-positive-fixnum t))
-
-
 (defun oidx--update-all-lines ()
   "Update all lines of index at once."
 
@@ -2849,9 +2718,7 @@ Optional argument ARG, when given does not limit number of lines shown."
         ;; previous frame
         (setq oidx--o-matching-lines-stack (cdr oidx--o-matching-lines-stack))
         ;; get word and words from frame
-        (setq words (plist-get (car oidx--o-matching-lines-stack) :words))
-        (setq word (car words))
-        (setq words (cdr words))
+        (-setq (word . words) (plist-get (car oidx--o-matching-lines-stack) :words))
         ;; display
         (oidx--o-show-top-of-stack)
         (goto-char oidx--o-point-begin))
@@ -2903,7 +2770,6 @@ Optional argument ARG, when given does not limit number of lines shown."
 
     ;; remember list of words
     (setq oidx--o-words (cons word words))
-    (setq oidx--inhibit-sort-idle nil)
 
     ;; put back input event, that caused the loop to end
     (if (string= key "<escape>")
@@ -2954,7 +2820,7 @@ Optional argument ARG, when given does not limit number of lines shown."
     (delete-region oidx--o-start-of-lines oidx--o-end-of-lines)
     (mapc (lambda (x) (insert x)) (plist-get (car oidx--o-matching-lines-stack)))))
 
-; continue here
+
 (defun oidx--o-make-permanent (lines-wanted end-of-table)
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is position."
@@ -3164,7 +3030,7 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
 (defun oidx--o-action-details ()
   "Show details for index line under cursor."
   (interactive)
-  (pcase-let ((`(,cols-vals . ,maxlen) (oidx--content-of-current-line)))
+  (-let ((cols-vals . maxlen) (oidx--content-of-current-line))
     (display-buffer (get-buffer-create oidx--details-buffer-name) '((display-buffer-at-bottom)))
     (with-current-buffer oidx--details-buffer-name
       (let ((inhibit-read-only t))
@@ -3187,32 +3053,6 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
   ; swap short and long help
   (setq-local oidx--o-help-text (cons (cdr oidx--o-help-text) (car oidx--o-help-text)))
   (overlay-put oidx--o-help-overlay 'display (car oidx--o-help-text)))
-
-
-(defun oidx--o-hide-high-clean (frame &optional keep-highlights)
-     "Delete overlays and highlights in FRAME.
-To keep highlighted letters set KEEP-HIGHLIGHTS."
-     (when frame
-       (mapc (lambda (x) (delete-overlay (cl-first x)))
-             (alist-get :overlays-with-borders frame))
-       (unless keep-highlights
-         (let ((inhibit-read-only t))
-           (mapc (lambda (x) (put-text-property (car x) (+ (car x) (cdr x)) 'face 'org-table))
-                 (alist-get :highlights frame))))))
-
-
-(defun oidx--o-update-tail-text (lines-wanted &optional hide-high-info)
-  "Update text displayed and end of list of matches.
-Argument LINES-WANTED is compared with lines found.
-Optional argument HIDE-HIGH-INFO may contain info about the number of lines found."
-
-  (let ((lines-found (or (and hide-high-info (alist-get :last-visible hide-high-info))
-                         (save-excursion
-                           (goto-char oidx--o-point-begin)
-                           (vertical-motion lines-wanted)))))
-
-    (overlay-put oidx--o-tail-overlay 'display
-                 (if (> lines-wanted lines-found) "" oidx--o-more-lines-text))))
 
 
 (defun oidx--o-test-stale (pos)
