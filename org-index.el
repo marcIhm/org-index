@@ -78,6 +78,7 @@
 ;;   - Rewrote parts of occur to reduce complexity
 ;;   - Only one sorting strategy is supported now, removed `org-index-sort-by'
 ;;   - Removed background sorting
+;;   - Disallowed custom columns (starting wit a dot '.')
 ;;
 ;;   Version 6.3
 ;;
@@ -193,14 +194,12 @@
 (defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 (defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
-(defvar oidx--o-assert-result nil "Non-nil, if occur result should be asserted; used during tests.")
 (defvar oidx--o-start-of-lines nil "Start of table lines within result buffer")
 (defvar oidx--o-end-of-lines nil "End of table lines within result buffer")
 
 ;; static information for this program package
 (defconst oidx--commands '(occur add kill node ping index ref yank column edit help short-help example sort find-ref highlight maintain) "List of commands available.")
-(defconst oidx--o-buffer-name "*org-index-occur*" "Name of occur buffer.")
-(defconst oidx--valid-headings '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
+(defconst oidx--all-columns '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defconst oidx--details-buffer-name "*org-index-details*" "Name of details buffer.")
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
@@ -240,7 +239,7 @@ the columns in your index."
   :type 'integer)
 
 (defcustom org-index-occur-max-lines 16
-  "Maximum number of lines to show in occur; zero height of window.
+  "Maximum number of lines to show in occur; zero means height of window.
 This can be helpful to speed up occur."
   :group 'org-index
   :initialize 'custom-initialize-set
@@ -250,32 +249,15 @@ This can be helpful to speed up occur."
          (custom-set-default var val))
   :type 'integer)
 
-(defcustom org-index-key nil
-  "Key to invoke ‘org-index’, which is the central entry function for ‘org-index’.  When setting with customize: do not type the key-sequence but its description, e.g. `C-c i' as five ordinary characters."
+(defcustom org-index-key ""
+  "Key (as string) to invoke ‘org-index’, which is the central entry function for ‘org-index’.  When setting with customize: do not type the key-sequence but its description, e.g. `C-c i' as five ordinary characters."
   :group 'org-index
   :initialize 'custom-initialize-set
   :set (lambda (var val)
          (custom-set-default var val)
-         (when val
-           (global-set-key org-index-key 'org-index)))
-  :type 'key-sequence)
-
-(defcustom org-index-idle-delay 68
-  "Delay in seconds after which buffer will sorted or fontified when Emacs is idle."
-  :group 'org-index
-  :type 'integer)
-
-(defcustom org-index-prepare-when-idle nil
-  "Fontify and sort index-table when idle to make first call faster.
-You only need this if your index has grown so large, that first
-invocation of `org-index' needs a noticable amount of time."
-  :group 'org-index
-  :initialize 'custom-initialize-set
-  :set (lambda (var val)
-         (custom-set-default var val)
-         (when val
-           (run-with-idle-timer org-index-idle-delay nil 'oidx--idle-prepare)))
-  :type 'boolean)
+         (when (and val (not (string= val "")))
+           (global-set-key (kbd val) 'org-index)))
+  :type 'string)
 
 (defcustom org-index-yank-after-add 'ref
   "Specifies which column should be yanked after adding a new index row.
@@ -1248,9 +1230,8 @@ Optional argument CHECK-SORT triggers sorting if mixed and stale."
 
       (if (string= field "")
           (error "Heading of column cannot be empty"))
-      (if (and (not (string= (substring field 0 1) "."))
-               (not (member (intern field) oidx--valid-headings)))
-          (error "Column name '%s' is not a valid heading (custom headings may start with a dot, e.g. '.foo')" field))
+      (if (not (member (intern field) oidx--all-columns))
+          (error "Column name '%s' is not a valid heading" field))
 
       (setq field-symbol (intern field))
 
@@ -1267,7 +1248,7 @@ Optional argument CHECK-SORT triggers sorting if mixed and stale."
   (mapc (lambda (head)
           (unless (cdr (assoc head oidx--columns))
             (oidx--report-index-error "No column has heading '%s'" head)))
-        oidx--valid-headings))
+        oidx--all-columns))
 
 
 (defun oidx--refresh-parse-table ()
@@ -2642,7 +2623,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 (defvar oidx--o-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar oidx--o-win-config nil "Window configuration stored away during occur.")
 (defvar oidx--o-last-visible-initial nil "Initial point of last visibility.")
-(defvar oidx--o-buffer nil "Buffer, where occur takes place.")
+(defconst oidx--o-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defvar oidx--o-search-text nil "Description of text to search for.")
 (defvar oidx--o-words nil "Final list of match words.")
 (defconst oidx--o-more-lines-text "\n(more lines omitted)\n" "Note stating, that not all lines are display.")
@@ -2671,9 +2652,13 @@ Optional argument ARG, when given does not limit number of lines shown."
     (setq initial-frame (selected-frame))
     (setq oidx--o-win-config (current-window-configuration))
     (pop-to-buffer-same-window (get-buffer-create oidx--o-buffer-name))
+    (set-buffer oidx--o-buffer-name)
 
     (oidx--o-prepare-buffer)
-    (setq oidx--o-stack nil)
+    (setq oidx--o-stack
+          (oidx--o-find-matching-lines
+           (cons word words) oidx--below-hline lines-wanted))
+    (oidx--o-show-top-of-stack)
     
     ;; main loop
     (while (not done)
@@ -2753,12 +2738,13 @@ Optional argument ARG, when given does not limit number of lines shown."
           ;; get new stretch of lines
           (setq nmframe (oidx--o-find-matching-lines
                          (cons word words)
-                         (plist-get omframe :end)
+                         (or (plist-get omframe :end)
+                             oidx--below-hline)
                          (- lines-wanted ocount)))
           (plist-put nmframe :lines (append olines (plist-get nmframe :lines)))
           (plist-put nmframe :count (+ ocount (plist-get nmframe :count)))
-          (oidx--o-show-top-of-stack)
-          (push nmframe oidx--o-stack)))
+          (push nmframe oidx--o-stack)
+          (oidx--o-show-top-of-stack)))
 
        ;; anything else terminates input loop
        (t (setq done t))))
@@ -2770,11 +2756,11 @@ Optional argument ARG, when given does not limit number of lines shown."
     (if (string= key "<escape>")
         (progn (if oidx--o-win-config (set-window-configuration oidx--o-win-config))
                (keyboard-quit))
-      (unless (member key (list "SPC" "C-g"))
+      (unless (member key (list "SPCq" "C-g"))
         (setq unread-command-events (listify-key-sequence key-sequence-raw)))
       (message key))
     
-    (oidx--o-make-permanent lines-wanted end-of-table)
+    (oidx--o-make-permanent lines-wanted)
 
     (oidx--o-install-keyboard-shortcuts)))
 
@@ -2803,9 +2789,48 @@ Optional argument ARG, when given does not limit number of lines shown."
   ;; overlay for help text
   (setq oidx--o-help-overlay (make-overlay (point-min) (point-max)))
   (overlay-put oidx--o-help-overlay 'display (car oidx--o-help-text))
-
+  (toggle-truncate-lines 1)
   (setq oidx--o-start-of-lines (point))
   (setq oidx--o-end-of-lines (point)))
+
+
+(defun oidx--o-find-matching-lines (words start wanted)
+  "Find WANTED lines from index table, that match WORDS; start at START.
+Returns nil or plist with result"
+  (let ((found 0)
+        end line lines lbp2)
+    (with-current-buffer oidx--buffer
+      (goto-char start)
+      (while (and (org-match-line org-table-line-regexp)
+                  (< found wanted))
+        (when (setq
+               lbp2 (line-beginning-position 2)
+               line (oidx--o-test-words-and-fontify words (buffer-substring (line-beginning-position) lbp2)))
+          (push line lines)
+          (cl-incf found)
+          (setq end lbp2))
+        (forward-line)))
+    (list :end end :count found :lines lines :words (copy-sequence words))))
+
+
+(defun oidx--o-test-words-and-fontify (words line)
+  "Test current line for match against WORDS and if yes, return it with hightlights."
+  (let (pos dcline)
+
+    ;; cut off after tags, so that id-field does not give spurious matches
+    (setq pos 0)
+    (dotimes (_ (+ org-index-occur-columns 1))
+      (setq pos (+ 1 (cl-search "|" line :start2 pos))))
+    (setq line (substring line 0 pos))
+    (setq dcline (downcase line))
+    (put-text-property 0 pos 'face 'org-table line)
+
+    (catch 'not-found
+      (dolist (word words)
+        (if (setq pos (cl-search word (if (s-lowercase? word) dcline line)))
+            (put-text-property pos (+ pos (length word)) 'face 'isearch line)
+          (throw 'not-found nil)))
+      line)))
 
 
 (defun oidx--o-show-top-of-stack ()
@@ -2813,19 +2838,21 @@ Optional argument ARG, when given does not limit number of lines shown."
   (with-current-buffer oidx--o-buffer-name
     (goto-char oidx--o-start-of-lines)
     (delete-region oidx--o-start-of-lines oidx--o-end-of-lines)
-    (mapc (lambda (x) (insert x)) (plist-get (car oidx--o-stack) :lines))))
+    (mapc (lambda (x) (insert x "\n")) (plist-get (car oidx--o-stack) :lines))
+    (setq oidx--o-end-of-lines (point))
+    (goto-char oidx--o-start-of-lines)))
 
 
 (defun oidx--o-make-permanent (lines-wanted)
   "Make permanent copy of current view into index.
-Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is position."
+Argument LINES-WANTED specifies number of lines to display."
 
   ;; copy visible lines
   (let ((lines-collected 0)
         all-lines header-lines)
 
     ;; create new buffer
-    (with-current-buffer oidx--o-buffer
+    (with-current-buffer oidx--o-buffer-name
       (erase-buffer)
       (insert oidx--headings))
     (setq header-lines (line-number-at-pos))
@@ -2867,22 +2894,6 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
     (setq oidx--o-lines-collected lines-collected)
     (goto-char header-lines)
     
-    ;; typically executed only during tests
-    (when (and oidx--o-assert-result
-               (> lines-wanted lines-collected))
-      (let ((expected-matches 0)
-	    assertion-text)
-	(with-current-buffer oidx--buffer
-	  (save-excursion
-            (goto-char oidx--below-hline)
-            (while (org-match-line org-table-line-regexp)
-              (if (oidx--test-words oidx--o-words) (cl-incf expected-matches))
-              (forward-line 1))))
-	(setq assertion-text (format "Number of lines collected incrementally (%d) should be equal to number collected in one pass (%d)" lines-collected expected-matches))
-	(if (not (= lines-collected expected-matches))
-            (error (concat "Assertion failed: " assertion-text) )
-	  (message (concat "Assertion passed: " assertion-text)))))
-
     (setq buffer-read-only t)))
 
 
@@ -3060,46 +3071,6 @@ Argument LINES-WANTED specifies number of lines to display, END-OF-TABLE is posi
       (setq there (oidx--line-in-canonical-form)))
     (unless (string= here there)
       (error "Occur buffer has become stale; please repeat search"))))
-
-
-
-(defun oidx--o-find-matching-lines (words start wanted)
-  "Find WANTED lines from index table, that match WORDS; start at START.
-Returns nil or plist with result"
-  (let ((found 0)
-        end line lines lbp2)
-    (with-current-buffer oidx--buffer
-      (goto-char start)
-      (while (and (org-match-line org-table-line-regexp)
-                  (< found wanted))
-        (when (setq
-               lbp2 (line-beginning-position 2)
-               line (oidx--o-test-words-and-fontify words (buffer-substring (line-beginning-position) lbp2)))
-          (push line lines)
-          (cl-incf found)
-          (setq end lbp2))))
-    (if (> found 0)
-        (list :end end :count found :lines lines :words (copy-sequence words)))))
-
-
-(defun oidx--o-test-words-and-fontify (words line)
-  "Test current line for match against WORDS and if yes, return it with hightlights."
-  (let (index)
-
-    ;; cut off after tags, so that id-field does not give spurious matches
-    (setq index 0)
-    (dotimes (_ (+ org-index-occur-columns 1))
-      (setq index (cl-search "|" line :start2 index))
-      (setq index (+ 1 index)))
-    (setq line (substring line 0 index))
-    (put-text-property 0 index 'face 'org-table line)
-
-    (catch 'not-found
-      (dolist (word words)
-        (if (setq index (cl-search word (if (string= word (downcase word)) (downcase line) line)))
-            (put-text-property index (length word) 'face 'isearch)
-          (throw 'not-found nil)))
-      line)))
 
 
 (defun oidx--copy-visible (beg end)

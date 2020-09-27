@@ -578,6 +578,11 @@
     (should (string= (oidx--get-or-set-field 'keywords) "dreibar"))))
 
 
+(ert-deftest oidxt-test-customize ()
+  (oidxt-with-test-setup
+   (error "Not implemented yet.")))
+
+
 ;;
 ;; Helper functions
 ;;
