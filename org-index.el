@@ -2648,6 +2648,7 @@ Optional argument ARG, when given does not limit number of lines shown."
     (setq oidx--o-win-config (current-window-configuration))
     (pop-to-buffer-same-window (get-buffer-create oidx--o-buffer-name))
     (set-buffer oidx--o-buffer-name)
+    (setq buffer-read-only nil)
 
     (oidx--o-prepare-buffer)
     (setq oidx--o-stack '())
@@ -2744,11 +2745,10 @@ Optional argument ARG, when given does not limit number of lines shown."
 
 (defun oidx--o-prepare-buffer ()
   "Prepare result-buffer."
-                                                  ; continue here
+
   ;; create result buffer
-  (let ((inhibit-read-only t))
-    (erase-buffer)
-    (insert oidx--headings))
+  (erase-buffer)
+  (insert oidx--headings)
   
   ;; initialize help text
   (setq oidx--o-help-text
@@ -2772,13 +2772,19 @@ Optional argument ARG, when given does not limit number of lines shown."
 
 (defun oidx--o-match-and-merge (lines-wanted words)
   "Create new match frame with matching lines from top and the rest from table; LINES-WANTED in total."
-  (let (omframe nmframe olines count)
+  (let (omframe oolines oolbps oline olines olbp olbps (ocount 0))
     (setq omframe (car oidx--o-stack))
 
     ;; get lines from old frame, that still match
-    (setq olines (-non-nil (mapcar (lambda (l) (oidx--o-test-words-and-fontify words l))
-                                   (plist-get omframe :lines))))
-    (setq ocount (length olines))
+    (setq oolines (reverse (plist-get omframe :lines)))
+    (setq oolbps (reverse (plist-get omframe :lbps)))
+    (while oolines
+      (setq olbp (pop oolbps))
+      (setq oline (oidx--o-test-words-and-fontify words (pop oolines)))
+      (when oline
+        (cl-incf ocount)
+        (push oline olines)
+        (push olbp olbps)))
     ;; get new stretch of lines
     (setq nmframe (oidx--o-find-matching-lines
                    words
@@ -2786,6 +2792,7 @@ Optional argument ARG, when given does not limit number of lines shown."
                        oidx--below-hline)
                    (- lines-wanted ocount)))
     (plist-put nmframe :lines (append olines (plist-get nmframe :lines)))
+    (plist-put nmframe :lbps (append olbps (plist-get nmframe :lbps)))
     (plist-put nmframe :count (+ ocount (plist-get nmframe :count)))
     nmframe))
 
@@ -2794,19 +2801,21 @@ Optional argument ARG, when given does not limit number of lines shown."
   "Find WANTED lines from index table, that match WORDS; start at START.
 Returns nil or plist with result"
   (let ((found 0)
-        end line lines lbp2)
+        line lines lbps lbp lbp2)
     (with-current-buffer oidx--buffer
       (goto-char start)
       (while (and (org-match-line org-table-line-regexp)
                   (< found wanted))
         (when (setq
+               lbp (line-beginning-position)
                lbp2 (line-beginning-position 2)
-               line (oidx--o-test-words-and-fontify words (buffer-substring (line-beginning-position) lbp2)))
+               line (oidx--o-test-words-and-fontify words (buffer-substring lbp lbp2)))
           (push line lines)
-          (cl-incf found)
-          (setq end lbp2))
+          (push lbp lbps)
+          (cl-incf found))
         (forward-line)))
-    (list :end end :count found :lines lines :words (copy-sequence words))))
+    (setq lbp2 (or lbp2 (point)))
+    (list :end lbp2 :count found :lines lines :words (copy-sequence words) :lbps lbps)))
 
 
 (defun oidx--o-test-words-and-fontify (words line)
@@ -2832,10 +2841,9 @@ Returns nil or plist with result"
 (defun oidx--o-show (frame)
   "Show top of `oidx--o-stack'."
   (with-current-buffer oidx--o-buffer-name
-    (let ((inhibit-read-only t))
-      (goto-char oidx--o-start-of-lines)
-      (delete-region oidx--o-start-of-lines oidx--o-end-of-lines)
-      (mapc (lambda (x) (insert x "\n")) (plist-get frame :lines)))
+    (goto-char oidx--o-start-of-lines)
+    (delete-region oidx--o-start-of-lines oidx--o-end-of-lines)
+    (mapc (lambda (x) (insert x "\n")) (plist-get frame :lines))
     (setq oidx--o-end-of-lines (point))
     (goto-char oidx--o-start-of-lines)))
 
@@ -2844,27 +2852,33 @@ Returns nil or plist with result"
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display."
 
-  (let (n-lines-collected n-header-lines)
+  (let (line lines lines-collected header-lines)
 
     (with-current-buffer oidx--o-buffer-name
       (erase-buffer)
       (insert oidx--headings))
-    (setq n-header-lines (line-number-at-pos))
+    (setq header-lines (line-number-at-pos))
     (setq oidx--o-start-of-lines (point))
-    (setq oidx--o-end-of-lines (point))
 
-    (let (pos)
-      (with-current-buffer oidx--buffer)
-      (mapc (lambda (l) (with-current-buffer) (plist-get frame :lines)
-	    )))
-    (goto-char oidx--o-end-of-lines)
-    (setq n-lines-collected (- (line-number-at-pos) n-header-lines))
+    ;; For each line go into index buffer and get the complete line (including e.g. the id)
+    (with-current-buffer oidx--buffer
+      (save-excursion
+        (mapc (lambda (p)
+                (goto-char p)
+                (setq line (buffer-substring (line-beginning-position) (line-end-position)))
+                (put-text-property 0 (length line) 'org-index-lbp p line)
+                (push line lines))
+              (plist-get frame :lbps))))
+    (mapc (lambda (l) (insert l "\n")) (reverse lines))
+    (setq oidx--o-end-of-lines (point))
+    
+    (setq lines-collected (plist-get frame :count))
     (fundamental-mode)
     (setq truncate-lines t)
 
     ;; prepare help text
     (goto-char (point-min))
-    (forward-line (1- n-header-lines))
+    (forward-line (1- header-lines))
     (setq oidx--o-help-overlay (make-overlay (point-min) (point)))
     (setq oidx--o-help-text
           (cons
@@ -2875,13 +2889,13 @@ Argument LINES-WANTED specifies number of lines to display."
              (propertize
               (format
                (concat "Search is done."
-                       (if (< n-lines-collected lines-wanted)
+                       (if (< lines-collected lines-wanted)
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--o-search-text
                        "\". <return> jumps to node of line under cursor, <tab> in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `d' shows details, `l' offers links from node to visit; to kill a line from the index use `C-c i k'."
                        "\n")
-               n-lines-collected)
+               lines-collected)
               'face 'org-agenda-dimmed-todo-face))
             oidx--headings)))
     
@@ -2889,7 +2903,7 @@ Argument LINES-WANTED specifies number of lines to display."
 
     ;; insert tail text late to avoid highlighting it
     (goto-char (point-max))
-    (if (= n-lines-collected lines-wanted)
+    (if (= lines-collected lines-wanted)
         (insert oidx--o-more-lines-text))
     (goto-char oidx--o-start-of-lines)
     
@@ -2932,7 +2946,7 @@ Argument LINES-WANTED specifies number of lines to display."
           (if (string= (substring url 0 4) "http")
               (progn
                 (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
-                (let  ((inhibit-read-only t))
+                (let ((inhibit-read-only t))
                   (oidx--get-or-set-field 'count (number-to-string count)))
                 (browse-url url))
             (message "No link in node"))
