@@ -2815,7 +2815,7 @@ Returns nil or plist with result"
           (cl-incf found))
         (forward-line)))
     (setq lbp2 (or lbp2 (point)))
-    (list :end lbp2 :count found :lines lines :words (copy-sequence words) :lbps lbps)))
+    (list :end lbp2 :count found :lines (reverse lines) :words words :lbps lbps)))
 
 
 (defun oidx--o-test-words-and-fontify (words line)
@@ -2869,7 +2869,7 @@ Argument LINES-WANTED specifies number of lines to display."
                 (put-text-property 0 (length line) 'org-index-lbp p line)
                 (push line lines))
               (plist-get frame :lbps))))
-    (mapc (lambda (l) (insert l "\n")) (reverse lines))
+    (mapc (lambda (l) (insert l "\n")) lines)
     (setq oidx--o-end-of-lines (point))
     
     (setq lines-collected (plist-get frame :count))
