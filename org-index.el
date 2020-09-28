@@ -183,7 +183,6 @@
 (defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
 (defvar oidx--recording-screencast nil "Set Non-nil, if screencast is beeing recorded to trigger some minor tweaks.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
-(defvar oidx--sort-timer nil "Timer to sort index in correct order.")
 (defvar oidx--aligned-and-sorted nil "For this Emacs session: remember if aligned and sorted.")
 (defvar oidx--edit-widgets nil "List of widgets used to edit.")
 (defvar oidx--context-index nil "Position and line used for index in edit buffer.")
@@ -2620,12 +2619,10 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 (defvar oidx--o-help-text nil "Text for help in occur buffer; cons with text short and long.")
 (defvar oidx--o-help-overlay nil "Overlay for help in occur buffer.")
 (defvar oidx--o-stack nil "Stack with list of matching lines; each frame of stack has one complete set of lines for each char typed in search.")
-(defvar oidx--o-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 (defvar oidx--o-win-config nil "Window configuration stored away during occur.")
 (defvar oidx--o-last-visible-initial nil "Initial point of last visibility.")
 (defconst oidx--o-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defvar oidx--o-search-text nil "Description of text to search for.")
-(defvar oidx--o-words nil "Final list of match words.")
 (defconst oidx--o-more-lines-text "\n(more lines omitted)\n" "Note stating, that not all lines are display.")
 
 
@@ -2638,8 +2635,6 @@ Optional argument ARG, when given does not limit number of lines shown."
                           (window-body-height)
                         (min org-index-occur-max-lines (window-body-height))))
         end-of-table
-        omframe            ; old matchframe
-        nmframe            ; new matchframe
         words              ; list words that should match
         done               ; true, if loop is done
         in-c-backspace     ; true, while processing C-backspace
@@ -2655,53 +2650,53 @@ Optional argument ARG, when given does not limit number of lines shown."
     (set-buffer oidx--o-buffer-name)
 
     (oidx--o-prepare-buffer)
-    (setq oidx--o-stack
-          (oidx--o-find-matching-lines
-           (cons word words) oidx--below-hline lines-wanted))
-    (oidx--o-show-top-of-stack)
+    (setq oidx--o-stack '())
+    (push (oidx--o-find-matching-lines
+           (cons word words) oidx--below-hline lines-wanted)
+          oidx--o-stack)
+    (oidx--o-show (car oidx--o-stack))
     
     ;; main loop
     (while (not done)
 
       (if in-c-backspace
           (setq key "<backspace>")
-        (setq oidx--o-search-text (mapconcat 'identity (reverse (cons word words)) ","))
+        ;; if only one char left, c-backspace should end
+        (setq in-c-backspace (not (= (length word) 1)))) 
 
-        ;; read key, if selected frame has not changed
-        (if (eq initial-frame (selected-frame))
-            (progn
-              (setq key-sequence
-                    (let ((echo-keystrokes 0)
-                          (full-prompt (format "%s%s"
-                                               prompt
-                                               oidx--o-search-text)))
-                      (read-key-sequence full-prompt nil nil t t)))
-              (setq key (key-description key-sequence))
-              (setq key-sequence-raw (this-single-command-raw-keys)))
-          (setq done t)
-          (setq key-sequence nil)
-          (setq key nil)
-          (setq key-sequence-raw nil)))
+      (setq oidx--o-search-text (mapconcat 'identity (reverse (cons word words)) ","))
+
+      ;; read key, if selected frame has not changed
+      (if (eq (selected-frame) initial-frame)
+          (progn
+            (setq key-sequence
+                  (let ((echo-keystrokes 0)
+                        (full-prompt (format "%s%s"
+                                             prompt
+                                             oidx--o-search-text)))
+                    (read-key-sequence full-prompt nil nil t t)))
+            (setq key (key-description key-sequence))
+            (setq key-sequence-raw (this-single-command-raw-keys)))
+        (setq done t)
+        (setq key-sequence nil)
+        (setq key nil)
+        (setq key-sequence-raw nil))
       
 
       (cond
 
-
        ((string= key "<C-backspace>")
         (setq in-c-backspace t))
-
 
        ;; erase last char
        ((member key (list "<backspace>" "DEL"))
 
-        ;; if only one char left, c-backspace should end
-        (setq in-c-backspace (not (= (length word) 1))) 
         ;; previous frame
-        (setq oidx--o-stack (cdr oidx--o-stack))
+        (pop oidx--o-stack)
         ;; get word and words from frame
         (-setq (word . words) (plist-get (car oidx--o-stack) :words))
         ;; display
-        (oidx--o-show-top-of-stack))
+        (oidx--o-show (car oidx--o-stack)))
 
 
        ;; space or comma: enter an additional search word
@@ -2726,31 +2721,13 @@ Optional argument ARG, when given does not limit number of lines shown."
         ;; append key to word
         (setq word (concat word key))
         
-        ;; remove lines no longer matching
         (goto-char oidx--o-start-of-lines)
-        (setq omframe (car oidx--o-stack))
-
-        (let (olines ocount)
-          ;; get lines from old frame, that still match
-          (setq olines (-non-nil (mapcar (lambda (l) (oidx--o-test-words-and-fontify (cons word words) l))
-                                         (plist-get omframe :lines))))
-          (setq ocount (length olines))
-          ;; get new stretch of lines
-          (setq nmframe (oidx--o-find-matching-lines
-                         (cons word words)
-                         (or (plist-get omframe :end)
-                             oidx--below-hline)
-                         (- lines-wanted ocount)))
-          (plist-put nmframe :lines (append olines (plist-get nmframe :lines)))
-          (plist-put nmframe :count (+ ocount (plist-get nmframe :count)))
-          (push nmframe oidx--o-stack)
-          (oidx--o-show-top-of-stack)))
+        ;; remove lines no longer matching
+        (push (oidx--o-match-and-merge lines-wanted (cons word words)) oidx--o-stack)
+        (oidx--o-show (car oidx--o-stack)))
 
        ;; anything else terminates input loop
        (t (setq done t))))
-
-    ;; remember list of words
-    (setq oidx--o-words (cons word words))
 
     ;; put back input event, that caused the loop to end
     (if (string= key "<escape>")
@@ -2760,20 +2737,19 @@ Optional argument ARG, when given does not limit number of lines shown."
         (setq unread-command-events (listify-key-sequence key-sequence-raw)))
       (message key))
     
-    (oidx--o-make-permanent lines-wanted)
+    (oidx--o-make-permanent lines-wanted (car oidx--o-stack))
 
     (oidx--o-install-keyboard-shortcuts)))
 
 
 (defun oidx--o-prepare-buffer ()
   "Prepare result-buffer."
-  ; continue here
+                                                  ; continue here
   ;; create result buffer
   (let ((inhibit-read-only t))
     (erase-buffer)
     (insert oidx--headings))
-  (insert oidx--headings)
-
+  
   ;; initialize help text
   (setq oidx--o-help-text
         (cons
@@ -2792,6 +2768,26 @@ Optional argument ARG, when given does not limit number of lines shown."
   (toggle-truncate-lines 1)
   (setq oidx--o-start-of-lines (point))
   (setq oidx--o-end-of-lines (point)))
+
+
+(defun oidx--o-match-and-merge (lines-wanted words)
+  "Create new match frame with matching lines from top and the rest from table; LINES-WANTED in total."
+  (let (omframe nmframe olines count)
+    (setq omframe (car oidx--o-stack))
+
+    ;; get lines from old frame, that still match
+    (setq olines (-non-nil (mapcar (lambda (l) (oidx--o-test-words-and-fontify words l))
+                                   (plist-get omframe :lines))))
+    (setq ocount (length olines))
+    ;; get new stretch of lines
+    (setq nmframe (oidx--o-find-matching-lines
+                   words
+                   (or (plist-get omframe :end)
+                       oidx--below-hline)
+                   (- lines-wanted ocount)))
+    (plist-put nmframe :lines (append olines (plist-get nmframe :lines)))
+    (plist-put nmframe :count (+ ocount (plist-get nmframe :count)))
+    nmframe))
 
 
 (defun oidx--o-find-matching-lines (words start wanted)
@@ -2833,38 +2829,41 @@ Returns nil or plist with result"
       line)))
 
 
-(defun oidx--o-show-top-of-stack ()
+(defun oidx--o-show (frame)
   "Show top of `oidx--o-stack'."
   (with-current-buffer oidx--o-buffer-name
-    (goto-char oidx--o-start-of-lines)
-    (delete-region oidx--o-start-of-lines oidx--o-end-of-lines)
-    (mapc (lambda (x) (insert x "\n")) (plist-get (car oidx--o-stack) :lines))
+    (let ((inhibit-read-only t))
+      (goto-char oidx--o-start-of-lines)
+      (delete-region oidx--o-start-of-lines oidx--o-end-of-lines)
+      (mapc (lambda (x) (insert x "\n")) (plist-get frame :lines)))
     (setq oidx--o-end-of-lines (point))
     (goto-char oidx--o-start-of-lines)))
 
 
-(defun oidx--o-make-permanent (lines-wanted)
+(defun oidx--o-make-permanent (lines-wanted frame)
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display."
 
   ;; copy visible lines
-  (let ((lines-collected 0)
-        all-lines header-lines)
+  (let (n-lines-collected n-header-lines)
 
     ;; create new buffer
     (with-current-buffer oidx--o-buffer-name
       (erase-buffer)
       (insert oidx--headings))
-    (setq header-lines (line-number-at-pos))
+    (setq n-header-lines (line-number-at-pos))
+    (setq oidx--o-start-of-lines (point))
+    (setq oidx--o-end-of-lines (point))
 
-    (oidx--o-show-top-of-stack)
-    (goto-char header-lines)
+    (oidx--o-show frame)
+    (goto-char oidx--o-end-of-lines)
+    (setq n-lines-collected (- (line-number-at-pos) n-header-lines))
     (fundamental-mode)
     (setq truncate-lines t)
 
     ;; prepare help text
     (goto-char (point-min))
-    (forward-line (1- header-lines))
+    (forward-line (1- n-header-lines))
     (setq oidx--o-help-overlay (make-overlay (point-min) (point)))
     (setq oidx--o-help-text
           (cons
@@ -2875,13 +2874,13 @@ Argument LINES-WANTED specifies number of lines to display."
              (propertize
               (format
                (concat "Search is done."
-                       (if (< lines-collected lines-wanted)
+                       (if (< n-lines-collected lines-wanted)
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--o-search-text
                        "\". <return> jumps to node of line under cursor, <tab> in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `d' shows details, `l' offers links from node to visit; to kill a line from the index use `C-c i k'."
                        "\n")
-               (length all-lines))
+               n-lines-collected)
               'face 'org-agenda-dimmed-todo-face))
             oidx--headings)))
     
@@ -2889,10 +2888,9 @@ Argument LINES-WANTED specifies number of lines to display."
 
     ;; insert tail text late to avoid highlighting it
     (goto-char (point-max))
-    (if (= lines-collected lines-wanted)
+    (if (= n-lines-collected lines-wanted)
         (insert oidx--o-more-lines-text))
-    (setq oidx--o-lines-collected lines-collected)
-    (goto-char header-lines)
+    (goto-char oidx--o-start-of-lines)
     
     (setq buffer-read-only t)))
 
