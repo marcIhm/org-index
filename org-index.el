@@ -2854,8 +2854,9 @@ Argument LINES-WANTED specifies number of lines to display."
     (setq oidx--o-end-of-lines (point))
 
     (let (pos)
+      (with-current-buffer oidx--buffer)
       (mapc (lambda (l) (with-current-buffer) (plist-get frame :lines)
-	    ))
+	    )))
     (goto-char oidx--o-end-of-lines)
     (setq n-lines-collected (- (line-number-at-pos) n-header-lines))
     (fundamental-mode)
