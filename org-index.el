@@ -2844,10 +2844,8 @@ Returns nil or plist with result"
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display."
 
-  ;; copy visible lines
   (let (n-lines-collected n-header-lines)
 
-    ;; create new buffer
     (with-current-buffer oidx--o-buffer-name
       (erase-buffer)
       (insert oidx--headings))
@@ -2855,7 +2853,9 @@ Argument LINES-WANTED specifies number of lines to display."
     (setq oidx--o-start-of-lines (point))
     (setq oidx--o-end-of-lines (point))
 
-    (oidx--o-show frame)
+    (let (pos)
+      (mapc (lambda (l) (with-current-buffer) (plist-get frame :lines)
+	    ))
     (goto-char oidx--o-end-of-lines)
     (setq n-lines-collected (- (line-number-at-pos) n-header-lines))
     (fundamental-mode)
