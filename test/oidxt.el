@@ -624,7 +624,7 @@
   (if (get-buffer "*org-index-occur*") (kill-buffer "*org-index-occur*"))
   (setq oidx--last-sort-assumed 'mixed)
   (setq oidx--maxrefnum nil)
-  (setq oidx--occur-assert-result t)
+  (setq oidx--o-assert-result t)
   ;; remove any left over buffers
   (oidxt-remove-work-buffers)
   ;; create them new
