@@ -81,8 +81,8 @@
 
 ;;   Version 7.0
 ;;
-;;   - This release is a big rewrite and remove of seldom-used features
-;;   - Rewrote parts of occur to reduce complexity
+;;   - This release is a big release of rewriting and removal
+;;   - Rewrote the occur command to reduce complexity
 ;;   - Only one sorting strategy is supported now, removed `org-index-sort-by'
 ;;   - Removed background sorting
 ;;   - Disallowed custom columns (starting wit a dot '.')
@@ -93,8 +93,8 @@
 ;;   - Document columns of index table and their purpose
 ;;   - Remove ability to search for refererence under cursor
 ;;   - Prefix arguments no longer allowed
-;;   -- Removed interface for lisp functions, e.g. org-index-new-line;
-;     org-index is now purely interactive
+;;   - Removed interface for lisp functions, e.g. org-index-new-line;
+;      org-index is now purely interactive
 ;;
 ;;   Version 6.3
 ;;
@@ -203,7 +203,6 @@
 (defvar oidx--short-help-wanted nil "Non-nil, if short help should be displayed.")
 (defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
 (defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
-(defvar oidx--prefix-arg nil "Non-nil, if prefix argument has been received during input.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
@@ -341,7 +340,7 @@ if VALUE cannot be found."
          ,retvar))))
 
 
-(defun org-index ()
+(defun org-index (arg)
   ;; Do NOT edit the part of this help-text before version number. It will
   ;; be overwritten with Commentary-section from beginning of this file.
   ;; Editing after version number is fine.
@@ -450,14 +449,14 @@ Use `org-customize' to tweak the behaviour of `org-index'.
 This includes the global key `org-index-key' to invoke
 the most important subcommands with one additional key.
 "
-  (interactive)
+  (interactive "P")
 
   (let (command        ; command to execute
         kill-new-text  ; text that will be appended to kill ring
         message-text)  ; text that will be issued as an explanation
 
     (let ((oidx--skip-verify-id t))
-      (setq command (oidx--read-shortcut-char arg)))
+      (setq command (oidx--read-shortcut-char)))
 
     (catch 'new-index
 
@@ -472,7 +471,7 @@ the most important subcommands with one additional key.
       (oidx--parse-table t)
 
       ;;
-      ;; Find out, what we are supposed to do
+      ;; Find out, what we are supposed to do and prepare
       ;;
 
       ;; Check or read command
@@ -484,47 +483,17 @@ the most important subcommands with one additional key.
         ;; read command; if requested display help in read-loop
         (setq oidx--short-help-wanted (eq command 'short-help))
         (setq command (oidx--read-command))
-	(if oidx--prefix-arg (setq arg (or arg '(4))))
         (setq oidx--short-help-wanted nil))
-
-
-      ;; These actions need a search string
-      (when (memq command '(index node))
-
-        (if (eq command 'index)
-          (unless (and (eq command 'node)
-                       oidx--within-index-node
-                       (org-match-line org-table-line-regexp))
-            (setq search-ref (read-from-minibuffer "Search reference number: "))))
-
-
-        (if (and (not search-ref)
-                 (not (eq command 'index))
-                 (not (and (eq command 'node)
-                           oidx--within-index-node
-                           (org-match-line org-table-line-regexp))))
-            (error "Command %s needs a reference number" command)))
-
-      
-      ;;
-      ;; Enter table
-      ;;
 
       ;; Arrange for beeing able to return
       (when (and (memq command '(occur node index example sort maintain))
                  (not (string= (buffer-name) oidx--o-buffer-name)))
         (org-mark-ring-push))
 
-      ;; These commands will leave user in index table after they are finished
-      (when (memq command '(index maintain 'sort))
-
-        (pop-to-buffer-same-window oidx--buffer)
-        (goto-char oidx--point)
-        (oidx--unfold-buffer))
 
 
       ;;
-      ;; Actually do, what is requested
+      ;; Actually do, what has been requested
       ;;
 
       (cond
@@ -543,8 +512,7 @@ the most important subcommands with one additional key.
 
        ((eq command 'add)
 
-        (-setq (message-text kill-new-text) (oidx--do-add-or-update (if (equal arg '(4)) t nil)
-                                                                    (if (numberp arg) arg nil))))
+        (-setq (message-text kill-new-text) (oidx--do-add-or-update (if (equal arg '(4)) t nil))))
 
 
        ((eq command 'kill)
@@ -556,8 +524,8 @@ the most important subcommands with one additional key.
         (setq message-text)
         (if (and oidx--within-index-node
                  (org-match-line org-table-line-regexp))
-            (let (search-id (oidx--get-or-set-field 'id))
-              (if (search-id)
+            (let ((search-id (oidx--get-or-set-field 'id)))
+              (if search-id
                   (oidx--find-id search-id)
                 "Current line has no id"))
           "Not at index table"))
@@ -574,24 +542,24 @@ the most important subcommands with one additional key.
         (oidx--do-occur arg))
 
 
-        ((eq command 'ref)
+       ((eq command 'ref)
 
-         (let (args newref)
+        (let (args newref)
 
-           (setq args (oidx--collect-values-from-user org-index-edit-on-ref))
-           (setq newref (oidx--get-save-maxref))
-           (setq args (plist-put args 'ref newref))
-           (apply 'oidx--do-new-line args)
-
-           (setq kill-new-text newref)
-
-           (setq message-text (format "Added new row with ref '%s'" newref))))
-
-
-        ((eq command 'yank)
-
+          (setq args (oidx--collect-values-from-user org-index-edit-on-ref))
+          (setq newref (oidx--get-save-maxref))
+          (setq args (plist-put args 'ref newref))
+          (apply 'oidx--do-new-line args)
+          
+          (setq kill-new-text newref)
+          
+          (setq message-text (format "Added new row with ref '%s'" newref))))
+       
+       
+       ((eq command 'yank)
+        
         (let (args)
-
+          
           (setq args (oidx--collect-values-from-user org-index-edit-on-yank))
           (if (plist-get args 'yank)
               (plist-put args 'yank (replace-regexp-in-string "|" "\\vert" (plist-get args 'yank) nil 'literal)))
@@ -599,10 +567,10 @@ the most important subcommands with one additional key.
           (apply 'oidx--do-new-line args)
           
           (setq message-text "Added new row with text to yank")))
-
-
+       
+       
        ((eq command 'edit)
-
+        
         (setq message-text (oidx--do-edit)))
        
 
@@ -652,26 +620,17 @@ the most important subcommands with one additional key.
 
 
 ;; Reading user input
-(defun oidx--read-shortcut-char (arg)
+(defun oidx--read-shortcut-char ()
   "Get a single char that can be interpreted as a shortcut char.
-Argument ARG is prefix argument from user."
-  (let* ((c-u arg)
-         char command c-u-just)
+"
+  (let (char command)
     (while (not char)
-      (if (or c-u-just
-              (sit-for echo-keystrokes))
-          (message (concat "org-index (type a shortcut char or <space>,h,? for a detailed prompt) -" (if c-u " C-u " ""))))
-      (setq char (key-description (read-key-sequence nil)))
+      (if (sit-for echo-keystrokes)
+          (message "org-index (type a shortcut char or <space>,h,? for a detailed prompt) - "))
+      (setq char (downcase (key-description (read-key-sequence nil))))
       (if (string= char "C-g") (keyboard-quit))
-      (if (string= char "SPC") (setq char "?"))
-      (when (string= char (upcase char))
-        (setq char (downcase char))
-        (setq arg (or arg '(4))))
-      (when (string= char "C-u")
-        (setq arg (or arg '(4)))
-        (setq c-u-just (not c-u))
-        (setq c-u t)
-        (setq char nil)))
+      (if (string= char "SPC") (setq char "?")))
+    
     (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
     (unless command
       (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
@@ -684,24 +643,20 @@ Argument ARG is prefix argument from user."
   (let (minibuffer-scroll-window
         command)
     (setq oidx--short-help-displayed nil)
-    (setq oidx--prefix-arg nil)
     (add-hook 'minibuffer-setup-hook 'oidx--minibuffer-setup-function)
     (add-hook 'minibuffer-exit-hook 'oidx--minibuffer-exit-function)
     (unwind-protect
         (setq command
-              (completing-read
-               (concat
-                "Please choose"
-                (if oidx--short-help-wanted "" " (<space> or ? for short help)")
-                ": ")
-               (append (mapcar 'symbol-name oidx--commands))))
+              (intern
+               (downcase
+                (completing-read
+                 (concat
+                  "Please choose"
+                  (if oidx--short-help-wanted "" " (<space> or ? for short help)")
+                  ": ")
+                 (append (mapcar 'symbol-name oidx--commands))))))
       (remove-hook 'minibuffer-setup-hook 'oidx--minibuffer-setup-function)
       (remove-hook 'minibuffer-exit-hook 'oidx--minibuffer-exit-function)
-      (when command
-        (unless (string= command (downcase command))
-          (setq command (downcase command))
-          (setq oidx--prefix-arg t))
-        (setq command (intern command)))
       (when oidx--short-help-displayed
         (quit-windows-on oidx--short-help-buffer-name)))
     command))
@@ -711,8 +666,6 @@ Argument ARG is prefix argument from user."
   "Prepare minibuffer for `oidx--read-command'."
   (setq oidx--minibuffer-saved-key (local-key-binding (kbd "?")))
   (local-set-key (kbd "?") 'oidx--display-short-help)
-  (local-set-key (kbd "C-u") (lambda () (interactive)
-			       (setq oidx--prefix-arg t)))
   (if oidx--short-help-wanted (oidx--display-short-help)))
 
 
@@ -820,26 +773,7 @@ Argument ARG is prefix argument from user."
 (defun oidx--read-search-for-command-index ()
   "Special input routine for command index: ask what to search for."
 
-  ;; Accept single char commands or switch to reading a sequence of digits
-  (let (char prompt search-ref search-id search-fingerprint)
-    
-    ;; start with short prompt but give more help on next iteration
-    (setq prompt "Please specify where to go in index (0-9;t,space;backspace;.,return or ? for short help) - ")
-    
-    ;; read one character
-    (message "")
-    (while (not (memq char (append (number-sequence ?0 ?9) (list ?\d ?\b ?\r ?\j ?\s ?.))))
-      (setq char (read-char prompt))
-      (setq prompt "Go to specific position in index table. Digits specify a reference number, `t' or <space> go to top of index, <backspace> or <delete> to last line created and <return> or `.' to index line of current node.  Please choose - "))
-    
-    (if (memq char (number-sequence ?0 ?9))
-        ;; read rest of digits
-        (setq search-ref (read-from-minibuffer "Search reference number: " (char-to-string char))))
-    ;; decode single chars
-    (if (memq char '(?\r ?\n ?.)) (setq search-id (org-id-get)))
-    (if (memq char '(?\d ?\b)) (setq search-fingerprint oidx--last-fingerprint))
-    
-    (list search-ref search-id search-fingerprint)))
+)
 
 
 
@@ -1391,37 +1325,40 @@ CREATE-REF and TAG-WITH-REF if given."
 
 (defun oidx--do-index ()
   "Perform command index."
-          
-  (goto-char oidx--below-hline)
+            
+  (let (char prompt search-id)
+
+    (goto-char oidx--below-hline)
+
+    ;; start with short prompt but give more help on next iteration
+    (setq prompt "Please specify where to go in index (.=line for this node, l=last line inserte, i=start of index table - ")
   
-  (-let (((search-ref search-id search-fingerprint) (oidx--read-search-for-command-index)))
+    ;; read one character
+    (while (not (memq char (list ?i ?. ?l)))
+      (setq char (read-char prompt)))
     
-    (if search-ref
-        (if (oidx--go 'ref search-ref)
-            (progn
-              (oidx--update-current-line)
-              (org-table-goto-column (oidx--column-num 'ref))
-              (format "Found index line '%s'" search-ref))
-          (format "Did not find index line with reference '%s'" search-ref))
+    (cond
+     ((eq char ?.)
+      (setq search-id (org-id-get))
+      (oidx--enter-index-to-stay)
+      (if (oidx--go 'id search-id)
+          (progn
+            (oidx--update-current-line)
+            (org-table-goto-column 1)
+            (format "Found index line '%s'" (oidx--get-or-set-field 'ref)))
+        (format "Did not find index line with id '%s'" search-id)))
 
-      (if search-id
-          (if (oidx--go 'id search-id)
-              (progn
-                (oidx--update-current-line)
-                (org-table-goto-column (oidx--column-num 'ref))
-                (format "Found index line '%s'" (oidx--get-or-set-field 'ref)))
-            (format "Did not find index line with id '%s'" search-id))
-
-        (if search-fingerprint
-            (if (oidx--go 'fingerprint oidx--last-fingerprint)
-                (progn
-                  (oidx--update-current-line)
-                  (beginning-of-line)
-                  (format "Found latest index line"))
-              (format "Did not find index line"))
-
-          ;; simply go into table
-          "At index table")))))
+     ((eq char ?l)
+      (oidx--enter-index-to-stay)
+      (if (oidx--go 'fingerprint oidx--last-fingerprint)
+          (progn
+            (oidx--update-current-line)
+            (org-table-goto-column 1)
+            (format "Found latest index line"))
+        (format "Did not find latest index line")))
+     
+     (t (oidx--enter-index-to-stay)
+        "At index table"))))
 
 
 
@@ -1441,6 +1378,7 @@ CREATE-REF and TAG-WITH-REF if given."
         bottom
         start-of-today)
 
+    (oidx--enter-index-to-stay)
     (unless buffer-read-only
 
       (message "Sorting index table...")
@@ -1669,6 +1607,13 @@ Optional argument NO-ERROR suppresses error."
     (setq oidx--below-hline (point))))
 
 
+(defun oidx--enter-index-to-stay ()
+  "Enter index for commands that leave user there"
+  (pop-to-buffer-same-window oidx--buffer)
+  (goto-char oidx--point)
+  (oidx--unfold-buffer))
+
+
 (defun oidx--unfold-buffer ()
   "Helper function to unfold buffer."
   (org-show-context 'tree)
@@ -1813,6 +1758,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (setq check-what (intern (oidx--completing-read text choices-short (car choices-short))))
 
     (message nil)
+    (oidx--enter-index-to-stay)
     
     (cond
      ((eq check-what 'verify)
@@ -2292,7 +2238,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 (defconst oidx--o-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defvar oidx--o-search-text nil "Description of text to search for.")
 (defconst oidx--o-more-lines-text "\n(more lines omitted)\n" "Note stating, that not all lines are display.")
-(defvar oidx--o-assert-result t "true, if result of occur should be verified (incremental result compare with single-pass result")
+(defvar oidx--o-assert-result nil "true, if result of occur should be verified (incremental result compare with single-pass result")
 (defvar oidx--o-start-of-lines nil "Start of table lines within result buffer")
 (defvar oidx--o-end-of-lines nil "End of table lines within result buffer")
 
@@ -2304,7 +2250,6 @@ Optional argument ARG, when given does not limit number of lines shown."
         (lines-wanted (if (or arg (= org-index-occur-max-lines 0))
                           (window-body-height)
                         (min org-index-occur-max-lines (window-body-height))))
-        end-of-table
         words              ; list words that should match
         done               ; true, if loop is done
         in-c-backspace     ; true, while processing C-backspace
@@ -2428,7 +2373,7 @@ Optional argument ARG, when given does not limit number of lines shown."
         (cons
          (concat
           (propertize "Incremental occur" 'face 'org-todo)
-          (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
+         (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
          (concat
           (propertize
            (oidx--wrap "Normal keys add to search word; <space> starts additional word; <backspace> erases last char, <C-backspace> last word, `C-g', all other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
@@ -2445,7 +2390,7 @@ Optional argument ARG, when given does not limit number of lines shown."
 
 (defun oidx--o-match-and-merge (lines-wanted words)
   "Create new match frame with matching lines from top and the rest from table; LINES-WANTED in total."
-  (let (omframe oolines oolbps oline olines olbp olbps (ocount 0))
+  (let (nmframe omframe oolines oolbps oline olines olbp olbps (ocount 0))
     (setq omframe (car oidx--o-stack))
 
     ;; get lines from old frame, that still match
@@ -2505,7 +2450,7 @@ Returns nil or plist with result"
 
     (catch 'not-found
       (dolist (word words)
-        (if (setq pos (cl-search word (if (s-lowercase? word) dcline line)))
+        (if (setq pos (cl-search word (if (s-lowercase-p word) dcline line)))
             (put-text-property pos (+ pos (length word)) 'face 'isearch line)
           (throw 'not-found nil)))
       line)))
