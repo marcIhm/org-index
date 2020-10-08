@@ -421,18 +421,22 @@ task :test => [:update_rake] do
   heading "Run tests",true
   command = <<-END.lines.map {|l| l.strip!}.join(' ')
   emacs 
-  --batch 
   --no-init-file        
   --no-site-file 
   --no-site-lisp 
   --eval "(set-variable 'make-backup-files nil)"
+  --eval "(set-variable 'auto-save-default nil)"
   --eval "(setq load-prefer-newer t)"
   --eval "(add-to-list 'load-path \\\".\\\")"
   --eval "(setq package-user-dir \\\"#{File.dirname(__FILE__)+"/elpa"}\\\")"
+  --eval "(set-variable 'org-id-locations-file \\\"#{File.dirname(__FILE__)+"/tmp/org-id-locations"}\\\")"
   --eval "(package-initialize)"
-  -l ert 
-  -l test/#{$conf[:testfile]}
-  --eval "(ert-run-tests-batch-and-exit)"  
+  --load ert
+  --load #{File.dirname(__FILE__)+"/test/"+$conf[:testfile]}
+  test/#{$conf[:testfile]}
+  #{$conf[:source]}
+  --eval "(ert-run-tests-batch-and-exit)"
+  --batch 
   END
 
   puts command

@@ -5,7 +5,7 @@
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
 ;; Version: 6.3.0
-;; Package-Requires: ((org "9.3") (dash "2.12") (emacs "26.3"))
+;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
 
@@ -175,6 +175,7 @@
 (require 'cl-lib)
 (require 'widget)
 (require 'dash)
+(require 's)
 
 ;; Variables to hold the configuration of the index table
 (defvar oidx--head nil "Header before number (e.g. 'R').")
@@ -195,7 +196,6 @@
 (defvar oidx--within-index-node nil "Non-nil, if we are within node of the index table.")
 (defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
 (defvar oidx--recording-screencast nil "Set Non-nil, if screencast is beeing recorded to trigger some minor tweaks.")
-(defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
 (defvar oidx--aligned-and-sorted nil "For this Emacs session: remember if aligned and sorted.")
 (defvar oidx--edit-widgets nil "List of widgets used to edit.")
 (defvar oidx--edit-context-index nil "Position and line used for index in edit buffer.")
@@ -470,6 +470,9 @@ the most important subcommands with one additional key.
       ;; Get configuration of index table
       (oidx--parse-table t)
 
+      ;; save context before entering index
+      (oidx--retrieve-context)
+
       ;;
       ;; Find out, what we are supposed to do and prepare
       ;;
@@ -509,10 +512,9 @@ the most important subcommands with one additional key.
         (oidx--display-short-help))
 
        
-
        ((eq command 'add)
 
-        (-setq (message-text kill-new-text) (oidx--do-add-or-update (if (equal arg '(4)) t nil))))
+        (-setq (message-text . kill-new-text) (oidx--do-add-or-update arg)))
 
 
        ((eq command 'kill)
@@ -521,17 +523,18 @@ the most important subcommands with one additional key.
 
        ((eq command 'node)
 
-        (setq message-text)
-        (if (and oidx--within-index-node
-                 (org-match-line org-table-line-regexp))
-            (let ((search-id (oidx--get-or-set-field 'id)))
-              (if search-id
-                  (oidx--find-id search-id)
-                "Current line has no id"))
-          "Not at index table"))
+        (setq message-text
+              (if (and oidx--within-index-node
+                       (org-match-line org-table-line-regexp))
+                  (let ((search-id (oidx--get-or-set-field 'id)))
+                    (if search-id
+                        (oidx--find-id search-id)
+                      "Current line has no id"))
+                "Not at index table")))
 
 
        ((eq command 'index)
+
         (setq message-text (oidx--do-index))
         (recenter))
 
@@ -549,7 +552,7 @@ the most important subcommands with one additional key.
           (setq args (oidx--collect-values-from-user org-index-edit-on-ref))
           (setq newref (oidx--get-save-maxref))
           (setq args (plist-put args 'ref newref))
-          (apply 'oidx--do-new-line args)
+          (apply 'oidx--create-new-line args)
           
           (setq kill-new-text newref)
           
@@ -558,15 +561,16 @@ the most important subcommands with one additional key.
        
        ((eq command 'yank)
         
-        (let (args)
+        (let (vals yank)
           
-          (setq args (oidx--collect-values-from-user org-index-edit-on-yank))
-          (if (plist-get args 'yank)
-              (plist-put args 'yank (replace-regexp-in-string "|" "\\vert" (plist-get args 'yank) nil 'literal)))
-          (setq args (plist-put args 'category "yank"))
-          (apply 'oidx--do-new-line args)
+          (setq vals (oidx--collect-values-from-user org-index-edit-on-yank))
+          (if (setq yank (plist-get vals 'yank))
+              (plist-put vals 'yank (replace-regexp-in-string "|" "\\vert" yank nil 'literal)))
+          (plist-put vals 'category "yank")
+          (apply 'oidx--create-new-line vals)
           
-          (setq message-text "Added new row with text to yank")))
+;          (setq message-text "Added new row with text to yank")
+          ))
        
        
        ((eq command 'edit)
@@ -613,8 +617,7 @@ the most important subcommands with one additional key.
                   (if kill-new-text "R" ""))
                 (if kill-new-text (format "eady to yank '%s'." kill-new-text) (if message-text "." "")))))
         (unless (string= m "")
-          (message m)
-          (setq oidx--message-text m)))
+          (message m)))
       (if kill-new-text (kill-new kill-new-text)))))
 
 
@@ -629,7 +632,7 @@ the most important subcommands with one additional key.
           (message "org-index (type a shortcut char or <space>,h,? for a detailed prompt) - "))
       (setq char (downcase (key-description (read-key-sequence nil))))
       (if (string= char "C-g") (keyboard-quit))
-      (if (string= char "SPC") (setq char "?")))
+      (if (string= char "spc") (setq char "?")))
     
     (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
     (unless command
@@ -683,7 +686,7 @@ the most important subcommands with one additional key.
   (with-temp-buffer-window
    oidx--short-help-buffer-name '((display-buffer-at-bottom)) nil
    (setq oidx--short-help-displayed t)
-   (princ (or prompt "Short help; shortcuts in []; capital letter acts like C-u.\n"))
+   (princ (or prompt "Short help; shortcut chars in [].\n"))
    (princ (or choices (oidx--get-short-help-text))))
   (with-current-buffer oidx--short-help-buffer-name
     (let ((inhibit-read-only t))
@@ -884,6 +887,20 @@ Optional argument CHECK-SORT triggers sorting if mixed and stale."
       (oidx--go-below-hline)
       ;; go back to initial position
       (goto-char initial-point))))
+
+
+(defun oidx--retrieve-context ()
+  "Collect context information before starting with command."
+
+  ;; get category of current node
+  (setq oidx--category-before
+        (save-excursion ; workaround: org-get-category does not give category when at end of buffer
+          (beginning-of-line)
+          (org-get-category (point) t)))
+
+  ;; Find out, if we are within index table or occur buffer
+  (setq oidx--within-index-node (string= (org-id-get) org-index-id))
+  (setq oidx--within-occur (string= (buffer-name) oidx--o-buffer-name)))
 
 
 (defun oidx--get-decoration-from-ref-field (ref-field)
@@ -1090,6 +1107,67 @@ Optional argument CHECK-SORT triggers sorting if mixed and stale."
   (message "Edit aborted."))
 
 
+(defun oidx--create-new-line (&rest keys-values)
+  "Add a new line to index.
+Optional argument KEYS-VALUES specifies content of new line."
+
+  (with-current-buffer oidx--buffer
+    (goto-char oidx--point)
+
+    ;; check arguments early, before we create anything
+    (let ((kvs keys-values)
+          k v)
+      (while kvs
+        (setq k (car kvs))
+        (setq v (cadr kvs))
+        (if (or (not (symbolp k))
+                (and (symbolp v) (not (eq v t)) (not (eq v nil))))
+            (error "Arguments must be alternation of key and value"))
+        (unless (oidx--column-num k)
+          (error "Unknown column or column not defined in table: '%s'" (symbol-name k)))
+        (setq kvs (cddr kvs))))
+
+    (let (yank)
+      ;; create new line
+      (oidx--create-empty-line)
+
+      ;; fill columns
+      (let ((kvs keys-values)
+            k v)
+        (while kvs
+          (setq k (car kvs))
+          (setq v (cadr kvs))
+          (org-table-goto-column (oidx--column-num k))
+          (insert (org-trim (or v "")))
+          (setq kvs (cddr kvs))))
+
+      ;; align and fontify line
+      (oidx--promote-current-line)
+      (oidx--align-and-fontify-current-line)
+
+      ;; remember fingerprint to be able to return
+      (setq oidx--last-fingerprint (oidx--get-or-set-field 'fingerprint))
+      
+      ;; get column to yank
+      (setq yank (oidx--get-or-set-field org-index-yank-after-add))
+
+      yank)))
+
+
+(defun oidx--create-empty-line ()
+  "Do the common work for `org-index'."
+
+  ;; insert ref or id as last or first line, depending on sort-column
+  (goto-char oidx--below-hline)
+  (org-table-insert-row)
+
+  ;; insert some of the standard values
+  (org-table-goto-column (oidx--column-num 'created))
+  (org-insert-time-stamp nil nil t)
+  (org-table-goto-column (oidx--column-num 'count))
+  (insert "1"))
+
+
 (defun oidx--collect-values-for-add-update (id &optional silent category)
   "Collect values for adding or updating line specified by ID, do not ask if SILENT, use CATEGORY, if given."
   
@@ -1173,9 +1251,9 @@ Optional argument DEFAULTS gives default values."
     (setq kvs (cddr kvs))))
 
 
-(defun oidx--do-add-or-update (&optional create-ref tag-with-ref)
+(defun oidx--do-add-or-update (&optional create-ref)
   "For current node or current line in index, add or update in index table.
-CREATE-REF and TAG-WITH-REF if given."
+CREATE-REF creates a reference and passes it to yank."
 
   (let* (id id-from-index ref args yank ret)
 
@@ -1210,8 +1288,6 @@ CREATE-REF and TAG-WITH-REF if given."
       (setq id-from-index (oidx--on 'id id id))
       (setq ref (oidx--on 'id id (oidx--get-or-set-field 'ref)))
 
-      (if tag-with-ref
-          (org-toggle-tag (format "%s%d%s" oidx--head tag-with-ref oidx--tail) 'on))
       (setq args (oidx--collect-values-for-add-update id))
 
       (when (and create-ref
@@ -1236,7 +1312,7 @@ CREATE-REF and TAG-WITH-REF if given."
 
         ;; no id here, create new line in index
         (if ref (setq args (plist-put args 'ref ref)))
-        (setq yank (apply 'oidx--do-new-line args))
+        (setq yank (apply 'oidx--create-new-line args))
 
         (setq ret
               (if ref
@@ -1326,12 +1402,12 @@ CREATE-REF and TAG-WITH-REF if given."
 (defun oidx--do-index ()
   "Perform command index."
             
-  (let (char prompt search-id)
+  (let (char prompt)
 
     (goto-char oidx--below-hline)
 
     ;; start with short prompt but give more help on next iteration
-    (setq prompt "Please specify where to go in index (.=line for this node, l=last line inserte, i=start of index table - ")
+    (setq prompt "Please specify where to go in index (.: line for this node, l: last line inserted, i: start of index table - ")
   
     ;; read one character
     (while (not (memq char (list ?i ?. ?l)))
@@ -1339,13 +1415,14 @@ CREATE-REF and TAG-WITH-REF if given."
     
     (cond
      ((eq char ?.)
-      (setq search-id (org-id-get))
+      (setq search-id (or (org-id-get)
+                          (error "Current node has no id")))
       (oidx--enter-index-to-stay)
       (if (oidx--go 'id search-id)
           (progn
             (oidx--update-current-line)
             (org-table-goto-column 1)
-            (format "Found index line '%s'" (oidx--get-or-set-field 'ref)))
+            "At matching index line")
         (format "Did not find index line with id '%s'" search-id)))
 
      ((eq char ?l)
@@ -1610,7 +1687,7 @@ Optional argument NO-ERROR suppresses error."
 (defun oidx--enter-index-to-stay ()
   "Enter index for commands that leave user there"
   (pop-to-buffer-same-window oidx--buffer)
-  (goto-char oidx--point)
+  (goto-char oidx--below-hline)
   (oidx--unfold-buffer))
 
 
@@ -2432,7 +2509,7 @@ Returns nil or plist with result"
           (push lbp lbps)
           (cl-incf found))
         (forward-line)))
-    (setq lbp2 (or lbp2 (point)))
+    (setq lbp2 (or lbp2 start))
     (list :end lbp2 :count found :lines (reverse lines) :words words :lbps (reverse lbps))))
 
 

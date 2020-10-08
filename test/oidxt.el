@@ -1,11 +1,10 @@
 ;;; oidxt.el --- Regression Tests for org-index.el
 
-;; Copyright (C) 2011-2018 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2020 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; Keywords: outlines, regression-tests, elisp
 ;; Requires: org, org-index
-;; Version: 1.6.0
 
 ;; This file is not part of GNU Emacs.
 
@@ -49,8 +48,8 @@
 
 
 (defvar oidxt-saved-state nil "Store state of customizable variables")
-(defvar oidxt-ert-index-file (concat temporary-file-directory "oidxt-ert-index.org"))
-(defvar oidxt-ert-work-file (concat temporary-file-directory "oidxt-ert-work.org"))
+(defvar oidxt-ert-index-file (concat "tmp/" "oidxt-ert-index.org"))
+(defvar oidxt-ert-work-file (concat "tmp/" "oidxt-ert-work.org"))
 (defvar oidxt-work-buffer nil)
 (defvar oidxt-index-buffer nil)
 (defvar oidxt-saved-id nil)
@@ -64,7 +63,6 @@
 
 (ert-deftest oidxt-test-aaa-test-test-setup ()
   (oidxt-with-test-setup
-    (oidxt-do "i n d e x <return> SPC")
     (message "Testing test setup")))
 
 
@@ -99,15 +97,15 @@
 
 (ert-deftest oidxt-test-add-and-kill-node ()
   (oidxt-with-test-setup
-    (oidxt-do "a d d <return>" "C-e <return> C-u")
-    (oidxt-do "o c c u r <return> d r e i")
+    (oidxt-do "a" "C-u")
+    (oidxt-do "o d r e i")
     (execute-kbd-macro (kbd "<right> <right> <right> <right>"))
     (should (looking-at "--15--"))
     (org-mark-ring-goto)
-    (execute-kbd-macro (kbd "C-e <return>"))
-    (oidxt-do "k i l l <return>")
-    (oidxt-do "o c c u r <return> d r e i")
+    (oidxt-do "SPC k i l l <return>")
+    (oidxt-do "o d r e i")
     (execute-kbd-macro (kbd "<right> <right> <right> <right> <right>"))
+    ;; node should no longer be part of index
     (should (looking-at "--9--"))))
 
 
@@ -237,14 +235,19 @@
 
 (ert-deftest oidxt-test-enter-and-return ()
   (oidxt-with-test-setup
-    (oidxt-do "i n d e x <return> SPC M-<")
     (set-mark-command nil)
     (setq initial-point (point))
     (setq initial-mark (mark))
-    (oidxt-do "i n d e x <return> SPC")
+    (oidxt-do "i i")
     (execute-kbd-macro (kbd "M-x o r g - m a r k - r i n g - g o t o <return>"))
     (should (= initial-point (point)))
     (should (= initial-mark (mark)))))
+
+
+(ert-deftest oidxt-test-enter ()
+  (oidxt-with-test-setup
+   (oidxt-do "i i")
+   (should (looking-at "--14--"))))
 
 
 (ert-deftest oidxt-test-goto-index-from-occur ()
@@ -449,12 +452,12 @@
 
 (ert-deftest oidxt-test-add-delete-new-reference ()
   (oidxt-with-test-setup
-    (oidxt-do "a d d <return>" "C-u")
+    (oidxt-do "a" "C-u")
     (forward-char 2)
     (yank)
     (beginning-of-line)
     (should (looking-at "* --15-- drei"))
-    (oidxt-do "k i l l <return>")
+    (oidxt-do "SPC k i l l <return>")
     (beginning-of-line)
     (should (looking-at "* drei"))))
 
@@ -551,12 +554,10 @@
     (should (equal (oidxt-get-refs) '(1 2 3 4 5 6 7 8 9 10 11 12 14 13)))
 
     (setq org-index-sort-by 'last-accessed)
-    (oidx--sort-silent)
     (oidx--parse-table) ; to find hline
     (should (equal (oidxt-get-refs) '(2 4 5 6 7 8 9 10 11 12 14 1 3 13)))
 
     (setq org-index-sort-by 'count)
-    (oidx--sort-silent)
     (oidx--parse-table) ; to find hline
     (dotimes (x 5)
       (oidxt-do "o c c u r <return> e i n s - d r e i <return>"))
@@ -566,15 +567,15 @@
 (ert-deftest oidxt-test-edit-on-add ()
   (oidxt-with-test-setup
     (setq org-index-edit-on-add nil)
-    (oidxt-do "a d d <return>" "C-u")
+    (oidxt-do "a" "C-u")
     (forward-char 2)
     (yank)
     (beginning-of-line)
     (should (looking-at "* --15-- drei"))
-    (oidxt-do "k i l l <return>")
+    (oidxt-do "SPC k i l l <return>")
     (setq org-index-edit-on-add '(keywords))
-    (oidxt-do "a d d <return> b a r SPC <return>")
-    (oidxt-do "i n d e x <return> .")
+    (oidxt-do "a b a r SPC <return>")
+    (oidxt-do "i .")
     (should (string= (oidx--get-or-set-field 'keywords) "dreibar"))))
 
 
@@ -598,7 +599,7 @@
 
 
 (defun oidxt-do (keys &optional prefix)
-  (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o i d x - - do <return> " keys))))
+  (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o r g - i n d e x <return> " keys))))
 
 
 (defun oidxt-get-refs ()
@@ -619,21 +620,15 @@
 (defun oidxt-setup-test ()
   (interactive)
   (message (format "Executing test %S" (ert-test-name (ert--stats-current-test ert--current-run-stats))))
-  (if oidx--sort-timer
-      (cancel-timer oidx--sort-timer))
+  (setq create-lockfiles nil)
   (if (get-buffer "*org-index-occur*") (kill-buffer "*org-index-occur*"))
-  (setq oidx--last-sort-assumed 'mixed)
   (setq oidx--maxrefnum nil)
   (setq oidx--o-assert-result t)
   ;; remove any left over buffers
   (oidxt-remove-work-buffers)
   ;; create them new
-  (switch-to-buffer oidxt-work-buffer)
   (oidxt-create-work-buffer)
   (oidxt-prepare-test-index)
-  (setq oidx--last-sort org-index-sort-by)
-  (setq oidx--ws-ids nil)
-  (setq oidx--ws-ids-do-not-track nil)
   (switch-to-buffer oidxt-work-buffer)
   (basic-save-buffer)
   (org-agenda-file-to-front oidxt-ert-work-file)
@@ -645,12 +640,9 @@
 
 (defun oidxt-teardown-test ()
   (interactive)
-  (remove-hook 'before-save-hook 'oidx--sort-silent)
   (if (not oidxt-keep-test-state) (oidxt-restore-saved-state))
-  (with-current-buffer oidxt-work-buffer (set-buffer-modified-p nil))
-  (with-current-buffer oidxt-index-buffer (set-buffer-modified-p nil))
-  (org-remove-file oidxt-ert-work-file)
-  (setq oidx--head nil))
+  (with-current-buffer oidxt-work-buffer (basic-save-buffer))
+  (with-current-buffer oidxt-index-buffer (basic-save-buffer)))
 
 
 (defun oidxt-remove-work-buffers ()
@@ -730,7 +722,6 @@
 (defun oidxt-prepare-test-index ()
   (let ((test-id "1f44f43c-1a37-4d55-oidxt-test-index"))
     (oidxt-save-and-set-state test-id)
-    (remove-hook 'before-save-hook 'oidx--sort-silent)
     (org-id-add-location test-id oidxt-ert-index-file)
     (setq org-index-occur-columns 8)
     (unless oidxt-index-buffer
@@ -774,7 +765,6 @@
       (basic-save-buffer)
       (org-id-update-id-locations (list oidxt-ert-work-file) t)
       (puthash test-id oidxt-ert-index-file org-id-locations)
-      (setq oidx--head nil)
       (org-table-align))))
 
 
