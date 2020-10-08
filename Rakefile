@@ -429,7 +429,7 @@ task :test => [:update_rake] do
   --eval "(setq load-prefer-newer t)"
   --eval "(add-to-list 'load-path \\\".\\\")"
   --eval "(setq package-user-dir \\\"#{File.dirname(__FILE__)+"/elpa"}\\\")"
-  --eval "(set-variable 'org-id-locations-file \\\"#{File.dirname(__FILE__)+"/tmp/org-id-locations"}\\\")"
+  --eval "(setq base-dir \\\"#{File.dirname(__FILE__)}\\\")"
   --eval "(package-initialize)"
   --load ert
   --load #{File.dirname(__FILE__)+"/test/"+$conf[:testfile]}

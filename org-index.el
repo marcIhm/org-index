@@ -806,7 +806,7 @@ Optional argument SILENT prevents invoking interactive assistant."
     ;; Check id
     (unless org-index-id
       (if silent (throw 'missing-index t))
-      (let ((answer (oidx--completing-read "Cannot find an index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") "read-help")))
+      (let ((answer (oidx--completing-read "Cannot find index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") "read-help")))
         (if (string= answer "create-index")
             (oidx--create-index)
           (describe-function 'org-index)

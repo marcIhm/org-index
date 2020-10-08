@@ -47,15 +47,12 @@
 (require 'ert)
 
 
-(defvar oidxt-saved-state nil "Store state of customizable variables")
-(defvar oidxt-ert-index-file (concat "tmp/" "oidxt-ert-index.org"))
-(defvar oidxt-ert-work-file (concat "tmp/" "oidxt-ert-work.org"))
-(defvar oidxt-work-buffer nil)
-(defvar oidxt-index-buffer nil)
-(defvar oidxt-saved-id nil)
-(defvar oidxt-saved-id-locations nil)
-(defvar oidxt-saved-agenda-files nil)
-(defvar oidxt-keep-test-state nil)
+(defvar oidxt-index-buffer-name "oidxt-index.org")
+(defvar oidxt-work-buffer-name "oidxt-work.org")
+(defvar oidxt-index-file (concat base-dir "/tmp/" oidxt-index-buffer-name))
+(defvar oidxt-work-file (concat base-dir "/tmp/" oidxt-work-buffer-name))
+(defvar oidxt-locations-file (concat base-dir "/test/org-id-locations"))
+(defvar oidxt-index-id "1f44f43c-1a37-4d55-oidxt-test-index")
 
 ;;
 ;; All tests
@@ -97,15 +94,14 @@
 
 (ert-deftest oidxt-test-add-and-kill-node ()
   (oidxt-with-test-setup
-    (oidxt-do "a" "C-u")
+    (oidxt-do "C-u" "a")
     (oidxt-do "o d r e i")
-    (execute-kbd-macro (kbd "<right> <right> <right> <right>"))
+    (execute-kbd-macro (kbd "C-u 4 <right>"))
     (should (looking-at "--15--"))
     (org-mark-ring-goto)
     (oidxt-do "SPC k i l l <return>")
     (oidxt-do "o d r e i")
-    (execute-kbd-macro (kbd "<right> <right> <right> <right> <right>"))
-    ;; node should no longer be part of index
+    (execute-kbd-macro (kbd "C-u 5 <right>"))
     (should (looking-at "--9--"))))
 
 
@@ -126,7 +122,7 @@
   (oidxt-with-test-setup
     (global-set-key (kbd "C-c i") 'org-index-dispatch)
     (execute-kbd-macro (kbd "C-c i i <return> t"))
-    (should (string= (buffer-name) "oidxt-ert-index.org"))))
+    (should (string= (buffer-name) "oidxt-index.org"))))
 
 
 (ert-deftest oidxt-test-short-help ()
@@ -145,7 +141,7 @@
 (ert-deftest oidxt-test-occur-result ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> e i n <backspace> n s <return>")
-    (should (string= (buffer-name) "oidxt-ert-work.org"))
+    (should (string= (buffer-name) "oidxt-work.org"))
     (should (looking-at "* --13--"))))
 
 
@@ -170,7 +166,7 @@
     (oidxt-do "o c c u r <return> e i n s <return>")
     (forward-char 2)
     (should (looking-at "--13--"))
-    (with-current-buffer "oidxt-ert-index.org"
+    (with-current-buffer "oidxt-index.org"
       (org-entry-delete (point)  "max-ref"))
     (oidxt-do "o c c u r <return> e i n s <return>")
     (forward-char 2)
@@ -195,13 +191,12 @@
 
 (ert-deftest oidxt-test-no-id ()
   (oidxt-with-test-setup
-    (oidxt-save-and-set-state nil)
     (setq org-index-id nil)
     (condition-case result
         (oidxt-do (format "c r e a t e <return> o i d x t - e r t - i n d e x . o r g <return> f o o <return> # 1 # <return> %s %s"
                           (oidxt-y-or-n-ans nil) (oidxt-y-or-n-ans nil)))
       (error (should (string-match "^Did not make the id of this new index permanent" (cdr result)))))
-    (switch-to-buffer "oidxt-ert-work.org")
+    (switch-to-buffer "oidxt-work.org")
     (goto-char (point-max))
     (org-reveal)
     (forward-line -1)
@@ -223,7 +218,7 @@
 
 (ert-deftest oidxt-test-node-above-index ()
   (oidxt-with-test-setup
-    (pop-to-buffer-same-window "oidxt-ert-index.org")
+    (pop-to-buffer-same-window "oidxt-index.org")
     (beginning-of-buffer)
     (insert "* foo\n")
     (forward-line -1)
@@ -235,10 +230,11 @@
 
 (ert-deftest oidxt-test-enter-and-return ()
   (oidxt-with-test-setup
+    (oidxt-do "i n d e x <return> SPC M-<")
     (set-mark-command nil)
     (setq initial-point (point))
     (setq initial-mark (mark))
-    (oidxt-do "i i")
+    (oidxt-do "i n d e x <return> SPC")
     (execute-kbd-macro (kbd "M-x o r g - m a r k - r i n g - g o t o <return>"))
     (should (= initial-point (point)))
     (should (= initial-mark (mark)))))
@@ -294,20 +290,13 @@
   (should (string= "--16--" (current-kill 0)))))
 
 
-(ert-deftest oidxt-test-create-new-ref-lisp ()
-  (oidxt-with-test-setup
-    (org-index-new-line 'keywords "foo bar" 'category "baz" 'ref t)
-    (oidxt-do "i n d e x <return> 1 5 <return>")
-    (should (string= (oidx--get-or-set-field 'keywords)
-                     "foo bar"))))
-
 
 (ert-deftest oidxt-test-edit-from-index ()
   (oidxt-with-test-setup
     (oidxt-do "i n d e x <return> .")
     (oidxt-do "e d i t <return>")
     (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
-    (should (string= (buffer-name) "oidxt-ert-index.org"))
+    (should (string= (buffer-name) "oidxt-index.org"))
     (should (string= (oidx--get-or-set-field 'keywords)
                      "foo"))))
 
@@ -329,7 +318,7 @@
    (previous-line)
    (oidxt-do "e d i t <return>")
    (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
-   (should (string= (buffer-name) "oidxt-ert-work.org"))))
+   (should (string= (buffer-name) "oidxt-work.org"))))
 
 
 
@@ -567,15 +556,15 @@
 (ert-deftest oidxt-test-edit-on-add ()
   (oidxt-with-test-setup
     (setq org-index-edit-on-add nil)
-    (oidxt-do "a" "C-u")
+    (oidxt-do "a d d <return>" "C-u")
     (forward-char 2)
     (yank)
     (beginning-of-line)
     (should (looking-at "* --15-- drei"))
-    (oidxt-do "SPC k i l l <return>")
+    (oidxt-do "k i l l <return>")
     (setq org-index-edit-on-add '(keywords))
-    (oidxt-do "a b a r SPC <return>")
-    (oidxt-do "i .")
+    (oidxt-do "a d d <return> b a r SPC <return>")
+    (oidxt-do "i n d e x <return> .")
     (should (string= (oidx--get-or-set-field 'keywords) "dreibar"))))
 
 
@@ -598,8 +587,14 @@
        (oidxt-teardown-test))))
 
 
-(defun oidxt-do (keys &optional prefix)
-  (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o r g - i n d e x <return> " keys))))
+(defun oidxt-do (one &optional two)
+  (let (keys prefix)
+    (if two
+	(progn
+	  (setq keys two)
+	  (setq prefix one))
+      (setq keys one))
+    (execute-kbd-macro (kbd (concat prefix (if prefix " " "") "M-x o r g - i n d e x <return> " keys)))))
 
 
 (defun oidxt-get-refs ()
@@ -619,8 +614,12 @@
 
 (defun oidxt-setup-test ()
   (interactive)
-  (message (format "Executing test %S" (ert-test-name (ert--stats-current-test ert--current-run-stats))))
+  (if (boundp 'ert--stats)
+      (message (format "Executing test %S" (ert-test-name (ert--stats-current-test ert--current-run-stats)))))
   (setq create-lockfiles nil)
+  (setq org-id-locations-file oidxt-locations-file)
+  (setq org-agenda-files (list oidxt-index-file oidxt-work-file))
+  (org-id-locations-load)
   (if (get-buffer "*org-index-occur*") (kill-buffer "*org-index-occur*"))
   (setq oidx--maxrefnum nil)
   (setq oidx--o-assert-result t)
@@ -629,9 +628,9 @@
   ;; create them new
   (oidxt-create-work-buffer)
   (oidxt-prepare-test-index)
-  (switch-to-buffer oidxt-work-buffer)
+  (setq org-index-id oidxt-index-id)
+  (switch-to-buffer oidxt-work-buffer-name)
   (basic-save-buffer)
-  (org-agenda-file-to-front oidxt-ert-work-file)
   (org-cycle '(16))
   (delete-other-windows)
   (end-of-buffer)
@@ -640,9 +639,8 @@
 
 (defun oidxt-teardown-test ()
   (interactive)
-  (if (not oidxt-keep-test-state) (oidxt-restore-saved-state))
-  (with-current-buffer oidxt-work-buffer (basic-save-buffer))
-  (with-current-buffer oidxt-index-buffer (basic-save-buffer)))
+  (with-current-buffer oidxt-work-buffer-name (set-buffer-modified-p nil))
+  (with-current-buffer oidxt-index-buffer-name (set-buffer-modified-p nil)))
 
 
 (defun oidxt-remove-work-buffers ()
@@ -653,61 +651,7 @@
               (with-current-buffer b
                 (set-buffer-modified-p nil))
               (kill-buffer b))))
-        (list "oidxt-ert-index.org"
-              "oidxt-ert-work.org"))
-  (setq oidxt-work-buffer nil
-        oidxt-index-buffer nil))
-
-
-(defun oidxt-save-and-set-state (new-id)
-  (let (customizable)
-
-    ;; get customizable variables (they have property standard-value)
-    (mapatoms (lambda (x) (if (and (string-match "^org-index-.*"
-						 (symbol-name x))
-				   (custom-variable-p x))
-			      (setq customizable (cons x customizable)))))
-
-    ;; save all customizable variables
-    (unless oidxt-saved-state
-      (setq oidxt-saved-state
-            (mapcar (lambda (x)
-                      (cons x (and (boundp x)
-				   (symbol-value x))))
-                    customizable)))
-
-    ;; set them all to their standard values
-    (mapcar (lambda (x)
-              (set x (eval (car (get x 'standard-value)))))
-            customizable)
-
-    ;; save some standard org-variables
-    (unless oidxt-saved-id (setq oidxt-saved-id org-index-id))
-    (setq org-index-id new-id)
-
-    (unless oidxt-saved-id-locations (setq oidxt-saved-id-locations org-id-locations))
-    (setq org-id-locations nil)
-
-    (unless oidxt-saved-agenda-files org-agenda-files)
-    (setq org-agenda-files nil)))
-
-
-(defun oidxt-restore-saved-state ()
-  (if oidxt-saved-state
-      (mapc (lambda (x) (set (car x) (cdr x))) oidxt-saved-state)
-    (error "No saved state to restore"))
-
-  (when oidxt-saved-id
-    (setq org-index-id oidxt-saved-id)
-    (setq oidxt-saved-id nil))
-  
-  (when oidxt-saved-id-locations
-    (setq org-id-locations oidxt-saved-id-locations)
-    (setq oidxt-saved-id-locations nil))
-
-  (when oidxt-saved-agenda-files
-    (setq org-agenda-files oidxt-saved-agenda-files)
-    (setq oidxt-saved-agenda-files)))
+        (list oidxt-index-buffer-name oidxt-work-buffer-name)))
 
 
 (defun oidxt-y-or-n-ans (bool)
@@ -720,24 +664,20 @@
 ;;
 
 (defun oidxt-prepare-test-index ()
-  (let ((test-id "1f44f43c-1a37-4d55-oidxt-test-index"))
-    (oidxt-save-and-set-state test-id)
-    (org-id-add-location test-id oidxt-ert-index-file)
-    (setq org-index-occur-columns 8)
-    (unless oidxt-index-buffer
-      (setq oidxt-index-buffer (find-file-noselect oidxt-ert-index-file)))
-    (with-current-buffer oidxt-index-buffer
-      (setq buffer-save-without-query t)
-      (auto-save-mode t) ; actually disables
-      (if (file-exists-p buffer-auto-save-file-name)
-          (delete-file buffer-auto-save-file-name))
-      (erase-buffer)
-      (org-mode)
-      (insert 
+  (setq org-index-occur-columns 8)
+  (with-current-buffer (get-buffer-create oidxt-index-buffer-name)
+    (setq buffer-file-name oidxt-index-file)
+    (setq buffer-save-without-query t)
+    (auto-save-mode t) ; actually disables
+    (if (file-exists-p buffer-auto-save-file-name)
+        (delete-file buffer-auto-save-file-name))
+    (erase-buffer)
+    (org-mode)
+    (insert 
 
-       "* oidxt-test-index
+     "* oidxt-test-index
   :PROPERTIES:
-  :ID:       " test-id "
+  :ID:       " oidxt-index-id "
   :max-ref:  --14--
   :END:
        
@@ -758,20 +698,17 @@
   |  --4-- | 12ae411f-bdd4-4c92-9e24-75cf7858f586 | [2013-12-19 Do] |          |       |     1 |               | eins-drei      |      |      |
   |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Do 10:00]              | eins-zwei      |      |      |
   |  --2-- | caac71f6-74fa-4b6a-b732-66c9ceb0c483 | [2013-12-19 Do] |          |       |     1 |               | eins-eins      |      |      |
-  |  --1-- | " test-id "                          | [2013-12-15 So] |          |       |     1 | [2013-12-15 So 10:00] | This node      |      |      |
+  |  --1-- | " oidxt-index-id "                          | [2013-12-15 So] |          |       |     1 | [2013-12-15 So 10:00] | This node      |      |      |
 
 ")
-      (forward-line -1)
-      (basic-save-buffer)
-      (org-id-update-id-locations (list oidxt-ert-work-file) t)
-      (puthash test-id oidxt-ert-index-file org-id-locations)
-      (org-table-align))))
+    (forward-line -1)
+    (basic-save-buffer)
+    (org-table-align)))
 
 
 (defun oidxt-create-work-buffer ()
-  (unless oidxt-work-buffer
-    (setq oidxt-work-buffer (find-file-noselect oidxt-ert-work-file)))
-  (with-current-buffer oidxt-work-buffer
+  (with-current-buffer (get-buffer-create oidxt-work-buffer-name)
+    (setq buffer-file-name oidxt-work-file)
     (setq buffer-save-without-query t)
     (auto-save-mode t) ; actually disables
     (if (file-exists-p buffer-auto-save-file-name)
@@ -806,8 +743,7 @@
 * drei
 ** neun
 ")
-    (org-mode)
-    oidxt-work-buffer))
+    (org-mode)))
 
 
 (provide 'oidxt)
