@@ -200,13 +200,10 @@
 (defvar oidx--edit-widgets nil "List of widgets used to edit.")
 (defvar oidx--edit-context-index nil "Position and line used for index in edit buffer.")
 (defvar oidx--edit-context-occur nil "Position and line used for occur in edit buffer.")
-(defvar oidx--short-help-wanted nil "Non-nil, if short help should be displayed.")
-(defvar oidx--short-help-displayed nil "Non-nil, if short help message has been displayed.")
-(defvar oidx--minibuffer-saved-key nil "Temporarily save entry of minibuffer keymap.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 
 ;; static information for this program package
-(defconst oidx--commands '(occur add kill node index ref yank edit details help short-help example sort maintain) "List of commands available.")
+(defconst oidx--commands '(occur add kill node index ref yank edit details help example sort maintain) "List of commands available.")
 (defconst oidx--all-columns '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
 (defconst oidx--details-buffer-name "*org-index-details*" "Name of details buffer.")
@@ -425,10 +422,6 @@ of subcommands to choose from:
     If invoked from within index table, go to associated
     node (if any).
   
-  short-help: [?,h] Show one-line descriptions of each subcommand.
-    I.e. from the complete help, show only the first line for each
-    subcommand.
-
   help: Show complete help text of `org-index'.
     I.e. this text.
 
@@ -456,8 +449,11 @@ the most important subcommands with one additional key.
         message-text)  ; text that will be issued as an explanation
 
     (let ((oidx--skip-verify-id t))
-      (setq command (oidx--read-shortcut-char)))
 
+      ;; read command from user
+      (setq command (oidx--read-command)))
+
+    
     (catch 'new-index
 
       ;;
@@ -477,16 +473,6 @@ the most important subcommands with one additional key.
       ;; Find out, what we are supposed to do and prepare
       ;;
 
-      ;; Check or read command
-      (if (and command (not (eq command 'short-help)))
-          (unless (memq command oidx--commands)
-            (error "Unknown command '%s' passed as argument, valid choices are any of these symbols: %s"
-                   command (mapconcat 'symbol-name oidx--commands ",")))
-        
-        ;; read command; if requested display help in read-loop
-        (setq oidx--short-help-wanted (eq command 'short-help))
-        (setq command (oidx--read-command))
-        (setq oidx--short-help-wanted nil))
 
       ;; Arrange for beeing able to return
       (when (and (memq command '(occur node index example sort maintain))
@@ -505,11 +491,6 @@ the most important subcommands with one additional key.
 
         ;; bring up help-buffer for this function
         (describe-function 'org-index))
-
-       
-       ((eq command 'short-help)
-
-        (oidx--display-short-help))
 
        
        ((eq command 'add)
@@ -623,60 +604,33 @@ the most important subcommands with one additional key.
 
 
 ;; Reading user input
-(defun oidx--read-shortcut-char ()
-  "Get a single char that can be interpreted as a shortcut char.
-"
-  (let (char command)
-    (while (not char)
+(defun oidx--read-command ()
+  "Read command from user and return it; with detailed prompt, if a single char is not enough."
+  (let (char command detailed-prompt)
+    (while (and (not command)
+                (not detailed-prompt))
       (if (sit-for echo-keystrokes)
           (message "org-index (type a shortcut char or <space>,h,? for a detailed prompt) - "))
+
       (setq char (downcase (key-description (read-key-sequence nil))))
-      (if (string= char "C-g") (keyboard-quit))
-      (if (string= char "spc") (setq char "?")))
-    
-    (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
+      (setq detailed-prompt (or (string= char "?") (string= char "spc")))
+      
+      (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
+      (unless (or command
+                  detailed-prompt)
+        (setq detailed-prompt (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char)))))
+
     (unless command
-      (when (yes-or-no-p (format "No subcommand for '%s'; switch to detailed prompt ? " char))
-        (setq command 'short-help)))
-    command))
-
-
-(defun oidx--read-command ()
-  "Read subcommand for ‘org-index’ from minibuffer."
-  (let (minibuffer-scroll-window
-        command)
-    (setq oidx--short-help-displayed nil)
-    (add-hook 'minibuffer-setup-hook 'oidx--minibuffer-setup-function)
-    (add-hook 'minibuffer-exit-hook 'oidx--minibuffer-exit-function)
-    (unwind-protect
-        (setq command
-              (intern
-               (downcase
-                (completing-read
-                 (concat
-                  "Please choose"
-                  (if oidx--short-help-wanted "" " (<space> or ? for short help)")
-                  ": ")
-                 (append (mapcar 'symbol-name oidx--commands))))))
-      (remove-hook 'minibuffer-setup-hook 'oidx--minibuffer-setup-function)
-      (remove-hook 'minibuffer-exit-hook 'oidx--minibuffer-exit-function)
-      (when oidx--short-help-displayed
+      (oidx--display-short-help)
+      (unwind-protect
+          (setq command
+                (intern
+                 (downcase
+                  (completing-read
+                   "Please choose: "
+                   (append (mapcar 'symbol-name oidx--commands))))))
         (quit-windows-on oidx--short-help-buffer-name)))
     command))
-
-
-(defun oidx--minibuffer-setup-function ()
-  "Prepare minibuffer for `oidx--read-command'."
-  (setq oidx--minibuffer-saved-key (local-key-binding (kbd "?")))
-  (local-set-key (kbd "?") 'oidx--display-short-help)
-  (if oidx--short-help-wanted (oidx--display-short-help)))
-
-
-(defun oidx--minibuffer-exit-function ()
-  "Restore minibuffer after `oidx--read-command'."
-  (if oidx--minibuffer-saved-key (local-set-key (kbd "?") oidx--minibuffer-saved-key))
-  (local-set-key (kbd "C-u") 'universal-argument)
-  (setq oidx--minibuffer-saved-key nil))
 
 
 (defun oidx--display-short-help (&optional prompt choices)
@@ -713,11 +667,6 @@ the most important subcommands with one additional key.
         (goto-char (point-min))
         (while (re-search-forward "\\. *$" nil t)
           (replace-match "" nil nil))
-        (goto-char (point-min))
-        (re-search-forward "short-help")
-        (end-of-line)
-        (insert " (this text)")
-        (delete-blank-lines)
         (goto-char (point-min))
         (setq oidx--short-help-text (buffer-string)))))
 

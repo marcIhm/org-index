@@ -46,13 +46,18 @@
 (require 'cl-lib)
 (require 'ert)
 
-
 (defvar oidxt-index-buffer-name "oidxt-index.org")
 (defvar oidxt-work-buffer-name "oidxt-work.org")
+(defvar oidxt-locations-buffer-name "org-id-locations")
 (defvar oidxt-index-file (concat base-dir "/tmp/" oidxt-index-buffer-name))
 (defvar oidxt-work-file (concat base-dir "/tmp/" oidxt-work-buffer-name))
-(defvar oidxt-locations-file (concat base-dir "/test/org-id-locations"))
-(defvar oidxt-index-id "1f44f43c-1a37-4d55-oidxt-test-index")
+(defvar oidxt-locations-file (concat base-dir "/tmp/" oidxt-locations-buffer-name))
+
+(defvar oidxt-id-index "366f022c-2c43-4fce-a269-88f04122a5ca")
+(defvar oidxt-id-1 "588bda71-38b7-41a9-90f0-cc9fb39991fa")
+(defvar oidxt-id-2 "5a16c863-1f7e-4636-9c47-74e4d49f72df")
+(defvar oidxt-id-3 "12ae411f-bdd4-4c92-9e24-75cf7858f586")
+(defvar oidxt-id-4 "caac71f6-74fa-4b6a-b732-66c9ceb0c483")
 
 ;;
 ;; All tests
@@ -290,7 +295,6 @@
   (should (string= "--16--" (current-kill 0)))))
 
 
-
 (ert-deftest oidxt-test-edit-from-index ()
   (oidxt-with-test-setup
     (oidxt-do "i n d e x <return> .")
@@ -319,7 +323,6 @@
    (oidxt-do "e d i t <return>")
    (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
    (should (string= (buffer-name) "oidxt-work.org"))))
-
 
 
 (ert-deftest oidxt-test-details-from-occur ()
@@ -537,6 +540,7 @@
     (should (string= oidx--message-text
 		     "'zwei-zwei-eins' has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--8--' and ready to yank '--8--'."))))
 
+
 (ert-deftest oidxt-test-sort-by ()
   (oidxt-with-test-setup
     (oidxt-do "o c c u r <return> e i n s <return>")    
@@ -598,6 +602,7 @@
 
 
 (defun oidxt-get-refs ()
+  "Collect refs in buffer"
   (let (refs ref-field)
     (with-current-buffer oidx--buffer
       (oidx--go-below-hline)
@@ -614,23 +619,34 @@
 
 (defun oidxt-setup-test ()
   (interactive)
+
   (if (boundp 'ert--stats)
       (message (format "Executing test %S" (ert-test-name (ert--stats-current-test ert--current-run-stats)))))
-  (setq create-lockfiles nil)
-  (setq org-id-locations-file oidxt-locations-file)
+
+  ;; maybe left from previos tests
+  (ignore-errors (kill-buffer "*org-index-occur*"))
+
+  ;; set config vars
+  (setq org-index-edit-on-add nil)
   (setq org-agenda-files (list oidxt-index-file oidxt-work-file))
-  (org-id-locations-load)
-  (if (get-buffer "*org-index-occur*") (kill-buffer "*org-index-occur*"))
-  (setq oidx--maxrefnum nil)
+
+  ;; used within org-index.el
   (setq oidx--o-assert-result t)
-  ;; remove any left over buffers
-  (oidxt-remove-work-buffers)
-  ;; create them new
-  (oidxt-create-work-buffer)
-  (oidxt-prepare-test-index)
-  (setq org-index-id oidxt-index-id)
+
+  ;; create and load locations file
+  (oidxt-create-locations)
+  (setq org-id-locations-file oidxt-locations-file)
+  (org-id-locations-load)
+
+  ;; create and use index
+  (oidxt-create-index)
+  (setq org-index-id oidxt-id-index)
+
+  ;; create work buffer
+  (oidxt-create-work)
+
+  ;; prepare work buffer
   (switch-to-buffer oidxt-work-buffer-name)
-  (basic-save-buffer)
   (org-cycle '(16))
   (delete-other-windows)
   (end-of-buffer)
@@ -643,17 +659,6 @@
   (with-current-buffer oidxt-index-buffer-name (set-buffer-modified-p nil)))
 
 
-(defun oidxt-remove-work-buffers ()
-  "Remove any left over work buffers"
-  (mapc (lambda (x)
-          (let ((b (get-buffer x)))
-            (when b
-              (with-current-buffer b
-                (set-buffer-modified-p nil))
-              (kill-buffer b))))
-        (list oidxt-index-buffer-name oidxt-work-buffer-name)))
-
-
 (defun oidxt-y-or-n-ans (bool)
   "Create answer suitable for y-or-n-p; different if noninteractive (batch)"
   (concat (if bool "y" "n") (if noninteractive " <return>" "")))
@@ -663,69 +668,62 @@
 ;; Test data
 ;;
 
-(defun oidxt-prepare-test-index ()
+(defun oidxt-create-index ()
   (setq org-index-occur-columns 8)
   (with-current-buffer (get-buffer-create oidxt-index-buffer-name)
     (setq buffer-file-name oidxt-index-file)
-    (setq buffer-save-without-query t)
-    (auto-save-mode t) ; actually disables
-    (if (file-exists-p buffer-auto-save-file-name)
-        (delete-file buffer-auto-save-file-name))
-    (erase-buffer)
+    (oidxt-clear-buffer)
     (org-mode)
     (insert 
-
      "* oidxt-test-index
   :PROPERTIES:
-  :ID:       " oidxt-index-id "
+  :ID:       " oidxt-id-index "
   :max-ref:  --14--
   :END:
        
 
-  |    ref | id                                   | created         | category | level | count | last-accessed | keywords       | yank | tags |
-  |        | <4>                                  |                 |          |       |       |               |                |      |      |
-  |--------+--------------------------------------+-----------------+----------+-------+-------+---------------+----------------+------+------|
-  | --14-- |                                      | [2013-12-19 Do] |          |       |     1 |               |                |      |      |
-  | --13-- | 5a16c863-1f7e-4636-9c47-74e4d49f72df | [2013-12-19 Do] |          |       |     1 |               | eins           |      |      |
-  | --12-- |                                      | [2013-12-19 Do] |          |       |     1 |               | vier-zwei      |      |      |
-  | --11-- |                                      | [2013-12-19 Do] |          |       |     1 |               | vier-eins      |      |      |
-  | --10-- |                                      | [2013-12-19 Do] |          |       |     1 |               | vier           |      |      |
-  |  --9-- |                                      | [2013-12-19 Do] |          |       |     1 |               | drei           |      |      |
-  |  --8-- | 588bda71-38b7-41a9-90f0-cc9fb39991fa | [2013-12-19 Do] |          |       |     1 |               | zwei-zwei-eins |      |      |
-  |  --7-- |                                      | [2013-12-19 Do] |          |       |     1 |               | zwei-zwei      |      |      |
-  |  --6-- |                                      | [2013-12-19 Do] |          |       |     1 |               | zwei-eins      |      |      |
-  |  --5-- |                                      | [2013-12-19 Do] |          |       |     1 |               | zwei           |      |      |
-  |  --4-- | 12ae411f-bdd4-4c92-9e24-75cf7858f586 | [2013-12-19 Do] |          |       |     1 |               | eins-drei      |      |      |
-  |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Do 10:00]              | eins-zwei      |      |      |
-  |  --2-- | caac71f6-74fa-4b6a-b732-66c9ceb0c483 | [2013-12-19 Do] |          |       |     1 |               | eins-eins      |      |      |
-  |  --1-- | " oidxt-index-id "                          | [2013-12-15 So] |          |       |     1 | [2013-12-15 So 10:00] | This node      |      |      |
+  |    ref | id                                   | created         | category | level | count | last-accessed         | keywords       | yank | tags |
+  |        | <4>                                  |                 |          |       |       |                       |                |      |      |
+  |--------+--------------------------------------+-----------------+----------+-------+-------+-----------------------+----------------+------+------|
+  | --14-- |                                      | [2013-12-19 Do] |          |       |     1 |                       |                |      |      |
+  | --13-- | " oidxt-id-2                       " | [2013-12-19 Do] |          |       |     1 |                       | eins           |      |      |
+  | --12-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | vier-zwei      |      |      |
+  | --11-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | vier-eins      |      |      |
+  | --10-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | vier           |      |      |
+  |  --9-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | drei           |      |      |
+  |  --8-- | " oidxt-id-1                       " | [2013-12-19 Do] |          |       |     1 |                       | zwei-zwei-eins |      |      |
+  |  --7-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei-zwei      |      |      |
+  |  --6-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei-eins      |      |      |
+  |  --5-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei           |      |      |
+  |  --4-- | " oidxt-id-3                       " | [2013-12-19 Do] |          |       |     1 |                       | eins-drei      |      |      |
+  |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Do 10:00] | eins-zwei      |      |      |
+  |  --2-- | " oidxt-id-4                       " | [2013-12-19 Do] |          |       |     1 |                       | eins-eins      |      |      |
+  |  --1-- | " oidxt-id-index                   " | [2013-12-15 So] |          |       |     1 | [2013-12-15 So 10:00] | This node      |      |      |
 
 ")
     (forward-line -1)
-    (basic-save-buffer)
-    (org-table-align)))
+    (org-table-align)
+    (basic-save-buffer)))
 
 
-(defun oidxt-create-work-buffer ()
+(defun oidxt-create-work ()
   (with-current-buffer (get-buffer-create oidxt-work-buffer-name)
     (setq buffer-file-name oidxt-work-file)
-    (setq buffer-save-without-query t)
-    (auto-save-mode t) ; actually disables
-    (if (file-exists-p buffer-auto-save-file-name)
-        (delete-file buffer-auto-save-file-name))
-    (erase-buffer)
-    (insert "* --1-- eins
+    (oidxt-clear-buffer)
+    (org-mode)
+    (insert
+     "* --1-- eins
 * --8-- acht
   :PROPERTIES:
-  :ID:       588bda71-38b7-41a9-90f0-cc9fb39991fa
+  :ID:       " oidxt-id-1 "
   :END:
 * --13--
   :PROPERTIES:
-  :ID:       5a16c863-1f7e-4636-9c47-74e4d49f72df
+  :ID:       " oidxt-id-2 "
   :END:
 * vier --4--
   :PROPERTIES:
-  :ID:       12ae411f-bdd4-4c92-9e24-75cf7858f586
+  :ID:       " oidxt-id-3 "
   :END:
 
   Zeile 1
@@ -737,13 +735,30 @@
 
 * --2-- zwei --2--
   :PROPERTIES:
-  :ID:       caac71f6-74fa-4b6a-b732-66c9ceb0c483
+  :ID:       " oidxt-id-4 "
   :org-index-ref: foo
   :END:
 * drei
 ** neun
 ")
-    (org-mode)))
+    (basic-save-buffer)))
+
+
+(defun oidxt-create-locations ()
+  (with-current-buffer (get-buffer-create oidxt-locations-buffer-name)
+    (setq buffer-file-name oidxt-locations-file)
+    (oidxt-clear-buffer)
+    (insert
+     "((\"" oidxt-index-file "\" \"" oidxt-id-index "\") (\"" oidxt-work-file "\" \"" oidxt-id-4 "\" \"" oidxt-id-3 "\" \"" oidxt-id-2 "\" \"" oidxt-id-1 "\"))
+")))
+
+
+(defun oidxt-clear-buffer ()
+  (setq buffer-save-without-query t)
+  (auto-save-mode t) ; actually disables
+  (ignore-errors (delete-file buffer-auto-save-file-name))
+  (erase-buffer)
+  (set-buffer-modified-p nil))
 
 
 (provide 'oidxt)
