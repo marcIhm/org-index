@@ -201,6 +201,7 @@
 (defvar oidx--edit-context-index nil "Position and line used for index in edit buffer.")
 (defvar oidx--edit-context-occur nil "Position and line used for occur in edit buffer.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
+(defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")          
 
 ;; static information for this program package
 (defconst oidx--commands '(occur add kill node index ref yank edit details help example sort maintain) "List of commands available.")
@@ -549,9 +550,7 @@ the most important subcommands with one additional key.
               (plist-put vals 'yank (replace-regexp-in-string "|" "\\vert" yank nil 'literal)))
           (plist-put vals 'category "yank")
           (apply 'oidx--create-new-line vals)
-          
-;          (setq message-text "Added new row with text to yank")
-          ))
+          (setq message-text "Added new row with text to yank")))
        
        
        ((eq command 'edit)
@@ -566,6 +565,7 @@ the most important subcommands with one additional key.
 
        ((eq command 'sort)
 
+	(oidx--enter-index-to-stay)
         (oidx--do-sort-index)
         (setq message-text "Index has been sorted"))
 
@@ -598,7 +598,8 @@ the most important subcommands with one additional key.
                   (if kill-new-text "R" ""))
                 (if kill-new-text (format "eady to yank '%s'." kill-new-text) (if message-text "." "")))))
         (unless (string= m "")
-          (message m)))
+          (message m)
+	  (setq oidx--message-text m)))
       (if kill-new-text (kill-new kill-new-text)))))
 
 
@@ -779,8 +780,7 @@ Optional argument SILENT prevents invoking interactive assistant."
 
 (defun oidx--parse-table (&optional num-lines-to-format)
   "Parse content of index table.
-Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration.
-Optional argument CHECK-SORT triggers sorting if mixed and stale."
+Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
  
   (let (initial-point
         end-of-headings
@@ -799,15 +799,15 @@ Optional argument CHECK-SORT triggers sorting if mixed and stale."
       (unless oidx--aligned-and-sorted
         ;; align, fontify and sort table once for this emacs session
         (message "Align, fontify and sort index table (once per emacs session)...")
-        (goto-char oidx--below-hline)
         (oidx--do-sort-index)
+        (goto-char oidx--below-hline)
 
-        (oidx--go-below-hline)
         (org-table-align)
         (font-lock-fontify-region (point) (org-table-end))
 
         (setq oidx--aligned-and-sorted t)
-        (oidx--go-below-hline)
+        (goto-char oidx--below-hline)
+
         (message "Done."))
 
       (beginning-of-line)
@@ -832,8 +832,6 @@ Optional argument CHECK-SORT triggers sorting if mixed and stale."
       
       (unless oidx--head (oidx--get-decoration-from-ref-field max-ref-field))
       
-      ;; save position below hline
-      (oidx--go-below-hline)
       ;; go back to initial position
       (goto-char initial-point))))
 
@@ -1353,10 +1351,8 @@ CREATE-REF creates a reference and passes it to yank."
             
   (let (char prompt)
 
-    (goto-char oidx--below-hline)
-
     ;; start with short prompt but give more help on next iteration
-    (setq prompt "Please specify where to go in index (.: line for this node, l: last line inserted, i: start of index table - ")
+    (setq prompt "Please specify where to go in index .: line for this node, l: last line inserted, i: start of index table - ")
   
     ;; read one character
     (while (not (memq char (list ?i ?. ?l)))
@@ -1404,48 +1400,48 @@ CREATE-REF creates a reference and passes it to yank."
         bottom
         start-of-today)
 
-    (oidx--enter-index-to-stay)
-    (unless buffer-read-only
+    (with-current-buffer oidx--buffer
+      (unless buffer-read-only
+	
+	(message "Sorting index table...")
+	(undo-boundary)
+	
+	(let ((message-log-max nil)) ; we have just issued a message, dont need those of sort-subr
+	  
+          (setq start-of-today (oidx--get-start-of-today))
 
-      (message "Sorting index table...")
-      (undo-boundary)
-
-      (let ((message-log-max nil)) ; we have just issued a message, dont need those of sort-subr
-
-        (setq start-of-today (oidx--get-start-of-today))
-
-        ;; get boundaries of table
-        (oidx--go-below-hline)
-        (forward-line 0)
-        (setq top (point))
-        (goto-char (org-table-end))
-
-        ;; kill all empty rows at bottom
-        (while (progn
-                 (forward-line -1)
-                 (org-table-goto-column 1)
-                 (and
-                  (not (oidx--get-or-set-field 'ref))
-                  (not (oidx--get-or-set-field 'id))
-                  (not (oidx--get-or-set-field 'yank))))
-          (org-table-kill-row))
-        (forward-line 1)
-        (setq bottom (point))
-        
-        ;; sort lines
-        (save-restriction
-          (narrow-to-region top bottom)
-          (goto-char top)
-          (sort-subr t
-                     'forward-line
-                     'end-of-line
-                     (lambda () (oidx--get-sort-key start-of-today))
-                     nil
-                     'string<)
-          (goto-char (point-min))
-
-          ;; restore modification state
-          (set-buffer-modified-p is-modified))))))
+          ;; get boundaries of table
+	  (goto-char oidx--below-hline)
+          (forward-line 0)
+          (setq top (point))
+          (goto-char (org-table-end))
+	  
+          ;; kill all empty rows at bottom
+          (while (progn
+                   (forward-line -1)
+                   (org-table-goto-column 1)
+                   (and
+                    (not (oidx--get-or-set-field 'ref))
+                    (not (oidx--get-or-set-field 'id))
+                    (not (oidx--get-or-set-field 'yank))))
+            (org-table-kill-row))
+          (forward-line 1)
+          (setq bottom (point))
+          
+          ;; sort lines
+          (save-restriction
+            (narrow-to-region top bottom)
+            (goto-char top)
+            (sort-subr t
+                       'forward-line
+                       'end-of-line
+                       (lambda () (oidx--get-sort-key start-of-today))
+                       nil
+                       'string<)
+            (goto-char (point-min))
+	    
+            ;; restore modification state
+            (set-buffer-modified-p is-modified)))))))
 
 
 (defun oidx--get-sort-key (time-threshold)
@@ -1989,7 +1985,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 (defun oidx--migrate-maxref-to-property ()
   "One-time migration: No property; need to go through whole table once to find max."
-  (oidx--go-below-hline)
+  (goto-char oidx--below-hline)
   (let ((max-ref-num 0)
         ref-field)
     (message "One-time migration to set index-property maxref...")
@@ -2002,7 +1998,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (unless (> max-ref-num 0)
       (oidx--report-index-error "No reference found in property max-ref and none in index"))
     (setq ref-field (format oidx--ref-format max-ref-num))
-    (oidx--go-below-hline)
+    (goto-char oidx--below-hline)
     (org-entry-put oidx--point "max-ref" ref-field)
     (message "Done.")
     ref-field))
@@ -2267,6 +2263,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 (defvar oidx--o-assert-result nil "true, if result of occur should be verified (incremental result compare with single-pass result")
 (defvar oidx--o-start-of-lines nil "Start of table lines within result buffer")
 (defvar oidx--o-end-of-lines nil "End of table lines within result buffer")
+(defvar oidx--o-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 
 (defun oidx--do-occur (&optional arg)
   "Perform command occur.
@@ -2503,8 +2500,9 @@ Returns nil or plist with result"
         (while (or sp-lines mp-lines)
           (unless (string= (pop sp-lines) (pop mp-lines))
             (error "Assertion failed: single-pass result does not equal multi-pass result")))
-        (unless (apply #'< (plist-get sp-frame :lbps))
-          (error "Assertion failed: single-pass result is not sorted"))))
+	(when sp-lines
+          (unless (apply #'< (plist-get sp-frame :lbps))
+            (error "Assertion failed: single-pass result is not sorted")))))
 
 
 (defun oidx--o-make-permanent (lines-wanted frame)

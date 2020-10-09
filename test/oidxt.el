@@ -70,8 +70,8 @@
 
 (ert-deftest oidxt-test-create-and-retrieve-yank ()
   (oidxt-with-test-setup
-    (oidxt-do "y a n k <return> f o o <return> b a r <return>")
-    (oidxt-do "o c c u r <return> f o o <return>")
+    (oidxt-do "y f o o <return> b a r <return>")
+    (oidxt-do "o f o o <return>")
     (should (string= "bar" (current-kill 0)))))
 
 
@@ -85,11 +85,11 @@
 
 (ert-deftest oidxt-test-add-node-without-ref-add-ref-later ()
   (oidxt-with-test-setup
-    (oidxt-do "a d d <return>")
-    (oidxt-do "i n d e x <return> .")
+    (oidxt-do "a")
+    (oidxt-do "i .")
     (should-not (oidx--get-or-set-field 'ref))
     (org-mark-ring-goto)
-    (oidxt-do "a d d <return>" "C-u")
+    (oidxt-do "C-u" "a")
   (forward-char 2)
   (yank)
   (insert " ")
@@ -287,11 +287,11 @@
 
 (ert-deftest oidxt-test-create-new-ref ()
   (oidxt-with-test-setup
-    (oidxt-do "r e f <return> foo <return> bar <return>")
-    (oidxt-do "o c c u r <return> b a r <right>")
+    (oidxt-do "r foo <return> bar <return>")
+    (oidxt-do "o b a r <right>")
     (should (string= (oidx--get-or-set-field 'keywords)
                      "bar"))
-    (oidxt-do "r e f <return> <return> <return>" "C-u")
+    (oidxt-do "C-u" "r <return> <return>")
   (should (string= "--16--" (current-kill 0)))))
 
 
@@ -347,11 +347,11 @@
 
 (ert-deftest oidxt-test-delete-yank ()
   (oidxt-with-test-setup
-    (oidxt-do "y a n k <return> f o o <return> b a r <return>")
-    (oidxt-do "o c c u r <return> f o o <right>")
-    (oidxt-do "k i l l <return>")
-    (oidxt-do "o c c u r <return> f o o <return>")
-    (should (= oidx--occur-lines-collected 0))))
+    (oidxt-do "y f o o <return> b a r <return>")
+    (oidxt-do "o f o o <right>")
+    (oidxt-do "SPC k i l l <return>")
+    (oidxt-do "o f o o <return>")
+    (should (= oidx--o-lines-collected 0))))
 
 
 (ert-deftest oidxt-test-sort-index ()
@@ -444,7 +444,7 @@
 
 (ert-deftest oidxt-test-add-delete-new-reference ()
   (oidxt-with-test-setup
-    (oidxt-do "a" "C-u")
+    (oidxt-do "C-u" "a")
     (forward-char 2)
     (yank)
     (beginning-of-line)
@@ -458,12 +458,12 @@
   (oidxt-with-test-setup
     (oidxt-do "a d d <return>" "C-u")
     (oidxt-do "o c c u r <return> - - 1 5 - -")
-    (should (= oidx--occur-lines-collected 1))
+    (should (= oidx--o-lines-collected 1))
     (org-mark-ring-goto)
     (oidxt-do "k i l l <return>")
     (oidxt-do "o c c u r <return> - - 1 5 - -")
     (should (string= (buffer-name) oidx--occur-buffer-name))
-    (should (= oidx--occur-lines-collected 0))))
+    (should (= oidx--o-lines-collected 0))))
 
 
 (ert-deftest oidxt-test-kill-from-index ()
@@ -473,7 +473,7 @@
     (oidxt-do "k i l l <return>")
     (oidxt-do "o c c u r <return> - - 1 5 - -")
     (should (string= (buffer-name) oidx--occur-buffer-name))
-    (should (= oidx--occur-lines-collected 0))))
+    (should (= oidx--o-lines-collected 0))))
 
 
 (ert-deftest oidxt-test-kill-from-occur ()
@@ -483,7 +483,7 @@
     (oidxt-do "k i l l <return>")
     (oidxt-do "o c c u r <return> - - 1 5 - -")
     (should (string= (buffer-name) oidx--occur-buffer-name))
-    (should (= oidx--occur-lines-collected 0))))
+    (should (= oidx--o-lines-collected 0))))
 
 
 (ert-deftest oidxt-test-update-from-within-index ()
@@ -574,7 +574,15 @@
 
 (ert-deftest oidxt-test-customize ()
   (oidxt-with-test-setup
-   (error "Not implemented yet.")))
+    (setq org-index-key "")
+    (global-unset-key (kbd "C-c i"))
+    (customize-option 'org-index-key)
+    (execute-kbd-macro (kbd "C-u 8 TAB C-k C - c SPC i <return> C-u 4 <backtab> <return>"))
+    (should (string= org-index-key "C-c i"))
+    (execute-kbd-macro (kbd "C-c i i i"))
+    (should (looking-at "--14--"))
+    (setq org-index-key "")
+    (global-unset-key (kbd "C-c i"))))
 
 
 ;;
