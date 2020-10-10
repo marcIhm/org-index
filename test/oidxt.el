@@ -116,13 +116,6 @@
     (should (looking-at "* ?"))))
 
 
-(ert-deftest oidxt-test-goto-column ()
-  (oidxt-with-test-setup
-    (oidxt-do "i n d e x <return> .")
-    (oidxt-do "c o l u m n <return> k")
-    (should (= 8 (org-table-current-column)))))
-
-
 (ert-deftest oidxt-test-dispatch ()
   (oidxt-with-test-setup
     (global-set-key (kbd "C-c i") 'org-index)
@@ -160,8 +153,8 @@
 
 (ert-deftest oidxt-test-mark-ring ()
   (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> z w e i <down> <return>")
-    (oidxt-do "o c c u r <return> e i n s <down> <return>")
+    (oidxt-do "o z w e i <down> <return>")
+    (oidxt-do "o e i n s <down> <return>")
     (should (looking-at ".* --13--"))
     (org-mark-ring-goto)
     (should (looking-at ".* --8--"))))
@@ -169,30 +162,16 @@
 
 (ert-deftest oidxt-test-migrate-index ()
   (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> e i n s <return>")
+    (oidxt-do "o e i n s <return>")
     (forward-char 2)
     (should (looking-at "--13--"))
     (with-current-buffer "oidxt-index.org"
       (org-entry-delete (point)  "max-ref"))
-    (oidxt-do "o c c u r <return> e i n s <return>")
+    (oidxt-do "o e i n s <return>")
     (forward-char 2)
     (should (looking-at "--13--"))
-    (oidxt-do "i n d e x <return> SPC")
+    (oidxt-do "i .")
     (should (string= (org-entry-get (point) "max-ref") "--14--"))))
-
-
-(ert-deftest oidxt-test-find-ref ()
-  (oidxt-with-test-setup
-    (oidxt-do "f i n d - r e f <return> 4 <return>")
-    ;; remove variable parts from content
-    (forward-line 4)
-    (forward-char 20)
-    (let ((inhibit-read-only t))
-      (kill-line))
-    (should (string= (buffer-name) "*Occur*"))
-    (beginning-of-buffer)
-    (should (search-forward "10:* vier --4--"))
-    (should (search-forward "21:  |  --4-- |"))))
 
 
 (ert-deftest oidxt-test-no-id ()
@@ -215,7 +194,7 @@
 
 (ert-deftest oidxt-test-example ()
   (oidxt-with-test-setup
-   (oidxt-do (format "e x a m p l e <return> %s e x a m p l e <return> - 1 - <return>" (oidxt-y-or-n-ans t)))
+   (oidxt-do (format "SPC e x a m p l e <return> %s e x a m p l e <return> - 1 - <return>" (oidxt-y-or-n-ans t)))
     (with-current-buffer "*org-index-example-index*"
       (should (search-forward "Below you find"))
       (oidx--go-below-hline)
@@ -255,29 +234,17 @@
 
 (ert-deftest oidxt-test-goto-index-from-occur ()
   (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> e i n s <right> i")
+    (oidxt-do "o e i n s <right> i")
     (org-table-next-field)
     (should (looking-at "--13--"))))
 
 
 (ert-deftest oidxt-test-find-node-from-index ()
   (oidxt-with-test-setup
-    (oidxt-do "i n d e x <return> SPC")
+    (oidxt-do "i i")
     (forward-line 6)
-    (oidxt-do "n o d e <return>")
+    (oidxt-do "n")
     (should (looking-at ".* --8--"))))
-
-
-(ert-deftest oidxt-test-find-node-from-number ()
-  (oidxt-with-test-setup
-    (oidxt-do "n o d e <return> 8 <return>")
-    (should (looking-at ".* --8--"))))
-
-
-(ert-deftest oidxt-test-enter-goto-reference ()
-  (oidxt-with-test-setup
-    (oidxt-do "i n d e x <return> 2 <return>")
-    (should (looking-at ".* --2--"))))
 
 
 (ert-deftest oidxt-test-enter-goto-line-of-current-node ()
@@ -364,32 +331,32 @@
 
 (ert-deftest oidxt-test-maintain-duplicates ()
   (oidxt-with-test-setup
-    (oidxt-do "m a i n t a i n <return> d u p l i c a t e s <return>")
+    (oidxt-do "m d u p l i c a t e s <return>")
     (should (string= oidx--message-text
                      "No duplicate references or ids found."))
     (execute-kbd-macro (kbd "C-a C-k C-k C-y C-y"))
-    (oidxt-do "m a i n t a i n <return> d u p l i c a t e s <return>")
+    (oidxt-do "m d u p l i c a t e s <return>")
     (should (string= oidx--message-text
                      "Some references or ids are duplicate."))))
 
 
 (ert-deftest oidxt-test-maintain-statistics ()
   (oidxt-with-test-setup
-    (oidxt-do "m a i n t a i n <return> s t a t i s t i c s <return>")
+    (oidxt-do "m s t a t i s t i c s <return>")
     (should (string= oidx--message-text
                      "14 Lines in index table. First reference is --1--, last --14--; 14 of them are used (100 percent)."))))
 
 
 (ert-deftest oidxt-test-maintain-clean ()
   (oidxt-with-test-setup
-    (oidxt-do "m a i n t a i n <return> c l e a n <return>")
+    (oidxt-do "m c l e a n <return>")
     (should (string= oidx--message-text
                      "Removed property 'org-index-ref' from 1 lines."))))
 
 
 (ert-deftest oidxt-test-maintain-verify ()
   (oidxt-with-test-setup
-    (oidxt-do "m a i n t a i n <return> v e r i f y <return>")
+    (oidxt-do "m v e r i f y <return>")
     (should (string= oidx--message-text
                      "All ids of index are valid."))))
 
@@ -405,22 +372,6 @@
     (should (search-forward "bar --2--"))
     (should (search-forward "--4-- foo"))
     (should (search-forward "--5-- baz"))))
-
-
-(ert-deftest oidxt-test-highlight-unhighlight ()
-  (oidxt-with-test-setup
-    (mark-whole-buffer)
-    (oidxt-do "h i g h l i g h t <return>")
-    (should (string= oidx--message-text "Highlighted references in buffer."))))
-
-
-(ert-deftest oidxt-test-unhighlight ()
-  (oidxt-with-test-setup
-    (mark-whole-buffer)
-    (message "--1--")
-    (message oidx--message-text)
-    (oidxt-do "SPC h i g h l i g h t <return>" "C-u")
-  (should (string= oidx--message-text "Removed highlights for references in buffer."))))
 
 
 (ert-deftest oidxt-test-add-update ()
@@ -458,32 +409,32 @@
 
 (ert-deftest oidxt-test-kill-from-node ()
   (oidxt-with-test-setup
-    (oidxt-do "a d d <return>" "C-u")
-    (oidxt-do "o c c u r <return> - - 1 5 - -")
+    (oidxt-do "C-u" "a")
+    (oidxt-do "o - - 1 5 - -")
     (should (= oidx--o-lines-collected 1))
     (org-mark-ring-goto)
-    (oidxt-do "k i l l <return>")
-    (oidxt-do "o c c u r <return> - - 1 5 - -")
+    (oidxt-do "SPC k i l l <return>")
+    (oidxt-do "o - - 1 5 - -")
     (should (string= (buffer-name) oidx--o-buffer-name))
     (should (= oidx--o-lines-collected 0))))
 
 
 (ert-deftest oidxt-test-kill-from-index ()
   (oidxt-with-test-setup
-    (oidxt-do "a d d <return>" "C-u")
-    (oidxt-do "i n d e x <return> 1 5")
-    (oidxt-do "k i l l <return>")
-    (oidxt-do "o c c u r <return> - - 1 5 - -")
+    (oidxt-do "C-u" "a")
+    (oidxt-do "i .")
+    (oidxt-do "SPC k i l l <return>")
+    (oidxt-do "o - - 1 5 - -")
     (should (string= (buffer-name) oidx--o-buffer-name))
     (should (= oidx--o-lines-collected 0))))
 
 
 (ert-deftest oidxt-test-kill-from-occur ()
   (oidxt-with-test-setup
-    (oidxt-do "a d d <return>" "C-u")
-    (oidxt-do "o c c u r <return> - - 1 5 - -")
-    (oidxt-do "k i l l <return>")
-    (oidxt-do "o c c u r <return> - - 1 5 - -")
+    (oidxt-do "C-u" "a" )
+    (oidxt-do "o - - 1 5 - -")
+    (oidxt-do "SPC k i l l <return>")
+    (oidxt-do "o - - 1 5 - -")
     (should (string= (buffer-name) oidx--o-buffer-name))
     (should (= oidx--o-lines-collected 0))))
 
@@ -533,30 +484,6 @@
     (oidxt-do "p i n g <return>")
     (should (string= oidx--message-text
 		     "'eins-drei' (parent node, 1 level up) has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--4--' and ready to yank '--4--'."))))
-
-
-(ert-deftest oidxt-test-line-with-prefix-arg ()
-  (oidxt-with-test-setup
-    (previous-line 2)
-    (oidxt-do "p i n g <return>" "C-u 8")
-    (should (string= oidx--message-text
-		     "'zwei-zwei-eins' has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--8--' and ready to yank '--8--'."))))
-
-
-(ert-deftest oidxt-test-sort-by ()
-  (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> e i n s <return>")    
-    (should (equal (oidxt-get-refs) '(1 2 3 4 5 6 7 8 9 10 11 12 14 13)))
-
-    (setq org-index-sort-by 'last-accessed)
-    (oidx--parse-table) ; to find hline
-    (should (equal (oidxt-get-refs) '(2 4 5 6 7 8 9 10 11 12 14 1 3 13)))
-
-    (setq org-index-sort-by 'count)
-    (oidx--parse-table) ; to find hline
-    (dotimes (x 5)
-      (oidxt-do "o c c u r <return> e i n s - d r e i <return>"))
-    (should (equal (oidxt-get-refs) '(1 2 3 5 6 7 8 9 10 11 12 14 13 4)))))
 
 
 (ert-deftest oidxt-test-edit-on-add ()

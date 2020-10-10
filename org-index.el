@@ -178,8 +178,8 @@
 (require 's)
 
 ;; Variables to hold the configuration of the index table
-(defvar oidx--head nil "Header before number (e.g. 'R').")
-(defvar oidx--tail nil "Tail after number (e.g. '}' or ')'.")
+(defvar oidx--ref-head nil "Head before number in reference (e.g. 'R').")
+(defvar oidx--ref-tail nil "Tail after number in reference (e.g. '}' or ')'.")
 (defvar oidx--ref-regex nil "Regular expression to match a reference.")
 (defvar oidx--ref-format nil "Format, that can print a reference.")
 (defvar oidx--point nil "Position at start of headline of index table.")
@@ -831,7 +831,7 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
       (setq max-ref-field (or (org-entry-get oidx--point "max-ref")
                               (oidx--migrate-maxref-to-property)))
       
-      (unless oidx--head (oidx--get-decoration-from-ref-field max-ref-field))
+      (unless oidx--ref-head (oidx--get-decoration-from-ref-field max-ref-field))
       
       ;; go back to initial position
       (goto-char initial-point))))
@@ -858,12 +858,12 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
      "Reference in index table ('%s') does not contain a number" ref-field))
   
   ;; These are the decorations used within the first ref of index
-  (setq oidx--head (match-string 1 ref-field))
-  (setq oidx--tail (match-string 3 ref-field))
-  (setq oidx--ref-regex (concat (regexp-quote oidx--head)
+  (setq oidx--ref-head (match-string 1 ref-field))
+  (setq oidx--ref-tail (match-string 3 ref-field))
+  (setq oidx--ref-regex (concat (regexp-quote oidx--ref-head)
                                 "\\([0-9]+\\)"
-                                (regexp-quote oidx--tail)))
-  (setq oidx--ref-format (concat oidx--head "%d" oidx--tail)))
+                                (regexp-quote oidx--ref-tail)))
+  (setq oidx--ref-format (concat oidx--ref-head "%d" oidx--ref-tail)))
 
 
 (defun oidx--extract-refnum (ref-field)
@@ -1363,7 +1363,7 @@ CREATE-REF creates a reference and passes it to yank."
   (let (char prompt)
 
     ;; start with short prompt but give more help on next iteration
-    (setq prompt "Please specify where to go in index .: line for this node, l: last line inserted, i: start of index table - ")
+    (setq prompt "Please specify where to go in index:  .) line for this node,  l) last line inserted,  i) start of index table - ")
   
     ;; read one character
     (while (not (memq char (list ?i ?. ?l)))
@@ -2010,18 +2010,27 @@ Optional argument NO-INC skips automatic increment on maxref."
   (goto-char oidx--below-hline)
   (let ((max-ref-num 0)
         ref-field)
+
     (message "One-time migration to set index-property maxref...")
+
+    ;; scan whole table
     (while (org-match-line org-table-line-regexp)
       (setq ref-field (oidx--get-or-set-field 'ref))
       (when ref-field
-        (unless oidx--head (oidx--get-decoration-from-ref-field ref-field))
+        (unless oidx--ref-head (oidx--get-decoration-from-ref-field ref-field))
         (setq max-ref-num (max max-ref-num (oidx--extract-refnum ref-field))))
       (forward-line))
+
     (unless (> max-ref-num 0)
       (oidx--report-index-error "No reference found in property max-ref and none in index"))
     (setq ref-field (format oidx--ref-format max-ref-num))
     (goto-char oidx--below-hline)
-    (org-entry-put oidx--point "max-ref" ref-field)
+    ;; store maxref; this also moves the position of the rest of the index table
+    (org-entry-put oidx--point "max-ref" ref-field) 
+
+    ;; refresh oidx--below-hline as a side-effect
+    (oidx--go-below-hline)
+
     (message "Done.")
     ref-field))
 
@@ -2307,7 +2316,6 @@ Optional argument ARG, when given does not limit number of lines shown."
     (setq initial-frame (selected-frame))
     (setq oidx--o-win-config (current-window-configuration))
     (pop-to-buffer-same-window (get-buffer-create oidx--o-buffer-name))
-    (set-buffer oidx--o-buffer-name)
     (setq buffer-read-only nil)
 
     (oidx--o-prepare-buffer)
@@ -2552,6 +2560,7 @@ Argument LINES-WANTED specifies number of lines to display."
     (setq oidx--o-end-of-lines (point))
     
     (setq lines-collected (plist-get frame :count))
+    (setq oidx--o-lines-collected lines-collected)
     (fundamental-mode)
     (setq truncate-lines t)
 
