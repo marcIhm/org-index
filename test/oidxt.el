@@ -125,9 +125,10 @@
 
 (ert-deftest oidxt-test-dispatch ()
   (oidxt-with-test-setup
-    (global-set-key (kbd "C-c i") 'org-index-dispatch)
-    (execute-kbd-macro (kbd "C-c i i <return> t"))
-    (should (string= (buffer-name) "oidxt-index.org"))))
+    (global-set-key (kbd "C-c i") 'org-index)
+    (execute-kbd-macro (kbd "C-c i i i"))
+    (should (string= (buffer-name) "oidxt-index.org"))
+    (global-unset-key (kbd "C-c i"))))
 
 
 (ert-deftest oidxt-test-short-help ()
@@ -234,15 +235,16 @@
 
 
 (ert-deftest oidxt-test-enter-and-return ()
-  (oidxt-with-test-setup
-    (oidxt-do "i n d e x <return> SPC M-<")
-    (set-mark-command nil)
-    (setq initial-point (point))
-    (setq initial-mark (mark))
-    (oidxt-do "i n d e x <return> SPC")
-    (execute-kbd-macro (kbd "M-x o r g - m a r k - r i n g - g o t o <return>"))
-    (should (= initial-point (point)))
-    (should (= initial-mark (mark)))))
+  (let (initial-point initial-mark)
+    (oidxt-with-test-setup
+      (oidxt-do "i i M-<")
+      (set-mark-command nil)
+      (setq initial-point (point))
+      (setq initial-mark (mark))
+      (oidxt-do "i i")
+      (org-mark-ring-goto)
+      (should (= initial-point (point)))
+      (should (= initial-mark (mark))))))
 
 
 (ert-deftest oidxt-test-enter ()
@@ -297,8 +299,8 @@
 
 (ert-deftest oidxt-test-edit-from-index ()
   (oidxt-with-test-setup
-    (oidxt-do "i n d e x <return> .")
-    (oidxt-do "e d i t <return>")
+    (oidxt-do "i i")
+    (oidxt-do "e")
     (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
     (should (string= (buffer-name) "oidxt-index.org"))
     (should (string= (oidx--get-or-set-field 'keywords)
@@ -307,27 +309,27 @@
 
 (ert-deftest oidxt-test-edit-from-occur ()
   (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> e i n s")
-    (oidxt-do "e d i t <return>")
+    (oidxt-do "o e i n s")
+    (oidxt-do "e")
     (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
-    (should (string= (buffer-name) oidx--occur-buffer-name))
+    (should (string= (buffer-name) oidx--o-buffer-name))
     (should (string= (oidx--get-or-set-field 'keywords)
                      "einsfoo"))
     (should (= (progn (end-of-line) (current-column))
-                     (progn (end-of-line 2) (current-column))))))
+               (progn (end-of-line 2) (current-column))))))
 
 
 (ert-deftest oidxt-test-edit-from-node ()
   (oidxt-with-test-setup
    (previous-line)
-   (oidxt-do "e d i t <return>")
+   (oidxt-do "e")
    (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
    (should (string= (buffer-name) "oidxt-work.org"))))
 
 
 (ert-deftest oidxt-test-details-from-occur ()
   (oidxt-with-test-setup
-   (oidxt-do "o c c u r <return> e i n s <down> d")
+   (oidxt-do "o e i n s <down> d")
    (other-window 1)
    (should (string= (buffer-name) oidx--details-buffer-name))
    (should (looking-at "\s+ref: --11--"))))
@@ -462,7 +464,7 @@
     (org-mark-ring-goto)
     (oidxt-do "k i l l <return>")
     (oidxt-do "o c c u r <return> - - 1 5 - -")
-    (should (string= (buffer-name) oidx--occur-buffer-name))
+    (should (string= (buffer-name) oidx--o-buffer-name))
     (should (= oidx--o-lines-collected 0))))
 
 
@@ -472,7 +474,7 @@
     (oidxt-do "i n d e x <return> 1 5")
     (oidxt-do "k i l l <return>")
     (oidxt-do "o c c u r <return> - - 1 5 - -")
-    (should (string= (buffer-name) oidx--occur-buffer-name))
+    (should (string= (buffer-name) oidx--o-buffer-name))
     (should (= oidx--o-lines-collected 0))))
 
 
@@ -482,7 +484,7 @@
     (oidxt-do "o c c u r <return> - - 1 5 - -")
     (oidxt-do "k i l l <return>")
     (oidxt-do "o c c u r <return> - - 1 5 - -")
-    (should (string= (buffer-name) oidx--occur-buffer-name))
+    (should (string= (buffer-name) oidx--o-buffer-name))
     (should (= oidx--o-lines-collected 0))))
 
 
@@ -560,15 +562,15 @@
 (ert-deftest oidxt-test-edit-on-add ()
   (oidxt-with-test-setup
     (setq org-index-edit-on-add nil)
-    (oidxt-do "a d d <return>" "C-u")
+    (oidxt-do "C-u" "a")
     (forward-char 2)
     (yank)
     (beginning-of-line)
     (should (looking-at "* --15-- drei"))
-    (oidxt-do "k i l l <return>")
+    (oidxt-do "SPC k i l l <return>")
     (setq org-index-edit-on-add '(keywords))
-    (oidxt-do "a d d <return> b a r SPC <return>")
-    (oidxt-do "i n d e x <return> .")
+    (oidxt-do "a b a r SPC <return>")
+    (oidxt-do "i .")
     (should (string= (oidx--get-or-set-field 'keywords) "dreibar"))))
 
 

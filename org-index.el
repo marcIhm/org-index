@@ -200,6 +200,7 @@
 (defvar oidx--edit-widgets nil "List of widgets used to edit.")
 (defvar oidx--edit-context-index nil "Position and line used for index in edit buffer.")
 (defvar oidx--edit-context-occur nil "Position and line used for occur in edit buffer.")
+(defvar oidx--edit-context-node nil "Buffer and position for node in edit buffer.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")          
 
@@ -925,20 +926,30 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
   (let (buffer-keymap field-keymap keywords-pos cols-vals maxlen)
 
     (setq oidx--edit-context-occur nil)
+    (setq oidx--edit-context-node nil)
     
-    ;; change to index, if whithin occur
-    (if oidx--within-occur
-        (let ((pos (get-text-property (point) 'org-index-lbp)))
-          (oidx--o-test-stale pos)
-          (setq oidx--edit-context-occur (cons (point) (oidx--line-in-canonical-form)))
-          (set-buffer oidx--buffer)
-          (goto-char pos))
+    ;; save context and change to index if invoked from outside
+    (cond
+     (oidx--within-occur
+      (let ((pos (get-text-property (point) 'org-index-lbp)))
+        (oidx--o-test-stale pos)
+        (setq oidx--edit-context-occur (cons (point) (oidx--line-in-canonical-form)))
+        (set-buffer oidx--buffer)
+        (goto-char pos)))
       
-      ;; change to index, if still not within
-      (if (not oidx--within-index-node)
-          (error "Not in index-table")))
+     ((not oidx--within-index-node)
+      (let ((id (org-id-get)))
+        (setq oidx--edit-context-node (cons (current-buffer) (point)))
+        (set-buffer oidx--buffer)
+        (unless (and id (oidx--go 'id id))
+          (setq oidx--edit-context-node nil)
+          (error "This node is not in index")))))
 
-    ;; we need two different keymaps
+    ;; remember context and get content of line, that will be edited
+    (setq oidx--edit-context-index (cons (point) (oidx--line-in-canonical-form)))
+    (-setq (cols-vals . maxlen) (oidx--content-of-current-line))
+
+    ;; create keymaps
     (setq buffer-keymap (make-sparse-keymap))
     (set-keymap-parent buffer-keymap widget-keymap)
     (define-key buffer-keymap (kbd "C-c C-c") 'oidx--edit-accept)
@@ -950,12 +961,9 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
     (define-key field-keymap (kbd "C-c C-k") 'oidx--edit-abort)
 
     ;; prepare buffer
-    (setq oidx--edit-context-index (cons (point) (oidx--line-in-canonical-form)))
-    (if (get-buffer oidx--edit-buffer-name) (kill-buffer oidx--edit-buffer-name))
-
-    ;; create and fill widgets
-    (-setq (cols-vals . maxlen) (oidx--content-of-current-line))
+    (ignore-errors (kill-buffer oidx--edit-buffer-name))
     (switch-to-buffer (get-buffer-create oidx--edit-buffer-name))
+    ;; create and fill widgets
     (setq oidx--edit-widgets nil)
     (widget-insert "Edit this line from index; type C-c C-c when done, C-c C-k to abort.\n\n")
     (dolist (col-val cols-vals)
@@ -971,7 +979,7 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
     (widget-setup)
     (goto-char keywords-pos)
     (use-local-map buffer-keymap)
-    "Editing a single line from index"))
+    "Editing a single line of index"))
 
 
 (defun oidx--content-of-current-line ()
@@ -987,61 +995,64 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
 
 
 (defun oidx--edit-accept ()
-     "Function to accept editing in Edit buffer."
-     (interactive)
+  "Function to accept editing in Edit buffer."
+  (interactive)
 
-     (let ((obuf (get-buffer oidx--o-buffer-name))
-           val line)
+  (let (val line)
     
-       ;; Time might have passed
-       (oidx--refresh-parse-table)
-
-       (with-current-buffer oidx--buffer
+    ;; Time might have passed
+    (oidx--refresh-parse-table)
+    
+    (with-current-buffer oidx--buffer
       
-         ;; check, if buffer has become stale
-         (save-excursion
-           (goto-char (car oidx--edit-context-index))
-           (unless (string= (cdr oidx--edit-context-index)
-                            (oidx--line-in-canonical-form))
-             (switch-to-buffer oidx--edit-buffer-name)
-             (error "Index table has changed: Cannot find line, that this buffer is editing")))
+      ;; check, if index has changed while editing
+      (save-excursion
+        (goto-char (car oidx--edit-context-index))
+        (unless (string= (cdr oidx--edit-context-index)
+                         (oidx--line-in-canonical-form))
+          (switch-to-buffer oidx--edit-buffer-name)
+          (error "Index table has changed: Cannot find line, that this buffer is editing")))
+      
+      ;; write back line to index
+      (dolist (col-widget oidx--edit-widgets)
+        (setq val (widget-value (cdr col-widget)))
+        (if (eq (car col-widget) 'yank) (setq val (replace-regexp-in-string "|" (regexp-quote "\\vert") val)))
+        (oidx--get-or-set-field (car col-widget) val))
+      
+      (setq line (oidx--align-and-fontify-current-line))
+      (beginning-of-line))
+    
+    (cond 
+     ;; invoked from occur
+     (oidx--edit-context-occur
+      (pop-to-buffer-same-window (or (get-buffer oidx--o-buffer-name)
+				     (error "Occur buffer has gone cannot update (index has been updated though)")))
+      (goto-char (car oidx--edit-context-occur))
+      (beginning-of-line)
 
-         (pop-to-buffer-same-window oidx--buffer)
-         (goto-char (car oidx--edit-context-index))
-
-         ;; write back line to index
-         (dolist (col-widget oidx--edit-widgets)
-           (setq val (widget-value (cdr col-widget)))
-           (if (eq (car col-widget) 'yank) (setq val (replace-regexp-in-string "|" (regexp-quote "\\vert") val)))
-           (oidx--get-or-set-field (car col-widget) val))
-
-         (setq line (oidx--align-and-fontify-current-line))
-         (beginning-of-line))
-
-       ;; write line to occur if appropriate
-       (if oidx--edit-context-occur
-           (if obuf
-               (if (string= (cdr oidx--edit-context-index)
-                            (cdr oidx--edit-context-occur))
-                   (progn
-                     (pop-to-buffer-same-window obuf)
-                     (goto-char (car oidx--edit-context-occur))
-                     (beginning-of-line)
-                     (let ((inhibit-read-only t))
-                       (delete-region (line-beginning-position) (line-end-position))
-                       (insert line)
-                       (put-text-property (line-beginning-position) (line-end-position)
-                                          'org-index-lbp (car oidx--edit-context-index))))
-                 (error "Occur buffer and index buffer do not match any longer"))
-             (message "Occur buffer has gone, cannot switch back."))
-         (setq oidx--edit-context-occur nil))
-
-       ;; clean up
-       (kill-buffer oidx--edit-buffer-name)
-       (setq oidx--edit-context-index nil)
-       (setq oidx--edit-widgets nil)
-       (beginning-of-line)
-       (message "Index line has been edited.")))
+      ;; update line in occur
+      (let ((inhibit-read-only t))
+        (delete-region (line-beginning-position) (line-end-position))
+        (insert line)
+        (put-text-property (line-beginning-position) (line-end-position)
+                           'org-index-lbp (car oidx--edit-context-index))))
+     
+     ;; invoked from arbitrary node
+     (oidx--edit-context-node
+      (pop-to-buffer-same-window (car oidx--edit-context-node))
+      (goto-char (cdr oidx--edit-context-node)))
+     
+     ;; invoked from index
+     (t
+      (pop-to-buffer-same-window oidx--buffer)
+      (goto-char (car oidx--edit-context-index))))
+    
+    ;; clean up
+    (kill-buffer oidx--edit-buffer-name)
+    (setq oidx--edit-context-index nil)
+    (setq oidx--edit-widgets nil)
+    (beginning-of-line)
+    (message "Index line has been edited.")))
 
 
 (defun oidx--edit-abort ()
@@ -1502,46 +1513,57 @@ Optional argument NO-ERROR suppresses error."
     newcount))
 
 
-(defun oidx--align-and-fontify-current-line (&optional num)
-  "Make current line (or NUM lines) blend well among others."
-  (let (lines lines-fontified)
+(defun oidx--align-and-fontify-current-line ()
+  "Align the current line (might be in occur-buffer or index) as it would be aligned within the index; return the line too."
+  ;; Do this by creating a small table, which contains the index headings and the current line
+  (let (line line-fontified)
     ;; get current content
-    (unless num (setq num 1))
-    (setq lines (delete-and-extract-region (line-beginning-position) (line-end-position num)))
+    (setq line (delete-and-extract-region (line-beginning-position) (line-end-position 1)))
     ;; create minimum table with fixed-width columns to align and fontify new line
     (insert
      (setq
-      lines-fontified
+      line-fontified
       (with-temp-buffer
         (org-set-font-lock-defaults)
+
+	;; copy all lines of headings including any width-cookies
         (insert oidx--headings-visible)
-        ;; fill columns, so that aligning cannot shrink them
-        (goto-char (point-min))
-        (search-forward "|")
-        (while (search-forward " " (line-end-position) t)
-          (replace-match "." nil t))
-        (goto-char (point-min))
-        (while (search-forward ".|." (line-end-position) t)
-          (replace-match " | " nil t))
-        (goto-char (point-min))
-        (while (search-forward "|." (line-end-position) t)
-          (replace-match "| " nil t))
+
+	;; Spaces in first line of heading are replaced by tilde (~), so aligning table cannot shrink them;
+	;; however, we make sure, that next to a bar (|) there are spaces, because otherwise aligning would
+	;; introduce them and change line length in the process
+	(mapc (lambda (x)
+		(goto-char (point-min))
+		(search-forward "|")
+		(backward-char)
+		(while (search-forward (car x) (line-end-position) t)
+		  (replace-match (cdr x) nil t)))
+	      '((" " . "~") ("~|~" . " | ") ("|~" . "| ") ("~|" . " |")))
+
+	;; insert line
         (goto-char (point-max))
-        (insert lines)
+        (insert line)
         (forward-line 0)
+
+	;; if the first cell of line starts with a hyphen (-) aligning would turn the whole line into a separator line
         (let ((start (point)))
           (while (re-search-forward "^\s +|-" nil t)
             (replace-match "| -"))
           (goto-char start))
+
+	;; align and fontify
         (org-mode)
         (org-table-align)
         (font-lock-fontify-region (point-min) (point-max))
-        (goto-char (point-max))
+
+	;; extract aligned line
+	(goto-char (point-max))
         (if (eq -1 (skip-chars-backward "\n"))
             (delete-char 1))
-        (forward-line (- 1 num))
-        (buffer-substring (line-beginning-position) (line-end-position num)))))
-    lines-fontified))
+        (forward-line 0)
+        (buffer-substring (line-beginning-position) (line-end-position 1)))))
+    
+    line-fontified))
 
 
 (defun oidx--promote-current-line ()
