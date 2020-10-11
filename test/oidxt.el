@@ -154,6 +154,14 @@
     (should (string= "2" (oidx--get-or-set-field 'count)))))
 
 
+(ert-deftest oidxt-test-inc-count-on-action ()
+  (oidxt-with-test-setup
+    (oidxt-do "o - - 1 4 - - <return>")
+    (oidxt-do "o - - 1 4 - - <right>")
+    (oidxt-do "i .")
+    (should (string= "2" (oidx--get-or-set-field 'count)))))
+
+
 (ert-deftest oidxt-test-mark-ring ()
   (oidxt-with-test-setup
     (oidxt-do "o z w e i <down> <return>")
@@ -322,30 +330,6 @@
     (oidxt-do "SPC k i l l <return>")
     (oidxt-do "o f o o <return>")
     (should (= oidx--o-lines-collected 0))))
-
-
-(ert-deftest oidxt-test-inc-count-line-with-ref ()
-  (oidxt-with-test-setup
-    (oidxt-do "o - - 1 4 - - <return>")
-    (oidxt-do "o - - 1 4 - - <right>")
-    (oidxt-do "i .")
-    (should (string= "2" (oidx--get-or-set-field 'count)))))
-
-
-(ert-deftest oidxt-test-inc-count-line-with-id ()
-  (oidxt-with-test-setup
-    (oidxt-do "o - - 1 3 - - <return>")
-    (oidxt-do "o - - 1 3 - - <right>")
-    (oidxt-do "i .")
-    (should (string= "2" (oidx--get-or-set-field 'count)))))
-
-
-(ert-deftest oidxt-test-inc-count-line-with-yank ()
-  (oidxt-with-test-setup
-    (oidxt-do "o - - 6 - - <return>")
-    (oidxt-do "o - - 6 - - <right>")
-    (oidxt-do "i .")
-    (should (string= "2" (oidx--get-or-set-field 'count)))))
 
 
 (ert-deftest oidxt-test-sort-index ()
