@@ -450,11 +450,6 @@ the most important subcommands with one additional key.
         kill-new-text  ; text that will be appended to kill ring
         message-text)  ; text that will be issued as an explanation
 
-    (let ((oidx--skip-verify-id t))
-
-      ;; read command from user
-      (setq command (oidx--read-command)))
-
     
     (catch 'new-index
 
@@ -475,6 +470,8 @@ the most important subcommands with one additional key.
       ;; Find out, what we are supposed to do and prepare
       ;;
 
+      ;; read command from user
+      (setq command (oidx--read-command))
 
       ;; Arrange for beeing able to return
       (when (and (memq command '(occur node index example sort maintain))
@@ -511,7 +508,9 @@ the most important subcommands with one additional key.
                        (org-match-line org-table-line-regexp))
                   (let ((search-id (oidx--get-or-set-field 'id)))
                     (if search-id
-                        (oidx--find-id search-id)
+			(progn
+			  (oidx--update-current-line)
+			  (oidx--find-id search-id))
                       "Current line has no id"))
                 "Not at index table")))
 
@@ -567,7 +566,8 @@ the most important subcommands with one additional key.
        ((eq command 'sort)
 
 	(oidx--enter-index-to-stay)
-        (oidx--do-sort-index)
+        (oidx--sort-index)
+	(org-table-goto-column 1)
         (setq message-text "Index has been sorted"))
 
         
@@ -612,9 +612,10 @@ the most important subcommands with one additional key.
     (while (and (not command)
                 (not detailed-prompt))
       (if (sit-for echo-keystrokes)
-          (message "org-index (type a shortcut char or <space>,h,? for a detailed prompt) - "))
+          (message "org-index (type a shortcut char or <space>,h,? for a detailed prompt) -- "))
 
       (setq char (downcase (key-description (read-key-sequence nil))))
+      (if (string= char "c-g") (keyboard-quit))
       (setq detailed-prompt (or (string= char "?") (string= char "spc")))
       
       (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
@@ -800,7 +801,7 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
       (unless oidx--aligned-and-sorted
         ;; align, fontify and sort table once for this emacs session
         (message "Align, fontify and sort index table (once per emacs session)...")
-        (oidx--do-sort-index)
+        (oidx--sort-index)
         (goto-char oidx--below-hline)
 
         (org-table-align)
@@ -1360,38 +1361,43 @@ CREATE-REF creates a reference and passes it to yank."
 (defun oidx--do-index ()
   "Perform command index."
             
-  (let (char prompt)
+  (let (char prompt text)
 
     ;; start with short prompt but give more help on next iteration
-    (setq prompt "Please specify where to go in index:  .) line for this node,  l) last line inserted,  i) start of index table - ")
+    (setq prompt "Please specify where to go in index:  <space>,.) line for this node or occur,  l) last line inserted,  i) start of index table -- ")
   
     ;; read one character
-    (while (not (memq char (list ?i ?. ?l)))
+    (while (not (memq char (list ?i ?. ?l ? )))
       (setq char (read-char prompt)))
-    
-    (cond
-     ((eq char ?.)
-      (setq search-id (or (org-id-get)
-                          (error "Current node has no id")))
-      (oidx--enter-index-to-stay)
-      (if (oidx--go 'id search-id)
-          (progn
-            (oidx--update-current-line)
-            (org-table-goto-column 1)
-            "At matching index line")
-        (format "Did not find index line with id '%s'" search-id)))
+    (if (eq char ? ) (setq char ?.))
 
-     ((eq char ?l)
-      (oidx--enter-index-to-stay)
-      (if (oidx--go 'fingerprint oidx--last-fingerprint)
-          (progn
-            (oidx--update-current-line)
-            (org-table-goto-column 1)
-            (format "Found latest index line"))
-        (format "Did not find latest index line")))
-     
-     (t (oidx--enter-index-to-stay)
-        "At index table"))))
+    (setq text
+	  (cond
+	   ((and (eq char ?.) oidx--within-occur)
+	    (let ((pos (or (get-text-property (point) 'org-index-lbp)
+			   (error "This line is not from index"))))
+	      (oidx--enter-index-to-stay)
+	      (goto-char pos))
+	    "At matching index line")
+	   ((eq char ?.)
+	    (setq search-id (or (org-id-get)
+				(error "Current node has no id")))
+	    (oidx--enter-index-to-stay)
+	    (if (oidx--go 'id search-id)
+		"At matching index line"
+              (format "Did not find index line with id '%s'" search-id)))
+	   
+	   ((eq char ?l)
+	    (oidx--enter-index-to-stay)
+	    (if (oidx--go 'fingerprint oidx--last-fingerprint)
+		(format "Found latest index line")
+              (format "Did not find latest index line")))
+	   
+	   (t (oidx--enter-index-to-stay)
+              "At index table")))
+
+    (org-table-goto-column 1)
+    text))
 
 
 
@@ -1403,7 +1409,7 @@ CREATE-REF creates a reference and passes it to yank."
    (apply 'encode-time (append '(0 0 0) (nthcdr 3 (decode-time))))))
 
 
-(defun oidx--do-sort-index ()
+(defun oidx--sort-index ()
   "Sort index table."
 
   (let ((is-modified (buffer-modified-p))
@@ -1468,23 +1474,16 @@ CREATE-REF creates a reference and passes it to yank."
 
 
 ;; Reading, modifying and handling single index line
-(defun oidx--update-line (&optional id-or-pos no-error)
-  "Update columns count and last-accessed in line ID-OR-POS.
-Optional argument NO-ERROR suppresses error."
+(defun oidx--update-line (pos)
+  "Update columns count and last-accessed in line at POS."
 
   (let (initial count)
 
     (with-current-buffer oidx--buffer
       (unless buffer-read-only
-
         (setq initial (point))
-
-        (if (if (integerp id-or-pos)
-                (goto-char id-or-pos)
-              (oidx--go 'id id-or-pos))
-            (setq count (oidx--update-current-line))
-          (unless no-error (error "Did not find reference or id '%s'" (list id-or-pos))))
-        
+	(goto-char pos)
+        (setq count (oidx--update-current-line))
         (goto-char initial)))
     count))
 
@@ -1732,7 +1731,7 @@ Return t or nil, leave point on line or at top of table, needs to be in buffer i
 
 
 (defun oidx--find-id (id &optional other)
-  "Perform command head: Find node with ID and present it.
+  "Perform command node: Find node with ID and present it.
 If OTHER in separate window."
   
   (let (message marker)
@@ -1741,7 +1740,6 @@ If OTHER in separate window."
 
     (if marker
         (progn
-          (oidx--update-line id)
           (if other
               (pop-to-buffer (marker-buffer marker))
             (pop-to-buffer-same-window (marker-buffer marker)))
@@ -2128,18 +2126,18 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
         id)
 
     (if temporary
-        (let ((file-name (concat temporary-file-directory "oidx--example-index.org"))
+        (let ((file-name (concat temporary-file-directory "org-index-example-index.org"))
               (buffer-name "*org-index-example-index*"))
           (setq buffer (get-buffer-create buffer-name))
           (with-current-buffer buffer
-            ;; but it needs a file for its index to be found
-            (unless (string= (buffer-file-name) file-name)
-              (set-visited-file-name file-name))
-            (rename-buffer buffer-name) ; name is change by line above
-
-            (erase-buffer)
+	    (setq buffer-file-name file-name)
+	    ;; clear buffer
+	    (setq buffer-save-without-query t)
+	    (auto-save-mode t) ; disables mode
+	    (ignore-errors (delete-file buffer-auto-save-file-name))
+	    (erase-buffer)
             (org-mode)))
-
+      
       (setq buffer (get-buffer (read-buffer "Please choose a buffer, where the new node for the index table will be appended. Buffer: "))))
     (setq title (read-from-minibuffer "Please enter the title of the index node (leave empty for default 'index'): "))
     (if (string= title "") (setq title "index"))
@@ -2210,8 +2208,6 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 
       ;; make sure, that node can be found
       (org-id-add-location id (buffer-file-name))
-      (setq buffer-save-without-query t)
-      (basic-save-buffer)
 
       (while (not (org-match-line org-table-line-regexp)) (forward-line -1))
       (unless buffer-read-only (org-table-align))
@@ -2219,7 +2215,8 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 
       ;; read back some info about new index
       (let ((org-index-id id))
-	(oidx--verify-id))
+	(oidx--verify-id)
+	(oidx--get-decoration-from-ref-field firstref))
 
       ;; remember at least for this session
       (setq org-index-id id)
@@ -2236,6 +2233,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
               (select-window (split-window-vertically)))
             ;; show new index
             (pop-to-buffer-same-window buffer)
+	    (set-buffer-modified-p nil)
             (org-id-goto id)
             (oidx--unfold-buffer)
             (if compare
@@ -2260,9 +2258,12 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 
           (when (not org-index-key)
             (if (y-or-n-p "The central function `org-index' can be bound to a global key.  Do you want to make such a binding for now ? ")
-	        (let ((prompt (concat "Please type your desired key sequence. For example, with the user-prefix key C-c, these keys are available: " (mapconcat 'char-to-string (remove nil (mapcar (lambda (c) (if (key-binding (kbd (format "C-c %c" c))) nil c)) (number-sequence ?a ?z))) ",") ". But of course, you may choose any free key-sequence you like (C-g to cancel): "))
-		      (preprompt "")
-		      key)
+	        (let* ((free-prefix-keys (remove nil (mapcar (lambda (c) (if (key-binding (kbd (format "C-c %c" c))) nil c)) (number-sequence ?a ?z))))
+		       (prompt (concat "Please type your desired key sequence. For example, with the user-prefix key C-c, these keys are available: "
+				       (mapconcat 'char-to-string free-prefix-keys ",")
+				       ". But of course, you may choose any free key-sequence you like (C-g to cancel) -- "))
+		       (preprompt "")
+		       key)
 	          (while (progn
 		           (setq key (read-key-sequence (concat preprompt prompt)))
 		           (setq preprompt (format "Key '%s' is already taken; please choose another one. " (kbd key)))
@@ -2673,7 +2674,6 @@ Argument LINES-WANTED specifies number of lines to display."
     (pop-to-buffer oidx--buffer)
     (goto-char pos)
     (org-reveal t)
-    (oidx--update-current-line)
     (beginning-of-line)))
 
 
@@ -2700,25 +2700,27 @@ Argument LINES-WANTED specifies number of lines to display."
       (let ((id (oidx--get-or-set-field 'id))
             (ref (oidx--get-or-set-field 'ref))
             (yank (oidx--get-or-set-field 'yank)))
-        (if id
-            (oidx--find-id id other)
-          (if ref
+	(cond
+         (id
+	  (oidx--update-line (get-text-property (point) 'org-index-lbp))
+          (oidx--find-id id other))
+         (ref
+	  (oidx--update-line (get-text-property (point) 'org-index-lbp))
+          (org-mark-ring-goto)
+          (message "Found reference %s (no node is associated)" ref))
+         (yank
+          (oidx--update-line (get-text-property (point) 'org-index-lbp))
+          (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
+          (kill-new yank)
+          (org-mark-ring-goto)
+          (if (and (>= (length yank) 4) (string= (substring yank 0 4) "http"))
               (progn
-                (org-mark-ring-goto)
-                (message "Found reference %s (no node is associated)" ref))
-            (if yank
-                (progn
-                  (oidx--update-line (get-text-property (point) 'org-index-lbp))
-                  (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
-                  (kill-new yank)
-                  (org-mark-ring-goto)
-                  (if (and (>= (length yank) 4) (string= (substring yank 0 4) "http"))
-                      (progn
-                        (browse-url yank)
-                        (message "Opened '%s' in browser (and copied it too)" yank))
-                    (message "Copied '%s' (no node is associated)" yank)))
-              (error "Internal error, this line contains neither id, nor reference, nor text to yank")))))
-    (message "Not at table")))
+                (browse-url yank)
+                (message "Opened '%s' in browser (and copied it too)" yank))
+            (message "Copied '%s' (no node is associated)" yank)))
+	 (t
+          (error "Internal error, this line contains neither id, nor reference, nor text to yank")))
+    (message "Not at table"))))
 
 
 (defun oidx--o-action-quit ()

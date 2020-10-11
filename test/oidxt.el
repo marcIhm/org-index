@@ -52,6 +52,8 @@
 (defvar oidxt-index-file (concat base-dir "/tmp/" oidxt-index-buffer-name))
 (defvar oidxt-work-file (concat base-dir "/tmp/" oidxt-work-buffer-name))
 (defvar oidxt-locations-file (concat base-dir "/tmp/" oidxt-locations-buffer-name))
+(defvar oidxt-vars-to-save '(org-index-id oidx--ref-head oidx--ref-tail oidx--ref-regex oidx--ref-format))
+(defvar oidxt-saved-state nil)
 
 (defvar oidxt-id-index "366f022c-2c43-4fce-a269-88f04122a5ca")
 (defvar oidxt-id-1 "588bda71-38b7-41a9-90f0-cc9fb39991fa")
@@ -78,8 +80,8 @@
 (ert-deftest oidxt-test-respect-sequence-yank ()
   (oidxt-with-test-setup
     (setq org-index-edit-on-yank '(keywords yank))
-    (oidxt-do "y a n k <return> f o o <return> b a r <return>")
-    (oidxt-do "o c c u r <return> f o o <return>")
+    (oidxt-do "y f o o <return> b a r <return>")
+    (oidxt-do "o f o o <return>")
     (should (string= "bar" (current-kill 0)))))
 
 
@@ -126,11 +128,12 @@
 
 (ert-deftest oidxt-test-short-help ()
   (oidxt-with-test-setup
-    (global-set-key (kbd "C-c i") 'org-index-dispatch)
+    (global-set-key (kbd "C-c i") 'org-index)
     (execute-kbd-macro (kbd "C-c i ? h e l p <return>"))
+    (global-unset-key (kbd "C-c i"))
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
-      (should (= (line-number-at-pos) 19)))))
+      (should (= (line-number-at-pos) 15)))))
 
 
 (unless (functionp 'org-duration-from-minutes)
@@ -139,14 +142,14 @@
 
 (ert-deftest oidxt-test-occur-result ()
   (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> e i n <backspace> n s <return>")
+    (oidxt-do "o e i n <backspace> n s <return>")
     (should (string= (buffer-name) "oidxt-work.org"))
     (should (looking-at "* --13--"))))
 
 
 (ert-deftest oidxt-test-occur-increment-count ()
   (oidxt-with-test-setup
-    (oidxt-do "o c c u r <return> e i n s <down> +")
+    (oidxt-do "o e i n s <down> +")
     (should (string= (buffer-name) "*org-index-occur*"))
     (should (string= "2" (oidx--get-or-set-field 'count)))))
 
@@ -178,15 +181,15 @@
   (oidxt-with-test-setup
     (setq org-index-id nil)
     (condition-case result
-        (oidxt-do (format "c r e a t e <return> o i d x t - e r t - i n d e x . o r g <return> f o o <return> # 1 # <return> %s %s"
-                          (oidxt-y-or-n-ans nil) (oidxt-y-or-n-ans nil)))
+        (oidxt-do (format "c r e a t e <return> o i d x t - i n d e x . o r g <return> f o o <return> # 1 # <return> %s"
+                          (oidxt-y-or-n-ans nil)))
       (error (should (string-match "^Did not make the id of this new index permanent" (cdr result)))))
     (switch-to-buffer "oidxt-work.org")
     (goto-char (point-max))
     (org-reveal)
     (forward-line -1)
     (forward-char 3)
-    (oidxt-do "a d d <return> f o o <return> b a r <return>" "C-u")
+    (oidxt-do "C-u" "a")
     (yank)
     (forward-line 0)
     (should (looking-at "\\*\\* #2# neun"))))
@@ -304,13 +307,11 @@
 
 (ert-deftest oidxt-test-yank ()
   (oidxt-with-test-setup
-    (oidxt-do "y a n k <return> q u x <return> f o o b a r")
-    (oidxt-do "i n d e x <return> .")
-    (oidxt-do "c o l u m n <return> k b a z")
-    (oidxt-do "o c c u r <return> b a z <return>")
+    (oidxt-do "y q u x <return> f o o b a r")
+    (oidxt-do "o q u x <return>")
     (should (string= (current-kill 0)
                      "foobar"))
-    (oidxt-do "i n d e x <return> <backspace>")
+    (oidxt-do "i l")
     (should (string= (oidx--get-or-set-field 'yank) "foobar"))))
 
 
@@ -323,9 +324,34 @@
     (should (= oidx--o-lines-collected 0))))
 
 
+(ert-deftest oidxt-test-inc-count-line-with-ref ()
+  (oidxt-with-test-setup
+    (oidxt-do "o - - 1 4 - - <return>")
+    (oidxt-do "o - - 1 4 - - <right>")
+    (oidxt-do "i .")
+    (should (string= "2" (oidx--get-or-set-field 'count)))))
+
+
+(ert-deftest oidxt-test-inc-count-line-with-id ()
+  (oidxt-with-test-setup
+    (oidxt-do "o - - 1 3 - - <return>")
+    (oidxt-do "o - - 1 3 - - <right>")
+    (oidxt-do "i .")
+    (should (string= "2" (oidx--get-or-set-field 'count)))))
+
+
+(ert-deftest oidxt-test-inc-count-line-with-yank ()
+  (oidxt-with-test-setup
+    (oidxt-do "o - - 6 - - <return>")
+    (oidxt-do "o - - 6 - - <right>")
+    (oidxt-do "i .")
+    (should (string= "2" (oidx--get-or-set-field 'count)))))
+
+
 (ert-deftest oidxt-test-sort-index ()
   (oidxt-with-test-setup
-    (oidxt-do "s o r t <return> i n d e x <return> r e f <return>")
+    (oidxt-do "o - - 1 4 - - <return>")
+    (oidxt-do "SPC s o r t")
     (should (looking-at "--14--"))))
 
 
@@ -359,19 +385,6 @@
     (oidxt-do "m v e r i f y <return>")
     (should (string= oidx--message-text
                      "All ids of index are valid."))))
-
-
-(ert-deftest oidxt-test-sort-buffer ()
-  (oidxt-with-test-setup
-    (switch-to-buffer (get-buffer-create "*oidxt-scratch*"))
-    (erase-buffer)
-    (insert "--4-- foo\nbar --2--\n--5-- baz\n")
-    (mark-whole-buffer)
-    (oidxt-do "s o r t <return> b u f f e r <return> y")
-    (beginning-of-buffer)
-    (should (search-forward "bar --2--"))
-    (should (search-forward "--4-- foo"))
-    (should (search-forward "--5-- baz"))))
 
 
 (ert-deftest oidxt-test-add-update ()
@@ -444,8 +457,8 @@
     (previous-line 2)
     (forward-char 2)
     (insert "foo ")
-    (oidxt-do "i n d e x <return> .")
-    (oidxt-do "a d d <return>")
+    (oidxt-do "i .")
+    (oidxt-do "a")
     (should (string= "foo vier --4--" (oidx--get-or-set-field 'keywords)))))
 
 
@@ -462,28 +475,9 @@
     (previous-line 2)
     (forward-char 2)
     (insert "foo ")
-    (oidxt-do "m a i n t a i n <return> u p d a t e <return> y")
+    (oidxt-do "m u p d a t e <return> y")
     ;; String "foo " should have been transported from headline into index; see buffer
     (should (search-forward "foo vier"))))
-
-(ert-deftest oidxt-test-ping ()
-  (oidxt-with-test-setup
-    (previous-line 2)
-    (oidxt-do "p i n g <return>")
-    (should (string= oidx--message-text
-		     "'eins-drei' has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--4--' and ready to yank '--4--'."))))
-
-
-(ert-deftest oidxt-test-ping-parent ()
-  (oidxt-with-test-setup
-    (previous-line 2)
-    (org-cycle)
-    (forward-line 4)
-    (insert "** Neu\n")
-    (forward-line -1)
-    (oidxt-do "p i n g <return>")
-    (should (string= oidx--message-text
-		     "'eins-drei' (parent node, 1 level up) has been accessed 1 times between [2013-12-19 Do] and nil; category is 'nil', reference is '--4--' and ready to yank '--4--'."))))
 
 
 (ert-deftest oidxt-test-edit-on-add ()
@@ -587,13 +581,21 @@
   (org-cycle '(16))
   (delete-other-windows)
   (end-of-buffer)
-  (forward-line -2))
+  (forward-line -2)
+
+  ;; save state
+  (unless oidxt-saved-state
+    (setq oidxt-saved-state (mapcar (lambda (s) (cons s (symbol-value s))) oidxt-vars-to-save))))
 
 
 (defun oidxt-teardown-test ()
   (interactive)
+  ;; avoid having to save buffers
   (with-current-buffer oidxt-work-buffer-name (set-buffer-modified-p nil))
-  (with-current-buffer oidxt-index-buffer-name (set-buffer-modified-p nil)))
+  (with-current-buffer oidxt-index-buffer-name (set-buffer-modified-p nil))
+
+  ;; restore saved state
+  (mapcar (lambda (sv) (set (car sv) (cdr sv))) oidxt-saved-state))
 
 
 (defun oidxt-y-or-n-ans (bool)
@@ -630,7 +632,7 @@
   |  --9-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | drei           |      |      |
   |  --8-- | " oidxt-id-1                       " | [2013-12-19 Do] |          |       |     1 |                       | zwei-zwei-eins |      |      |
   |  --7-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei-zwei      |      |      |
-  |  --6-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei-eins      |      |      |
+  |  --6-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei-eins      | six  |      |
   |  --5-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei           |      |      |
   |  --4-- | " oidxt-id-3                       " | [2013-12-19 Do] |          |       |     1 |                       | eins-drei      |      |      |
   |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Do 10:00] | eins-zwei      |      |      |
@@ -692,7 +694,7 @@
 
 (defun oidxt-clear-buffer ()
   (setq buffer-save-without-query t)
-  (auto-save-mode t) ; actually disables
+  (auto-save-mode t) ; disables mode
   (ignore-errors (delete-file buffer-auto-save-file-name))
   (erase-buffer)
   (set-buffer-modified-p nil))
