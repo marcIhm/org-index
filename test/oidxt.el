@@ -297,6 +297,16 @@
                (progn (end-of-line 2) (current-column))))))
 
 
+(ert-deftest oidxt-test-edit-yank-from-occur ()
+  (oidxt-with-test-setup
+    (oidxt-do "o y a n k , e i n s <right>")
+    (oidxt-do "e")
+    (execute-kbd-macro (kbd "C-e f o o C-c C-c"))
+    (should (string= (buffer-name) oidx--o-buffer-name))
+    (should (string= (oidx--get-or-set-field 'keywords)
+                     "zwei-einsfoo"))))
+
+
 (ert-deftest oidxt-test-edit-from-node ()
   (oidxt-with-test-setup
    (previous-line)
@@ -616,7 +626,7 @@
   |  --9-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | drei           |      |      |
   |  --8-- | " oidxt-id-1                       " | [2013-12-19 Do] |          |       |     1 |                       | zwei-zwei-eins |      |      |
   |  --7-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei-zwei      |      |      |
-  |  --6-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei-eins      | six  |      |
+  |  --6-- |                                      | [2013-12-19 Do] | yank     |       |     1 |                       | zwei-eins      | six  |      |
   |  --5-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei           |      |      |
   |  --4-- | " oidxt-id-3                       " | [2013-12-19 Do] |          |       |     1 |                       | eins-drei      |      |      |
   |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Do 10:00] | eins-zwei      |      |      |

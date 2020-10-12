@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 6.3.0
+;; Version: 7.0.0
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -198,9 +198,9 @@
 (defvar oidx--recording-screencast nil "Set Non-nil, if screencast is beeing recorded to trigger some minor tweaks.")
 (defvar oidx--aligned-and-sorted nil "For this Emacs session: remember if aligned and sorted.")
 (defvar oidx--edit-widgets nil "List of widgets used to edit.")
-(defvar oidx--edit-context-index nil "Position and line used for index in edit buffer.")
-(defvar oidx--edit-context-occur nil "Position and line used for occur in edit buffer.")
-(defvar oidx--edit-context-node nil "Buffer and position for node in edit buffer.")
+(defvar oidx--edit-where-from-index nil "Position and line used for index in edit buffer.")
+(defvar oidx--edit-where-from-occur nil "Position and line used for occur in edit buffer.")
+(defvar oidx--edit-where-from-node nil "Buffer and position for node in edit buffer.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")          
 
@@ -214,7 +214,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "6.2.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.0.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -339,6 +339,14 @@ if VALUE cannot be found."
          ,retvar))))
 
 
+(defmacro oidx--plist-put (plist &rest args)
+  "Version of plist, that already includes the obligatory setq around."
+  (let ((list nil))
+    (while args
+      (push `(setq ,plist (plist-put ,plist ,(pop args) ,(pop args))) list))
+    (cons 'progn (nreverse list))))
+
+
 (defun org-index (arg)
   ;; Do NOT edit the part of this help-text before version number. It will
   ;; be overwritten with Commentary-section from beginning of this file.
@@ -348,7 +356,7 @@ if VALUE cannot be found."
   "Fast search for selected org-nodes and things outside.
 
 org-index creates and updates an index table with keywords; each line
-either points to a heading in org, references something outside of org
+either points to a heading in org, references a folder outside of org
 or carries an url or a snippet of text.  When searching the index, the
 set of matching lines is updated with every keystroke; results are
 sorted by usage count and date, so that frequently or recently used
@@ -363,32 +371,18 @@ they are well suited to be used outside of org, e.g. in folder names,
 ticket systems or on printed documents.
 
 On first invocation org-index will assist you in creating the index
-table. It has these columns:
-
- - ref: The reference (if any) 
- - category: Category, either copied from the node added or freely chosen
- - keywords: Any text, that helps you finding this node during occur; when
-    adding a node to the index, its heading is stored as keywords
- - tags: Tags (if any) of the node, that is associated with this line
-
- - count: How many times has this index line be accessed ? Used
-   in sorting the index
- - level: For a node, this is the outline-level in hierarchie
- - last-accessed:  Timestamp of last access, used in sorting the index
- - created: Date of creation 
- - id: id (created by org-id) of node, associated with this index-line
-
- - yank: Optional text, that will be yanked when choosing this
-   line in occur
-
-To customize, what is shown during occur, you may reorder the
-columns of the index and limit the number of columns displayed by
-setting `org-index-occur-columns' (default is 4).
+table.
 
 To start using your index, invoke the subcommand 'add' to create
 index entries and 'occur' to find them.
 
-This is version 6.2.2 of org-index.el.
+The set of columns within the index-table is fixed (see variable
+`oidx--all-columns') but can be arranged in any order you wish; just
+edit the index table. The number of columns shown during occur is
+determined by `org-index-occur-columns'. Using both features allows to
+make columns invisible, that you dont care about.
+
+This is version 7.0.0 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -464,7 +458,7 @@ the most important subcommands with one additional key.
       (oidx--parse-table t)
 
       ;; save context before entering index
-      (oidx--retrieve-context)
+      (oidx--retrieve-context-on-invoke t)
 
       ;;
       ;; Find out, what we are supposed to do and prepare
@@ -533,7 +527,7 @@ the most important subcommands with one additional key.
 
           (setq args (oidx--collect-values-from-user org-index-edit-on-ref))
           (setq newref (oidx--get-save-maxref))
-          (setq args (plist-put args 'ref newref))
+          (oidx--plist-put args 'ref newref 'category "ref")
           (apply 'oidx--create-new-line args)
           
           (setq kill-new-text newref)
@@ -547,8 +541,8 @@ the most important subcommands with one additional key.
           
           (setq vals (oidx--collect-values-from-user org-index-edit-on-yank))
           (if (setq yank (plist-get vals 'yank))
-              (plist-put vals 'yank (replace-regexp-in-string "|" "\\vert" yank nil 'literal)))
-          (plist-put vals 'category "yank")
+              (oidx--plist-put vals 'yank (replace-regexp-in-string "|" "\\vert" yank nil 'literal)))
+          (oidx--plist-put vals 'category "yank")
           (apply 'oidx--create-new-line vals)
           (setq message-text "Added new row with text to yank")))
        
@@ -838,14 +832,16 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
       (goto-char initial-point))))
 
 
-(defun oidx--retrieve-context ()
-  "Collect context information before starting with command."
+(defun oidx--retrieve-context-on-invoke (&optional get-category)
+  "Collect context information before starting with command.
+If GET-CATEGORY is set, retrieve it too."
 
   ;; get category of current node
-  (setq oidx--category-before
-        (save-excursion ; workaround: org-get-category does not give category when at end of buffer
-          (beginning-of-line)
-          (org-get-category (point) t)))
+  (when get-category
+    (setq oidx--category-before
+          (save-excursion ; workaround: org-get-category does not give category when at end of buffer
+            (beginning-of-line)
+            (org-get-category (point) t))))
 
   ;; Find out, if we are within index table or occur buffer
   (setq oidx--within-index-node (string= (org-id-get) org-index-id))
@@ -926,28 +922,28 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
   "Perform command or occur-action edit."
   (let (buffer-keymap field-keymap keywords-pos cols-vals maxlen)
 
-    (setq oidx--edit-context-occur nil)
-    (setq oidx--edit-context-node nil)
+    (setq oidx--edit-where-from-occur nil)
+    (setq oidx--edit-where-from-node nil)
     
     ;; save context and change to index if invoked from outside
     (cond
      (oidx--within-occur
       (let ((pos (get-text-property (point) 'org-index-lbp)))
         (oidx--o-test-stale pos)
-        (setq oidx--edit-context-occur (cons (point) (oidx--line-in-canonical-form)))
+        (setq oidx--edit-where-from-occur (cons (point) (oidx--line-in-canonical-form)))
         (set-buffer oidx--buffer)
         (goto-char pos)))
       
      ((not oidx--within-index-node)
       (let ((id (org-id-get)))
-        (setq oidx--edit-context-node (cons (current-buffer) (point)))
+        (setq oidx--edit-where-from-node (cons (current-buffer) (point)))
         (set-buffer oidx--buffer)
         (unless (and id (oidx--go 'id id))
-          (setq oidx--edit-context-node nil)
+          (setq oidx--edit-where-from-node nil)
           (error "This node is not in index")))))
 
     ;; remember context and get content of line, that will be edited
-    (setq oidx--edit-context-index (cons (point) (oidx--line-in-canonical-form)))
+    (setq oidx--edit-where-from-index (cons (point) (oidx--line-in-canonical-form)))
     (-setq (cols-vals . maxlen) (oidx--content-of-current-line))
 
     ;; create keymaps
@@ -1008,8 +1004,8 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
       
       ;; check, if index has changed while editing
       (save-excursion
-        (goto-char (car oidx--edit-context-index))
-        (unless (string= (cdr oidx--edit-context-index)
+        (goto-char (car oidx--edit-where-from-index))
+        (unless (string= (cdr oidx--edit-where-from-index)
                          (oidx--line-in-canonical-form))
           (switch-to-buffer oidx--edit-buffer-name)
           (error "Index table has changed: Cannot find line, that this buffer is editing")))
@@ -1025,10 +1021,10 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
     
     (cond 
      ;; invoked from occur
-     (oidx--edit-context-occur
+     (oidx--edit-where-from-occur
       (pop-to-buffer-same-window (or (get-buffer oidx--o-buffer-name)
 				     (error "Occur buffer has gone cannot update (index has been updated though)")))
-      (goto-char (car oidx--edit-context-occur))
+      (goto-char (car oidx--edit-where-from-occur))
       (beginning-of-line)
 
       ;; update line in occur
@@ -1036,21 +1032,21 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
         (delete-region (line-beginning-position) (line-end-position))
         (insert line)
         (put-text-property (line-beginning-position) (line-end-position)
-                           'org-index-lbp (car oidx--edit-context-index))))
+                           'org-index-lbp (car oidx--edit-where-from-index))))
      
      ;; invoked from arbitrary node
-     (oidx--edit-context-node
-      (pop-to-buffer-same-window (car oidx--edit-context-node))
-      (goto-char (cdr oidx--edit-context-node)))
+     (oidx--edit-where-from-node
+      (pop-to-buffer-same-window (car oidx--edit-where-from-node))
+      (goto-char (cdr oidx--edit-where-from-node)))
      
      ;; invoked from index
      (t
       (pop-to-buffer-same-window oidx--buffer)
-      (goto-char (car oidx--edit-context-index))))
+      (goto-char (car oidx--edit-where-from-index))))
     
     ;; clean up
     (kill-buffer oidx--edit-buffer-name)
-    (setq oidx--edit-context-index nil)
+    (setq oidx--edit-where-from-index nil)
     (setq oidx--edit-widgets nil)
     (beginning-of-line)
     (message "Index line has been edited.")))
@@ -1060,7 +1056,7 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
   "Function to abort editing in Edit buffer."
   (interactive)
   (kill-buffer oidx--edit-buffer-name)
-  (setq oidx--edit-context-index nil)
+  (setq oidx--edit-where-from-index nil)
   (setq oidx--edit-widgets nil)
   (beginning-of-line)
   (message "Edit aborted."))
@@ -1159,7 +1155,7 @@ Optional argument KEYS-VALUES specifies content of new line."
         (setq content (org-make-tag-string (org-get-tags nil t)))))
       
       (unless (string= content "")
-        (setq args (plist-put args col content))))
+        (oidx--plist-put args col content)))
 
     (if (not silent)
         (let ((args-edited (oidx--collect-values-from-user org-index-edit-on-add args)))
@@ -1199,7 +1195,7 @@ Optional argument DEFAULTS gives default values."
                      (plist-get col defaults)))
       
       (unless (string= content "")
-        (setq args (plist-put args col content))))
+        (oidx--plist-put args col content)))
     args))
 
 
@@ -1252,7 +1248,7 @@ CREATE-REF creates a reference and passes it to yank."
       (when (and create-ref
                  (not ref))
         (setq ref (oidx--get-save-maxref))
-        (setq args (plist-put args 'ref ref)))
+        (oidx--plist-put args 'ref ref))
 
       
       (if id-from-index
@@ -1270,7 +1266,7 @@ CREATE-REF creates a reference and passes it to yank."
                     (cons "Updated index line" nil))))
 
         ;; no id here, create new line in index
-        (if ref (setq args (plist-put args 'ref ref)))
+        (if ref (oidx--plist-put args 'ref ref))
         (setq yank (apply 'oidx--create-new-line args))
 
         (setq ret
@@ -2370,7 +2366,7 @@ Optional argument ARG, when given does not limit number of lines shown."
 
 
        ;; space or comma: enter an additional search word
-       ((string= key "SPC")
+       ((member key (list "SPC" ","))
         ;; push current word and clear, no need to change display
         (unless (string= word "")
           (push word words)
@@ -2463,9 +2459,9 @@ Optional argument ARG, when given does not limit number of lines shown."
                    (or (plist-get omframe :end)
                        oidx--below-hline)
                    (- lines-wanted ocount)))
-    (plist-put nmframe :lines (append olines (plist-get nmframe :lines)))
-    (plist-put nmframe :lbps (append olbps (plist-get nmframe :lbps)))
-    (plist-put nmframe :count (+ ocount (plist-get nmframe :count)))
+    (oidx--plist-put nmframe :lines (append olines (plist-get nmframe :lines)))
+    (oidx--plist-put nmframe :lbps (append olbps (plist-get nmframe :lbps)))
+    (oidx--plist-put nmframe :count (+ ocount (plist-get nmframe :count)))
     nmframe))
 
 
@@ -2582,7 +2578,7 @@ Argument LINES-WANTED specifies number of lines to display."
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--o-search-text
-                       "\". <return> jumps to node of line under cursor, <tab> in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `d' shows details, `l' offers links from node to visit; to kill a line from the index use `C-c i k'."
+                       "\". <return> jumps to node of line under cursor, <tab> in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `d' shows details, `l' offers links from node to visit."
                        "\n")
                lines-collected)
               'face 'org-agenda-dimmed-todo-face))
@@ -2629,6 +2625,7 @@ Argument LINES-WANTED specifies number of lines to display."
   (let* ((id (oidx--get-or-set-field 'id))
          (marker (org-id-find id t))
          count)
+    (oidx--o-action-prepare)
     (if marker
         (let (url)
           (setq url (car (org-offer-links-in-entry (marker-buffer marker) marker)))
@@ -2647,7 +2644,7 @@ Argument LINES-WANTED specifies number of lines to display."
   "Increment count of line under cursor and in index."
   (interactive)
   (let (count)
-    (oidx--refresh-parse-table)
+    (oidx--o-action-prepare)
     ;; increment in index
     (setq count (oidx--update-line (get-text-property (point) 'org-index-lbp)))
     ;; increment in this buffer
@@ -2659,6 +2656,7 @@ Argument LINES-WANTED specifies number of lines to display."
 (defun oidx--o-action-clock-in ()
   "Clock into node of line under cursor."
   (interactive)
+  (oidx--o-action-prepare)
   (org-id-goto (oidx--get-or-set-field 'id))
   (org-with-limited-levels (org-clock-in))
   (if oidx--o-win-config (set-window-configuration oidx--o-win-config))
@@ -2669,7 +2667,7 @@ Argument LINES-WANTED specifies number of lines to display."
   "Go to head of index."
   (interactive)
   (let ((pos (get-text-property (point) 'org-index-lbp)))
-    (oidx--refresh-parse-table)
+    (oidx--o-action-prepare)
     (oidx--o-test-stale pos)
     (pop-to-buffer oidx--buffer)
     (goto-char pos)
@@ -2681,6 +2679,7 @@ Argument LINES-WANTED specifies number of lines to display."
   "Go to matching line in index."
   (interactive)
   (let ((id (oidx--get-or-set-field 'id)))
+    (oidx--o-action-prepare)
     (switch-to-buffer oidx--buffer)
     (oidx--go 'id id)
     (beginning-of-line))
@@ -2690,6 +2689,7 @@ Argument LINES-WANTED specifies number of lines to display."
 (defun oidx--o-action-goto-node-other ()
   "Find heading with ref or id in other window; or copy yank column."
   (interactive)
+  (oidx--o-action-prepare)
   (oidx--o-action-goto-node t))
 
 
@@ -2700,10 +2700,11 @@ Argument LINES-WANTED specifies number of lines to display."
       (let ((id (oidx--get-or-set-field 'id))
             (ref (oidx--get-or-set-field 'ref))
             (yank (oidx--get-or-set-field 'yank)))
+        (oidx--o-action-prepare)
 	(cond
          (id
 	  (oidx--update-line (get-text-property (point) 'org-index-lbp))
-          (oidx--find-id id other))
+          (oidx--find-id id other)) ; does its own message
          (ref
 	  (oidx--update-line (get-text-property (point) 'org-index-lbp))
           (org-mark-ring-goto)
@@ -2719,13 +2720,13 @@ Argument LINES-WANTED specifies number of lines to display."
                 (message "Opened '%s' in browser (and copied it too)" yank))
             (message "Copied '%s' (no node is associated)" yank)))
 	 (t
-          (error "Internal error, this line contains neither id, nor reference, nor text to yank")))
-    (message "Not at table"))))
+          (error "Internal error, this line contains neither id, nor reference, nor text to yank"))))))
 
 
 (defun oidx--o-action-quit ()
   "Quit this occur and return to initial state."
   (interactive)
+  (oidx--o-action-prepare)
   (if oidx--o-win-config (set-window-configuration oidx--o-win-config))
   (message "Back to initial state."))
 
@@ -2733,6 +2734,7 @@ Argument LINES-WANTED specifies number of lines to display."
 (defun oidx--o-action-edit ()
   "Edit index line under cursor."
   (interactive)
+  (oidx--o-action-prepare)
   (message (oidx--do-edit)))
 
 
@@ -2740,6 +2742,7 @@ Argument LINES-WANTED specifies number of lines to display."
   "Show details for index line under cursor."
   (interactive)
   (-let (((cols-vals . maxlen) (oidx--content-of-current-line)))
+    (oidx--o-action-prepare)
     (display-buffer (get-buffer-create oidx--details-buffer-name) '((display-buffer-at-bottom)))
     (with-current-buffer oidx--details-buffer-name
       (let ((inhibit-read-only t))
@@ -2758,10 +2761,17 @@ Argument LINES-WANTED specifies number of lines to display."
 (defun oidx--o-action-toggle-help ()
   "Toggle display of usage and column headers."
   (interactive)
+  (oidx--o-action-prepare)
   (oidx--refresh-parse-table)
   ; swap short and long help
   (setq-local oidx--o-help-text (cons (cdr oidx--o-help-text) (car oidx--o-help-text)))
   (overlay-put oidx--o-help-overlay 'display (car oidx--o-help-text)))
+
+
+(defun oidx--o-action-prepare ()
+  "Common preparation for all occur actions."
+  (oidx--retrieve-context-on-invoke)
+  (oidx--refresh-parse-table))
 
 
 (defun oidx--o-test-stale (pos)

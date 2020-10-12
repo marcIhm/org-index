@@ -1,3 +1,19 @@
+* 7.0 until 2020-10-12 Mo
+
+  - This release is a big release of rewriting and removal
+  - Rewrote the occur command to reduce complexity
+  - Only one sorting strategy is supported now, removed `org-index-sort-by'
+  - Removed background sorting
+  - Disallowed custom columns (starting wit a dot '.')
+  - Sorting now only relates to index table (not arbitrary regions)
+  - Removed commands ping, column, find-ref and highlight
+  - Simplified command node: It now only works from within index
+  - Command details now works from within index too
+  - Document columns of index table and their purpose
+  - Remove ability to search for refererence under cursor
+  - Prefix arguments no longer allowed
+  - Removed interface for lisp functions, e.g. org-index-new-line;
+
 * 6.2 until 2020-09-14 Mo
 
   - Require dash and orgmode for package.el
