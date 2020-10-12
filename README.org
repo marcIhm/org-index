@@ -119,7 +119,7 @@
     - Run rake to copy those pieces of information into 
       README.org and ChangeLog.org
     - git add/commit as appropriate 
-    - $v=x.y.z ; git tag -a -m $v $v ; git push ; git push --tags
+    - v=x.y.z ; git tag -a -m $v $v ; git push ; git push --tags
 
 ** Latest Change Log
 
