@@ -147,6 +147,13 @@
     (should (looking-at "* --13--"))))
 
 
+(ert-deftest oidxt-test-occur-m-backspace ()
+  (oidxt-with-test-setup
+   (oidxt-do "o e i n M-DEL e i n s <return>")
+   (should (string= (buffer-name) "oidxt-work.org"))
+   (should (looking-at "* --13--"))))
+
+
 (ert-deftest oidxt-test-occur-increment-count ()
   (oidxt-with-test-setup
     (oidxt-do "o e i n s <down> +")

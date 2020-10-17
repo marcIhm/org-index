@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.0.0
+;; Version: 7.0.1
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -32,12 +32,13 @@
 ;;
 ;;  Fast search for selected org-nodes and things outside.
 ;;
-;;  org-index creates and updates an index table with keywords; each line
-;;  either points to a heading in org, references a folder outside of org
-;;  or carries an url or a snippet of text.  When searching the index, the
-;;  set of matching lines is updated with every keystroke; results are
-;;  sorted by usage count and date, so that frequently or recently used
-;;  entries appear first in the list of results.
+;;  `org-index' (package and interactive function) helps to create and
+;;  update an index-table with keywords; each line either points to a
+;;  heading in org, references a folder outside of org or carries an url or
+;;  a snippet of text.  When searching the index, the set of matching lines
+;;  is updated with every keystroke; results are sorted by usage count and
+;;  date, so that frequently or recently used entries appear first in the
+;;  list of results.
 ;;
 ;;  Please note, that org-index uses org-id throughout and therefore adds
 ;;  an id-property to all nodes in the index.
@@ -55,8 +56,8 @@
 ;;
 ;;  The set of columns within the index-table is fixed (see variable
 ;;  `oidx--all-columns') but can be arranged in any order you wish; just
-;;  edit the index table. The number of columns shown during occur is
-;;  determined by `org-index-occur-columns'. Using both features allows to
+;;  edit the index table.  The number of columns shown during occur is
+;;  determined by `org-index-occur-columns'.  Using both features allows to
 ;;  make columns invisible, that you dont care about.
 ;;
 ;;
@@ -81,7 +82,7 @@
 
 ;;   Version 7.0
 ;;
-;;   - This release is a big release of rewriting and removal
+;;   - A release of much rewriting and removal
 ;;   - Rewrote the occur command to reduce complexity
 ;;   - Only one sorting strategy is supported now, removed `org-index-sort-by'
 ;;   - Removed background sorting
@@ -202,7 +203,7 @@
 (defvar oidx--edit-where-from-occur nil "Position and line used for occur in edit buffer.")
 (defvar oidx--edit-where-from-node nil "Buffer and position for node in edit buffer.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
-(defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")          
+(defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
 
 ;; static information for this program package
 (defconst oidx--commands '(occur add kill node index ref yank edit details help example sort maintain) "List of commands available.")
@@ -214,7 +215,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "7.0.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.0.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -340,7 +341,8 @@ if VALUE cannot be found."
 
 
 (defmacro oidx--plist-put (plist &rest args)
-  "Version of plist, that already includes the obligatory setq around."
+  "Version of `plist-get', that already includes the obligatory setq around.
+For arguments PLIST and ARGS see there."
   (let ((list nil))
     (while args
       (push `(setq ,plist (plist-put ,plist ,(pop args) ,(pop args))) list))
@@ -355,12 +357,13 @@ if VALUE cannot be found."
   ;; For Rake: Insert here
   "Fast search for selected org-nodes and things outside.
 
-org-index creates and updates an index table with keywords; each line
-either points to a heading in org, references a folder outside of org
-or carries an url or a snippet of text.  When searching the index, the
-set of matching lines is updated with every keystroke; results are
-sorted by usage count and date, so that frequently or recently used
-entries appear first in the list of results.
+`org-index' (package and interactive function) helps to create and
+update an index-table with keywords; each line either points to a
+heading in org, references a folder outside of org or carries an url or
+a snippet of text.  When searching the index, the set of matching lines
+is updated with every keystroke; results are sorted by usage count and
+date, so that frequently or recently used entries appear first in the
+list of results.
 
 Please note, that org-index uses org-id throughout and therefore adds
 an id-property to all nodes in the index.
@@ -378,11 +381,11 @@ index entries and 'occur' to find them.
 
 The set of columns within the index-table is fixed (see variable
 `oidx--all-columns') but can be arranged in any order you wish; just
-edit the index table. The number of columns shown during occur is
-determined by `org-index-occur-columns'. Using both features allows to
+edit the index table.  The number of columns shown during occur is
+determined by `org-index-occur-columns'.  Using both features allows to
 make columns invisible, that you dont care about.
 
-This is version 7.0.0 of org-index.el.
+This is version 7.0.1 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -437,7 +440,8 @@ Use `org-customize' to tweak the behaviour of `org-index'.
 
 This includes the global key `org-index-key' to invoke
 the most important subcommands with one additional key.
-"
+
+Prefix argument ARG is passed to subcommand add."
   (interactive "P")
 
   (let (command        ; command to execute
@@ -518,7 +522,7 @@ the most important subcommands with one additional key.
        ((eq command 'occur)
 
         (set-buffer oidx--buffer)
-        (oidx--do-occur arg))
+        (oidx--do-occur))
 
 
        ((eq command 'ref)
@@ -1019,7 +1023,7 @@ If GET-CATEGORY is set, retrieve it too."
       (setq line (oidx--align-and-fontify-current-line))
       (beginning-of-line))
     
-    (cond 
+    (cond
      ;; invoked from occur
      (oidx--edit-where-from-occur
       (pop-to-buffer-same-window (or (get-buffer oidx--o-buffer-name)
@@ -1357,7 +1361,7 @@ CREATE-REF creates a reference and passes it to yank."
 (defun oidx--do-index ()
   "Perform command index."
             
-  (let (char prompt text)
+  (let (char prompt text search-id)
 
     ;; start with short prompt but give more help on next iteration
     (setq prompt "Please specify where to go in index:  <space>,.) line for this node or occur,  l) last line inserted,  i) start of index table -- ")
@@ -1458,7 +1462,8 @@ CREATE-REF creates a reference and passes it to yank."
 
 
 (defun oidx--get-sort-key (time-threshold)
-  "Get value for sorting."
+  "Get value for sorting.
+Argument TIME-THRESHOLD switches between last-accessed and count."
   (let ((last-accessed (oidx--get-or-set-field 'last-accessed)))
     (concat
      ;; use column last accessed only if recent; otherwise use fixed value time-threshold,
@@ -1647,7 +1652,7 @@ CREATE-REF creates a reference and passes it to yank."
 
 
 (defun oidx--enter-index-to-stay ()
-  "Enter index for commands that leave user there"
+  "Enter index for commands that leave user there."
   (pop-to-buffer-same-window oidx--buffer)
   (goto-char oidx--below-hline)
   (oidx--unfold-buffer))
@@ -2020,7 +2025,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (setq ref-field (format oidx--ref-format max-ref-num))
     (goto-char oidx--below-hline)
     ;; store maxref; this also moves the position of the rest of the index table
-    (org-entry-put oidx--point "max-ref" ref-field) 
+    (org-entry-put oidx--point "max-ref" ref-field)
 
     ;; refresh oidx--below-hline as a side-effect
     (oidx--go-below-hline)
@@ -2288,17 +2293,18 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
 (defconst oidx--o-buffer-name "*org-index-occur*" "Name of occur buffer.")
 (defvar oidx--o-search-text nil "Description of text to search for.")
 (defconst oidx--o-more-lines-text "\n(more lines omitted)\n" "Note stating, that not all lines are display.")
-(defvar oidx--o-assert-result nil "true, if result of occur should be verified (incremental result compare with single-pass result")
-(defvar oidx--o-start-of-lines nil "Start of table lines within result buffer")
-(defvar oidx--o-end-of-lines nil "End of table lines within result buffer")
+(defvar oidx--o-assert-result nil "Set to true to verify result of occur (incremental result compare with single-pass result.")
+(defvar oidx--o-start-of-lines nil "Start of table lines within result buffer.")
+(defvar oidx--o-end-of-lines nil "End of table lines within result buffer.")
 (defvar oidx--o-lines-collected 0 "Number of lines collected in occur buffer; helpful for tests.")
 
-(defun oidx--do-occur (&optional arg)
+
+(defun oidx--do-occur ()
   "Perform command occur.
 Optional argument ARG, when given does not limit number of lines shown."
   (let ((word "") ; last word to search for growing and shrinking on keystrokes
         (prompt "Search for: ")
-        (lines-wanted (if (or arg (= org-index-occur-max-lines 0))
+        (lines-wanted (if (= org-index-occur-max-lines 0)
                           (window-body-height)
                         (min org-index-occur-max-lines (window-body-height))))
         words              ; list words that should match
@@ -2324,41 +2330,44 @@ Optional argument ARG, when given does not limit number of lines shown."
     
     ;; main loop
     (while (not done)
-
+      
       (if in-c-backspace
           (setq key "<backspace>")
-        ;; if only one char left, c-backspace should end
-        (setq in-c-backspace (not (= (length word) 1)))) 
-
-      (setq oidx--o-search-text (mapconcat 'identity (reverse (cons word words)) ","))
-
-      ;; read key, if selected frame has not changed
-      (if (eq (selected-frame) initial-frame)
-          (progn
-            (setq key-sequence
-                  (let ((echo-keystrokes 0)
-                        (full-prompt (format "%s%s"
-                                             prompt
-                                             oidx--o-search-text)))
-                    (read-key-sequence full-prompt nil nil t t)))
-            (setq key (key-description key-sequence))
-            (setq key-sequence-raw (this-single-command-raw-keys)))
-        (setq done t)
-        (setq key-sequence nil)
-        (setq key nil)
-        (setq key-sequence-raw nil))
+        
+        (setq oidx--o-search-text (mapconcat 'identity (reverse (cons word words)) ","))
+        
+        ;; read key, if selected frame has not changed
+        (if (eq (selected-frame) initial-frame)
+            (progn
+              (setq key-sequence
+                    (let ((echo-keystrokes 0)
+                          (full-prompt (format "%s%s"
+                                               prompt
+                                               oidx--o-search-text)))
+                      (read-key-sequence full-prompt nil nil t t)))
+              (setq key (key-description key-sequence))
+              (setq key-sequence-raw (this-single-command-raw-keys)))
+          (setq done t)
+          (setq key-sequence nil)
+          (setq key nil)
+          (setq key-sequence-raw nil)))
       
 
       (cond
 
-       ((string= key "<C-backspace>")
+       ((member key (list "<C-backspace>" "M-DEL"))
         (setq in-c-backspace t))
 
        ;; erase last char
        ((member key (list "<backspace>" "DEL"))
 
+        ;; if only one char left, c-backspace should end
+        (if (= (length word) 0)
+            (setq in-c-backspace nil))
+
         ;; previous frame
-        (pop oidx--o-stack)
+        (unless (= (length oidx--o-stack) 1)
+          (pop oidx--o-stack))
         ;; get word and words from frame
         (-setq (word . words) (plist-get (car oidx--o-stack) :words))
         ;; display
@@ -2426,7 +2435,7 @@ Optional argument ARG, when given does not limit number of lines shown."
          (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
          (concat
           (propertize
-           (oidx--wrap "Normal keys add to search word; <space> starts additional word; <backspace> erases last char, <C-backspace> last word, `C-g', all other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
+           (oidx--wrap "Normal keys add to search word; <space> starts additional word; <backspace> erases last char, <M-backspace> last word, `C-g', all other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
            'face 'org-agenda-dimmed-todo-face)
           oidx--headings)))
 
@@ -2439,7 +2448,7 @@ Optional argument ARG, when given does not limit number of lines shown."
 
 
 (defun oidx--o-match-and-merge (lines-wanted words)
-  "Create new match frame with matching lines from top and the rest from table; LINES-WANTED in total."
+  "Create new match frame with lines matching WORDS from top and the rest from table; LINES-WANTED in total."
   (let (nmframe omframe oolines oolbps oline olines olbp olbps (ocount 0))
     (setq omframe (car oidx--o-stack))
 
@@ -2487,7 +2496,7 @@ Returns nil or plist with result"
 
 
 (defun oidx--o-test-words-and-fontify (words line)
-  "Test current line for match against WORDS and if yes, return it with hightlights."
+  "Test current LINE for match against WORDS and if yes, return it with hightlights."
   (let (pos dcline)
 
     ;; cut off after tags, so that id-field does not give spurious matches
@@ -2507,7 +2516,8 @@ Returns nil or plist with result"
 
 
 (defun oidx--o-show (frame)
-  "Show top of `oidx--o-stack'."
+  "Show top of `oidx--o-stack'.
+Argument FRAME gives match-frame to show."
   (with-current-buffer oidx--o-buffer-name
     (goto-char oidx--o-start-of-lines)
     (delete-region oidx--o-start-of-lines oidx--o-end-of-lines)
@@ -2517,7 +2527,7 @@ Returns nil or plist with result"
 
 
 (defun oidx--o-do-assert-result (words lines-wanted)
-  "Assert result for tests."
+  "Assert result for tests; find LINES-WANTED matching WORDS."
   ;; sp = single-pass, mp = multi-pass
   (let* ((sp-frame (oidx--o-find-matching-lines
                     words oidx--below-hline lines-wanted))
@@ -2534,7 +2544,7 @@ Returns nil or plist with result"
 
 (defun oidx--o-make-permanent (lines-wanted frame)
   "Make permanent copy of current view into index.
-Argument LINES-WANTED specifies number of lines to display."
+Argument LINES-WANTED specifies number of lines to display of match-frame FRAME."
 
   (let (line lines lines-collected header-lines)
 
@@ -2689,7 +2699,7 @@ Argument LINES-WANTED specifies number of lines to display."
 (defun oidx--o-action-goto-node-other ()
   "Find heading with ref or id in other window; or copy yank column."
   (interactive)
-  (oidx--o-action-prepare)
+  (oidx--o-action-prepare t)
   (oidx--o-action-goto-node t))
 
 
@@ -2700,7 +2710,7 @@ Argument LINES-WANTED specifies number of lines to display."
       (let ((id (oidx--get-or-set-field 'id))
             (ref (oidx--get-or-set-field 'ref))
             (yank (oidx--get-or-set-field 'yank)))
-        (oidx--o-action-prepare)
+        (oidx--o-action-prepare t)
 	(cond
          (id
 	  (oidx--update-line (get-text-property (point) 'org-index-lbp))
@@ -2720,7 +2730,7 @@ Argument LINES-WANTED specifies number of lines to display."
                 (message "Opened '%s' in browser (and copied it too)" yank))
             (message "Copied '%s' (no node is associated)" yank)))
 	 (t
-          (error "Internal error, this line contains neither id, nor reference, nor text to yank"))))))
+          (error "Cannot act on this line: It contains neither id, nor reference, nor text to yank"))))))
 
 
 (defun oidx--o-action-quit ()
@@ -2734,7 +2744,7 @@ Argument LINES-WANTED specifies number of lines to display."
 (defun oidx--o-action-edit ()
   "Edit index line under cursor."
   (interactive)
-  (oidx--o-action-prepare)
+  (oidx--o-action-prepare t)
   (message (oidx--do-edit)))
 
 
@@ -2768,8 +2778,11 @@ Argument LINES-WANTED specifies number of lines to display."
   (overlay-put oidx--o-help-overlay 'display (car oidx--o-help-text)))
 
 
-(defun oidx--o-action-prepare ()
-  "Common preparation for all occur actions."
+(defun oidx--o-action-prepare (&optional kill-details)
+  "Common preparation for all occur actions.
+KILL-DETAILS removes respective window."
+  (if kill-details
+      (ignore-errors (delete-windows-on oidx--details-buffer-name)))
   (oidx--retrieve-context-on-invoke)
   (oidx--refresh-parse-table))
 

@@ -1,6 +1,6 @@
-* 7.0 until 2020-10-12 Mo
+* 7.0 until 2020-10-17 Sa
 
-  - This release is a big release of rewriting and removal
+  - A release of much rewriting and removal
   - Rewrote the occur command to reduce complexity
   - Only one sorting strategy is supported now, removed `org-index-sort-by'
   - Removed background sorting
