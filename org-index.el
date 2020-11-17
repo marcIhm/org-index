@@ -1956,7 +1956,7 @@ Optional argument NO-INC skips automatic increment on maxref."
           (goto-char oidx--below-hline)
           "All ids of index are valid")
       (org-table-goto-column 1)
-      "The id of this row cannot be found; please fix and check again for rest of index")))
+      (format "The id %s of this row cannot be found; please fix (maybe run org-id-update-id-locations) and check again for rest of index" id))))
 
 
 (defun oidx--count-lines-table ()
