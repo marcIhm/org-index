@@ -1,3 +1,8 @@
+* 7.1 until 2021-02-05 Fr
+
+  - Added flag-column in occur
+  - Fixes
+
 * 7.0 until 2020-10-17 Sa
 
   - A release of much rewriting and removal

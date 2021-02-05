@@ -1,10 +1,10 @@
 ;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2020 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2021 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.0.1
+;; Version: 7.1.0
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -80,6 +80,11 @@
 
 ;;; Change Log:
 
+;;   Version 7.1
+;;
+;;   - Added flag-column in occur
+;;   - Fixes
+;;
 ;;   Version 7.0
 ;;
 ;;   - A release of much rewriting and removal
@@ -215,7 +220,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "7.0.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.1.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -385,7 +390,7 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 make columns invisible, that you dont care about.
 
-This is version 7.0.1 of org-index.el.
+This is version 7.1.0 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -640,7 +645,6 @@ Prefix argument ARG is passed to subcommand add."
 
   (with-temp-buffer-window
    oidx--short-help-buffer-name '((display-buffer-at-bottom)) nil
-   (setq oidx--short-help-displayed t)
    (princ (or prompt "Short help; shortcut chars in [].\n"))
    (princ (or choices (oidx--get-short-help-text))))
   (with-current-buffer oidx--short-help-buffer-name
@@ -2487,12 +2491,21 @@ Returns nil or plist with result"
                lbp (line-beginning-position)
                lbp2 (line-beginning-position 2)
                line (oidx--o-test-words-and-fontify words (buffer-substring lbp lbp2)))
+          (setf (substring line 0 1)
+                (propertize (oidx--o-flag-for-currrent-line) 'face 'org-agenda-dimmed-todo-face))
           (push line lines)
           (push lbp lbps)
           (cl-incf found))
         (forward-line)))
     (setq lbp2 (or lbp2 start))
     (list :end lbp2 :count found :lines (reverse lines) :words words :lbps (reverse lbps))))
+
+
+(defun oidx--o-flag-for-currrent-line ()
+  "Compute flag for current line"
+  (let ((yank (oidx--get-or-set-field 'yank))
+        (id (oidx--get-or-set-field 'id)))
+    (cond ((and id yank) "*") (id "n") (yank "y") (t " "))))
 
 
 (defun oidx--o-test-words-and-fontify (words line)
@@ -2546,7 +2559,7 @@ Argument FRAME gives match-frame to show."
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display of match-frame FRAME."
 
-  (let (line lines lines-collected header-lines)
+  (let (flag line flags-lines lines-collected header-lines lbp)
 
     (with-current-buffer oidx--o-buffer-name
       (erase-buffer)
@@ -2560,10 +2573,17 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
         (mapc (lambda (p)
                 (goto-char p)
                 (setq line (buffer-substring (line-beginning-position) (line-end-position)))
+                (setq flag (propertize (oidx--o-flag-for-currrent-line) 'face 'org-agenda-dimmed-todo-face))
                 (put-text-property 0 (length line) 'org-index-lbp p line)
-                (push line lines))
+                (put-text-property 0 (length line) 'org-index-flag flag line)
+                (push (cons flag line) flags-lines))
               (plist-get frame :lbps))))
-    (mapc (lambda (l) (insert l "\n")) (reverse lines))
+    (mapc (lambda (fl)
+            (insert (cdr fl))
+            (setq lbp (line-beginning-position))
+            (overlay-put (make-overlay lbp (1+ lbp)) 'display (car fl))
+            (insert "\n"))
+          (reverse flags-lines))
     (setq oidx--o-end-of-lines (point))
     
     (setq lines-collected (plist-get frame :count))
@@ -2588,7 +2608,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--o-search-text
-                       "\". <return> jumps to node of line under cursor, <tab> in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `d' shows details, `l' offers links from node to visit."
+                       "\". <return> dispatches according to flag y*:yank, n:jump to node; <S-return> the same but *:jump; <tab> jumps in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `d' shows details, `l' offers links from node to visit. First char in line (yn*) is flag for dispatching."
                        "\n")
                lines-collected)
               'face 'org-agenda-dimmed-todo-face))
@@ -2613,7 +2633,8 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
     (set-keymap-parent keymap org-mode-map)
 
     (dolist (keys-command
-             '((("<return>" "RET") . oidx--o-action-goto-node)
+             '((("<return>" "RET") . oidx--o-action-dispatch-according-to-flag)
+               (("<S-return>") . oidx--o-action-dispatch-according-to-flag-invert)
                (("<tab>") . oidx--o-action-goto-node-other)
                (("i" "M-i") . oidx--o-action-goto-line-in-index)
                (("h" "M-h") . oidx--o-action-head-of-index)
@@ -2624,7 +2645,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
                (("d" "M-d") . oidx--o-action-details)
                (("l" "M-l") . oidx--o-action-offer-links)
                (("?" "M-?") . oidx--o-action-toggle-help)))
-      (dolist  (key (car keys-command)) (define-key keymap (kbd key) (cdr keys-command))))
+      (dolist (key (car keys-command)) (define-key keymap (kbd key) (cdr keys-command))))
 
     (use-local-map keymap)))
 
@@ -2676,24 +2697,24 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
 (defun oidx--o-action-head-of-index ()
   "Go to head of index."
   (interactive)
-  (let ((pos (get-text-property (point) 'org-index-lbp)))
-    (oidx--o-action-prepare)
-    (oidx--o-test-stale pos)
-    (pop-to-buffer oidx--buffer)
-    (goto-char pos)
-    (org-reveal t)
-    (beginning-of-line)))
+  (oidx--o-action-prepare)
+  (pop-to-buffer oidx--buffer)
+  (goto-char oidx--below-hline)
+  (org-reveal t)
+  (beginning-of-line))
 
 
 (defun oidx--o-action-goto-line-in-index ()
   "Go to matching line in index."
   (interactive)
-  (let ((id (oidx--get-or-set-field 'id)))
+    (let ((pos (get-text-property (point) 'org-index-lbp)))
     (oidx--o-action-prepare)
-    (switch-to-buffer oidx--buffer)
-    (oidx--go 'id id)
+    (oidx--o-test-stale pos)
+    (pop-to-buffer oidx--buffer)
+    (goto-char pos)
+    (org-reveal t)
     (beginning-of-line))
-  (message "Jumped to line in index."))
+    (message "Jumped to line in index."))
 
 
 (defun oidx--o-action-goto-node-other ()
@@ -2703,34 +2724,66 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
   (oidx--o-action-goto-node t))
 
 
+(defun oidx--o-action-dispatch-according-to-flag (&optional invert)
+  "Read flag from current line and dispatch accordingly"
+  (interactive)
+  (let ((flag (get-text-property (point) 'org-index-flag)))
+    (cond
+     ((or (string= flag "y")
+          (and (string= flag "*")
+               (not invert)))
+      (oidx--o-action-yank))
+     ((or (string= flag "n")
+          (and (string= flag "*")
+               invert))
+      (oidx--o-action-goto-node)))))
+
+
+(defun oidx--o-action-dispatch-according-to-flag-invert ()
+  "Invert `oidx--o-action-dispatch-according-to-flag'"
+  (interactive)
+  (oidx--o-action-dispatch-according-to-flag t))
+
+
 (defun oidx--o-action-goto-node (&optional other)
   "Find heading with ref or id; if OTHER, in other window; or copy yank column."
   (interactive)
   (if (org-match-line org-table-line-regexp)
-      (let ((id (oidx--get-or-set-field 'id))
-            (ref (oidx--get-or-set-field 'ref))
-            (yank (oidx--get-or-set-field 'yank)))
+      (let ((id (or (oidx--get-or-set-field 'id)
+                    (error "Cannot visit node of this line: It contains no id"))))
         (oidx--o-action-prepare t)
-	(cond
-         (id
-	  (oidx--update-line (get-text-property (point) 'org-index-lbp))
-          (oidx--find-id id other)) ; does its own message
-         (ref
-	  (oidx--update-line (get-text-property (point) 'org-index-lbp))
-          (org-mark-ring-goto)
-          (message "Found reference %s (no node is associated)" ref))
-         (yank
-          (oidx--update-line (get-text-property (point) 'org-index-lbp))
-          (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
-          (kill-new yank)
-          (org-mark-ring-goto)
-          (if (and (>= (length yank) 4) (string= (substring yank 0 4) "http"))
-              (progn
-                (browse-url yank)
-                (message "Opened '%s' in browser (and copied it too)" yank))
-            (message "Copied '%s' (no node is associated)" yank)))
-	 (t
-          (error "Cannot act on this line: It contains neither id, nor reference, nor text to yank"))))))
+	(oidx--update-line (get-text-property (point) 'org-index-lbp))
+        (oidx--find-id id other))))
+
+
+(defun oidx--o-action-yank ()
+  "Copy yank column."
+  (interactive)
+  (if (org-match-line org-table-line-regexp)
+      (let ((yank (or (oidx--get-or-set-field 'yank)
+                      (error "Cannot yank from this line: yank-column is enpty"))))
+        (oidx--o-action-prepare t)
+        (oidx--update-line (get-text-property (point) 'org-index-lbp))
+        (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
+        (kill-new yank)
+        (org-mark-ring-goto)
+        (if (and (>= (length yank) 4) (string= (substring yank 0 4) "http"))
+            (progn
+              (browse-url yank)
+              (message "Opened '%s' in browser (and copied it too)" yank))
+          (message "Copied '%s' (no node is associated)" yank)))))
+
+
+(defun oidx--o-action-copy-ref ()
+  "Echo ref."
+  (interactive)
+  (if (org-match-line org-table-line-regexp)
+      (let ((ref (or (oidx--get-or-set-field 'ref)
+                     (error "Cannot act on this line: It contains neither id, nor reference, nor text to yank"))))
+        (oidx--o-action-prepare t)
+	(oidx--update-line (get-text-property (point) 'org-index-lbp))
+        (org-mark-ring-goto)
+        (message "Found reference %s (no node is associated)" ref))))
 
 
 (defun oidx--o-action-quit ()

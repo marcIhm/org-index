@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 7.0.1.
+  The current version is 7.1.0.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -117,14 +117,21 @@
     - Update Version number in org-index.el
     - Update Change Log in org-index.el
     - Check and update Commentary in org-index.el
-    - Run rake to copy those pieces of information into 
-      README.org and ChangeLog.org
+    - Run rake to:
+      - copy those pieces of information into README.org and
+        ChangeLog.org
+      - run tests
     - git add/commit as appropriate 
     - v=x.y.z ; git tag -a -m $v $v ; git push ; git push --tags
 
 ** Latest Change Log
 
    See ChangeLog.org for older entries.
+
+*** 7.1
+
+    - Added flag-column in occur
+    - Fixes
 
 *** 7.0
 

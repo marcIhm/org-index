@@ -163,9 +163,9 @@
 
 (ert-deftest oidxt-test-inc-count-on-action ()
   (oidxt-with-test-setup
-    (oidxt-do "o - - 1 4 - - <return>")
-    (oidxt-do "o - - 1 4 - - <right>")
-    (oidxt-do "i .")
+    (oidxt-do "o - - 1 3 - - <return>")
+    (oidxt-do "o - - 1 3 - - <right>")
+    (oidxt-do "i l")
     (should (string= "2" (oidx--get-or-set-field 'count)))))
 
 
@@ -351,9 +351,9 @@
 
 (ert-deftest oidxt-test-sort-index ()
   (oidxt-with-test-setup
-    (oidxt-do "o - - 1 4 - - <return>")
+    (oidxt-do "o - - 1 3 - - <return>")
     (oidxt-do "SPC s o r t")
-    (should (looking-at "--14--"))))
+    (should (looking-at "--13--"))))
 
 
 (ert-deftest oidxt-test-maintain-duplicates ()
