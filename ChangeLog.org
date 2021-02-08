@@ -1,4 +1,4 @@
-* 7.1 until 2021-02-05 Fr
+* 7.1 until 2021-02-08 Mo
 
   - Added flag-column in occur
   - Fixes

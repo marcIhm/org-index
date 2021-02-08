@@ -103,12 +103,12 @@
   (oidxt-with-test-setup
     (oidxt-do "C-u" "a")
     (oidxt-do "o d r e i")
-    (execute-kbd-macro (kbd "C-u 4 <right>"))
+    (execute-kbd-macro (kbd "C-u 5 <right>"))
     (should (looking-at "--15--"))
     (org-mark-ring-goto)
     (oidxt-do "SPC k i l l <return>")
     (oidxt-do "o d r e i")
-    (execute-kbd-macro (kbd "C-u 5 <right>"))
+    (execute-kbd-macro (kbd "C-u 6 <right>"))
     (should (looking-at "--9--"))))
 
 
@@ -347,6 +347,14 @@
     (oidxt-do "SPC k i l l <return>")
     (oidxt-do "o f o o <return>")
     (should (= oidx--o-lines-collected 0))))
+
+
+(ert-deftest oidxt-test-flag ()
+  (oidxt-with-test-setup
+    (oidxt-do "o e i n s <right>")
+    (should (string= (overlay-get (car (overlays-at (line-beginning-position) t)) 'display) "n"))
+    (oidxt-do "o z w e i - e i n s <down>")
+    (should (string= (overlay-get (car (overlays-at (line-beginning-position) t)) 'display) "y"))))
 
 
 (ert-deftest oidxt-test-sort-index ()

@@ -406,12 +406,14 @@ end
 
 
 desc 'Describe building process'
-task :h do
+task :h => [:extract_version] do
   within = false
   doc = File.open(%x{git rev-parse --show-toplevel}.chomp + '/README.org').each do |line|
     within = line.include?('Preparing') if line.start_with?('*')
     print line if within
   end
+  puts "Version from lisp:   #{$version_lisp}"
+  puts "Latest tag from git: " + %x(git describe).chomp
 end
 
 
