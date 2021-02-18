@@ -1,6 +1,8 @@
-* 7.1 until 2021-02-08 Mo
+* 7.1 until 2021-02-18 Th
 
   - Added flag-column in occur
+  - Wrap org-id-find and org-id-goto
+  - Offer org-id-update-id-locations in certain cases
   - Fixes
 
 * 7.0 until 2020-10-17 Sa

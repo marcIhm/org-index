@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.1.2
+;; Version: 7.1.5
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -83,6 +83,8 @@
 ;;   Version 7.1
 ;;
 ;;   - Added flag-column in occur
+;;   - Wrap org-id-find and org-id-goto
+;;   - Offer org-id-update-id-locations in certain cases
 ;;   - Fixes
 ;;
 ;;   Version 7.0
@@ -209,6 +211,7 @@
 (defvar oidx--edit-where-from-node nil "Buffer and position for node in edit buffer.")
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
+(defvar oidx--id-not-found nil "Id of last node not found.")
 
 ;; static information for this program package
 (defconst oidx--commands '(occur add kill node index ref yank edit details help example sort maintain) "List of commands available.")
@@ -220,7 +223,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "7.1.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.1.5" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -390,7 +393,7 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 make columns invisible, that you dont care about.
 
-This is version 7.1.2 of org-index.el.
+This is version 7.1.5 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -727,12 +730,6 @@ Prefix argument ARG is passed to subcommand add."
     result))
 
 
-(defun oidx--read-search-for-command-index ()
-  "Special input routine for command index: ask what to search for."
-
-)
-
-
 
 ;; Parse index and refs
 (defun oidx--ref-from-id (id)
@@ -768,12 +765,18 @@ Optional argument SILENT prevents invoking interactive assistant."
 
     ;; Find node
     (let (marker)
-      (setq marker (org-id-find org-index-id 'marker))
+      (setq marker (oidx--id-find org-index-id 'marker))
       (unless marker
         (if silent (throw 'missing-index t))
-        (oidx--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))
-      ;; Try again with new node
-      (setq marker (org-id-find org-index-id 'marker))
+        (or (y-or-n-p (format "ID %s of index table cannot be found; updating id-locations may help; this may take a while however. Continue ?" org-index-id))
+            (throw 'missing-index t))
+        (org-id-update-id-locations)
+        (setq marker (oidx--id-find org-index-id 'marker))
+        (unless marker
+          (if silent (throw 'missing-index t))
+          (oidx--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id)))
+      ;; Try again after updating IDs or with new node
+      (setq marker (oidx--id-find org-index-id 'marker))
       (unless marker
         (if silent (throw 'missing-index t))
         (error "Could not create node"))
@@ -918,7 +921,8 @@ If GET-CATEGORY is set, retrieve it too."
 (defun oidx--refresh-parse-table ()
   "Fast refresh of selected results of parsing index table."
 
-  (setq oidx--point (marker-position (org-id-find org-index-id 'marker)))
+  (setq oidx--point (marker-position (or (oidx--id-find org-index-id 'marker)
+                                         (error "Cannot find index-table, cannot continue. Invoking `org-index' may offer more options"))))
   (with-current-buffer oidx--buffer
     (save-excursion
       (oidx--go-below-hline))))
@@ -1178,7 +1182,7 @@ Optional argument KEYS-VALUES specifies content of new line."
   
   (let (marker point args)
 
-    (setq marker (org-id-find id t))
+    (setq marker (oidx--id-find id t))
     ;; enter buffer and collect information
     (with-current-buffer (marker-buffer marker)
       (setq point (point))
@@ -1329,7 +1333,7 @@ CREATE-REF creates a reference and passes it to yank."
     
     ;; Delete from node
     (when id
-      (let ((m (org-id-find id 'marker)))
+      (let ((m (oidx--id-find id 'marker)))
         (set-buffer (marker-buffer m))
         (goto-char m)
         (move-marker m nil)
@@ -1742,7 +1746,7 @@ If OTHER in separate window."
   
   (let (message marker)
 
-    (setq marker (org-id-find id t))
+    (setq marker (oidx--id-find id t))
 
     (if marker
         (progn
@@ -1786,6 +1790,36 @@ Optional argument NO-INC skips automatic increment on maxref."
     (insert text)
     (fill-region (point-min) (point-max) nil t)
     (buffer-string)))
+
+
+(defun oidx--id-find (id &optional markerp)
+  "Wrapper for org-id-find, that does not go stale during rebuild of org-id-locations"
+  (let (retval)
+    (setq oidx--id-not-found id)
+    (unwind-protect
+        (progn
+          (advice-add 'org-id-update-id-locations :around #'oidx--advice-for-org-id-update-id-locations)
+          (setq retval (org-id-find id markerp)))
+      (advice-remove 'org-id-update-id-locations #'oidx--advice-for-org-id-update-id-locations))
+    (setq oidx--id-not-found nil)
+    retval))
+
+
+(defun oidx--id-goto (id)
+  "Wrapper for org-id-goto, that does not go stale during rebuild of org-id-locations"
+  (setq oidx--id-not-found id)
+  (unwind-protect
+      (progn
+        (advice-add 'org-id-update-id-locations :around #'oidx--advice-for-org-id-update-id-locations)
+        (org-id-goto id))
+    (advice-remove 'org-id-update-id-locations #'oidx--advice-for-org-id-update-id-locations))
+  (setq oidx--id-not-found nil))
+
+
+(defun oidx--advice-for-org-id-update-id-locations (_orig-func &rest _args)
+  "Advice that moderates use of `org-id-update-id-location' for `org-working-set--menu-rebuild'."
+  (message "ID %s cannot be found; therefore id-locations are beeing updated. Please stand by ..." oidx--id-not-found)
+  (sleep-for 1))
 
 
 
@@ -1950,7 +1984,7 @@ Optional argument NO-INC skips automatic increment on maxref."
       (when (setq id (oidx--get-or-set-field 'id))
         
         ;; check, if id is valid
-        (setq marker (org-id-find id t)))
+        (setq marker (oidx--id-find id t)))
 
       (when marker (forward-line)))
 
@@ -2240,7 +2274,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
             ;; show new index
             (pop-to-buffer-same-window buffer)
 	    (set-buffer-modified-p nil)
-            (org-id-goto id)
+            (oidx--id-goto id)
             (oidx--unfold-buffer)
             (if compare
                 (progn
@@ -2251,7 +2285,7 @@ Specify flag TEMPORARY for the or COMPARE it with the existing index."
           ;; Show the new index
           (pop-to-buffer-same-window buffer)
           (delete-other-windows)
-          (org-id-goto id)
+          (oidx--id-goto id)
           (oidx--unfold-buffer)
           (if (y-or-n-p "This is your new index table.  It is already set for this Emacs session, so you may try it out.  Do you want to save it's id to make it available in future Emacs sessions too ? ")
               (progn
@@ -2439,7 +2473,7 @@ Optional argument ARG, when given does not limit number of lines shown."
          (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
          (concat
           (propertize
-           (oidx--wrap "Normal keys add to search word; <space> starts additional word; <backspace> erases last char, <M-backspace> last word, `C-g', all other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading).\n")
+           (oidx--wrap "Normal keys add to search word; <space> starts additional word; <backspace> erases last char, <M-backspace> last word, `C-g', all other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading). First char in line (yn*) is flag for dispatching to yank or node.\n")
            'face 'org-agenda-dimmed-todo-face)
           oidx--headings)))
 
@@ -2664,7 +2698,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
   "Offer list of links from node under cursor."
   (interactive)
   (let* ((id (oidx--get-or-set-field 'id))
-         (marker (org-id-find id t))
+         (marker (oidx--id-find id t))
          count)
     (oidx--o-action-prepare)
     (if marker
@@ -2698,7 +2732,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
   "Clock into node of line under cursor."
   (interactive)
   (oidx--o-action-prepare)
-  (org-id-goto (oidx--get-or-set-field 'id))
+  (oidx--id-goto (oidx--get-or-set-field 'id))
   (org-with-limited-levels (org-clock-in))
   (if oidx--o-win-config (set-window-configuration oidx--o-win-config))
   (message "Clocked into node and returned to initial position."))

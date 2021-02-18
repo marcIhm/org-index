@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 7.1.2.
+  The current version is 7.1.5.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -131,6 +131,8 @@
 *** 7.1
 
     - Added flag-column in occur
+    - Wrap org-id-find and org-id-goto
+    - Offer org-id-update-id-locations in certain cases
     - Fixes
 
 *** 7.0
