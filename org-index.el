@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.1.5
+;; Version: 7.1.6
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -222,7 +222,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "7.1.5" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.1.6" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -392,7 +392,7 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 make columns invisible, that you dont care about.
 
-This is version 7.1.5 of org-index.el.
+This is version 7.1.6 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -1757,8 +1757,6 @@ If OTHER in separate window."
           (org-reveal t)
           (org-show-entry)
           (recenter)
-          (unless (string= (org-id-get) id)
-            (setq message (format "Could not go to node with id %s (narrowed ?)" id)))
           (setq message "Found headline"))
       (setq message (format "Did not find node with %s" id)))
     message))
@@ -1811,7 +1809,10 @@ Optional argument NO-INC skips automatic increment on maxref."
       (progn
         (advice-add 'org-id-update-id-locations :around #'oidx--advice-for-org-id-update-id-locations)
         (org-id-goto id))
-    (advice-remove 'org-id-update-id-locations #'oidx--advice-for-org-id-update-id-locations))
+    (advice-remove 'org-id-update-id-locations #'oidx--advice-for-org-id-update-id-locations)
+    (if (not (string= id (org-id-get)))
+        (error "Node with id '%s' was found, but 'goto' did not suceed%s" id
+               (if (buffer-narrowed-p) (format " (maybe because buffer %s is narrowed)" (buffer-name)) ""))))
   (setq oidx--id-not-found nil))
 
 
