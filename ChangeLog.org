@@ -1,4 +1,4 @@
-* 7.1 until 2021-03-20 Sa
+* 7.1 until 2021-04-19 Mo
 
   - Added flag-column in occur
   - Wrap org-id-find and org-id-goto

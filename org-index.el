@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.1.6
+;; Version: 7.1.7
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -222,7 +222,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "7.1.6" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.1.7" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -392,7 +392,7 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 make columns invisible, that you dont care about.
 
-This is version 7.1.6 of org-index.el.
+This is version 7.1.7 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -928,7 +928,7 @@ If GET-CATEGORY is set, retrieve it too."
 
 
 
-;; Edit, add or kill lines
+;; Edit, add or kill lines, show details
 (defun oidx--do-edit ()
   "Perform command or occur-action edit."
   (let (buffer-keymap field-keymap keywords-pos cols-vals maxlen)
@@ -1072,6 +1072,41 @@ If GET-CATEGORY is set, retrieve it too."
   (setq oidx--edit-widgets nil)
   (beginning-of-line)
   (message "Edit aborted."))
+
+
+(defun oidx--do-details ()
+  "Perform command or occur-action details."
+
+  ;; switch to index if appropriate
+  (cond
+   (oidx--within-occur
+    (let ((pos (get-text-property (point) 'org-index-lbp)))
+      (oidx--o-test-stale pos)
+      (set-buffer oidx--buffer)
+      (goto-char pos)))
+   
+   ((not oidx--within-index-node)
+    (let ((id (org-id-get)))
+      (setq oidx--edit-where-from-node (cons (current-buffer) (point)))
+      (set-buffer oidx--buffer)
+      (unless (and id (oidx--go 'id id))
+        (error "This node is not in index")))))
+  
+  (-let (((cols-vals . maxlen) (oidx--content-of-current-line)))
+    (display-buffer (get-buffer-create oidx--details-buffer-name) '((display-buffer-at-bottom)))
+    (with-current-buffer oidx--details-buffer-name
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (dolist (col-val cols-vals)
+          (insert (format (format "%%%ds: %%s\n" maxlen)
+                          (symbol-name (car col-val))
+                          (or (cdr col-val) ""))))
+        (delete-char -1)
+        (goto-char 0)
+        (fit-window-to-buffer (get-buffer-window))
+        (setq buffer-read-only t))))
+
+  "Showing details for a single line of index")
 
 
 (defun oidx--create-new-line (&rest keys-values)
@@ -2848,21 +2883,8 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
 (defun oidx--o-action-details ()
   "Show details for index line under cursor."
   (interactive)
-  (-let (((cols-vals . maxlen) (oidx--content-of-current-line)))
-    (oidx--o-action-prepare)
-    (display-buffer (get-buffer-create oidx--details-buffer-name) '((display-buffer-at-bottom)))
-    (with-current-buffer oidx--details-buffer-name
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (dolist (col-val cols-vals)
-          (insert (format (format "%%%ds: %%s\n" maxlen)
-                          (symbol-name (car col-val))
-                          (or (cdr col-val) ""))))
-        (delete-char -1)
-        (goto-char 0)
-        (fit-window-to-buffer (get-buffer-window))
-        (setq buffer-read-only t))))
-  (message "Details for current index line."))
+  (oidx--o-action-prepare)
+  (message (oidx--do-details)))
 
 
 (defun oidx--o-action-toggle-help ()
