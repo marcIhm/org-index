@@ -1,6 +1,6 @@
 ;;; oidxt.el --- Regression Tests for org-index.el
 
-;; Copyright (C) 2011-2020 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2021 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <org-index@2484.de>
 ;; Keywords: outlines, regression-tests, elisp
@@ -60,6 +60,7 @@
 (defvar oidxt-id-2 "5a16c863-1f7e-4636-9c47-74e4d49f72df")
 (defvar oidxt-id-3 "12ae411f-bdd4-4c92-9e24-75cf7858f586")
 (defvar oidxt-id-4 "caac71f6-74fa-4b6a-b732-66c9ceb0c483")
+(defvar oidxt-id-5 "314b6ffc-8fd1-4c2a-a627-829ce0981cac")
 
 ;;
 ;; All tests
@@ -171,11 +172,24 @@
 
 (ert-deftest oidxt-test-mark-ring ()
   (oidxt-with-test-setup
-    (oidxt-do "o z w e i <down> <return>")
-    (oidxt-do "o e i n s <down> <return>")
-    (should (looking-at ".* --13--"))
-    (org-mark-ring-goto)
-    (should (looking-at ".* --8--"))))
+   (oidxt-do "o z w e i <down> <return>")
+   (oidxt-do "o e i n s <down> <return>")
+   (should (looking-at ".* --13--"))
+   (org-mark-ring-goto)
+   (should (looking-at ".* --8--"))))
+
+
+(ert-deftest oidxt-test-add-and-find-inline ()
+  (oidxt-with-test-setup
+   (goto-char 0)
+   (search-forward "Inline")
+   (org-reveal)
+   (oidxt-do "a")
+   (goto-char 0)
+   (oidxt-do "o I n l i n e <return>")
+   (beginning-of-line)
+   (search-forward " ")
+   (should (looking-at "Inline"))))
 
 
 (ert-deftest oidxt-test-migrate-index ()
@@ -411,10 +425,10 @@
 (ert-deftest oidxt-test-add-without-edit ()
   (oidxt-with-test-setup
     (setq org-index-edit-on-add nil)
-    (oidxt-do "a d d <return>")
+    (oidxt-do "a")
     (should (looking-at "* drei"))
     (should (string= oidx--message-text
-                     "Added new index line."))))
+                     "Added new index line: drei"))))
 
 
 (ert-deftest oidxt-test-add-delete-new-reference ()
@@ -612,6 +626,14 @@
   (concat (if bool "y" "n") (if noninteractive " <return>" "")))
 
 
+;; avoid beeing queried about thw two temporary files
+(defalias 'saved--ask-user-about-supersession-threat 'ask-user-about-supersession-threat)
+(defun ask-user-about-supersession-threat (fn)
+  (if (or (string= fn oidxt-work-file)
+	  (string= fn oidxt-index-file))
+      "ignoring for special files"
+    (saved--ask-user-about-supersession-threat fn)))
+  
 ;;
 ;; Test data
 ;;
@@ -619,7 +641,10 @@
 (defun oidxt-create-index ()
   (setq org-index-occur-columns 8)
   (with-current-buffer (get-buffer-create oidxt-index-buffer-name)
+    (setq buffer-save-without-query t)
     (setq buffer-file-name oidxt-index-file)
+    (setq buffer-file-truename (abbreviate-file-name (file-truename buffer-file-name)))
+    (setq buffer-auto-save-file-name nil)
     (oidxt-clear-buffer)
     (org-mode)
     (insert 
@@ -649,14 +674,17 @@
   |  --1-- | " oidxt-id-index                   " | [2013-12-15 So] |          |       |     1 | [2013-12-15 So 10:00] | This node      |      |      |
 
 ")
-    (forward-line -1)
+    (forward-line -2)
     (org-table-align)
+    (set-visited-file-modtime)
     (basic-save-buffer)))
 
 
 (defun oidxt-create-work ()
   (with-current-buffer (get-buffer-create oidxt-work-buffer-name)
     (setq buffer-file-name oidxt-work-file)
+    (setq buffer-file-truename (abbreviate-file-name (file-truename buffer-file-name)))
+    (setq buffer-auto-save-file-name nil)
     (oidxt-clear-buffer)
     (org-mode)
     (insert
@@ -677,6 +705,10 @@
   Zeile 1
 
 *************** Inline
+  :PROPERTIES:
+  :ID:       " oidxt-id-5 "
+  :org-index-ref: foo
+  :END:
 *************** END
 
   Zeile 2
@@ -689,6 +721,7 @@
 * drei
 ** neun
 ")
+    (set-visited-file-modtime)
     (basic-save-buffer)))
 
 
@@ -697,8 +730,9 @@
     (setq buffer-file-name oidxt-locations-file)
     (oidxt-clear-buffer)
     (insert
-     "((\"" oidxt-index-file "\" \"" oidxt-id-index "\") (\"" oidxt-work-file "\" \"" oidxt-id-4 "\" \"" oidxt-id-3 "\" \"" oidxt-id-2 "\" \"" oidxt-id-1 "\"))
-")))
+     "((\"" oidxt-index-file "\" \"" oidxt-id-index "\") (\"" oidxt-work-file "\" \"" oidxt-id-5 "\" \"" oidxt-id-4 "\" \"" oidxt-id-3 "\" \"" oidxt-id-2 "\" \"" oidxt-id-1 "\"))
+")
+    (basic-save-buffer)))
 
 
 (defun oidxt-clear-buffer ()

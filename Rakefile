@@ -429,6 +429,7 @@ task :test => [:update_rake] do
   --eval "(set-variable 'make-backup-files nil)"
   --eval "(set-variable 'auto-save-default nil)"
   --eval "(set-variable 'create-lockfiles nil)"
+  --eval "(menu-bar-mode -1)"
   --eval "(setq load-prefer-newer t)"
   --eval "(add-to-list 'load-path \\\".\\\")"
   --eval "(setq package-user-dir \\\"#{File.dirname(__FILE__)+"/elpa"}\\\")"

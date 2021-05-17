@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.1.7
+;; Version: 7.2.1
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -79,6 +79,13 @@
 
 ;;; Change Log:
 
+;;   Version 7.2
+;;
+;;   - Allow to add inline-Tasks to the index
+;;   - Optional hl-line-mode in occur-buffer
+;;   - Better messages
+;;   - Fixes
+;;
 ;;   Version 7.1
 ;;
 ;;   - Added flag-column in occur
@@ -322,6 +329,11 @@ those pieces."
                   (const category)
                   (const keywords))))
 
+(defcustom org-index-hl-in-occur t
+  "Within occur buffer, when occur is done, switch on hl-line-mode ?"
+  :group 'org-index
+  :type '(choice (const :tag "Yes" t)
+                 (const :tag "No" nil)))
 
 (defmacro oidx--on (column value &rest body)
   "Execute the forms in BODY with point on index line whose COLUMN is VALUE.
@@ -348,7 +360,7 @@ if VALUE cannot be found."
 
 
 (defmacro oidx--plist-put (plist &rest args)
-  "Version of `plist-get', that already includes the obligatory setq around.
+  "Version of `plist-put', that already includes the obligatory setq around.
 For arguments PLIST and ARGS see there."
   (let ((list nil))
     (while args
@@ -431,7 +443,7 @@ of subcommands to choose from:
   help: Show complete help text of `org-index'.
     I.e. this text.
 
-  kill: Kill (delete) the current node from index.
+  kill: [k] Kill (delete) the current node from index.
     Can be invoked from index, from occur or from a headline.
 
   example: Create an example index, that will not be saved.
@@ -602,7 +614,7 @@ Prefix argument ARG is passed to subcommand add."
                 (if (and message-text kill-new-text)
                     " and r"
                   (if kill-new-text "R" ""))
-                (if kill-new-text (format "eady to yank '%s'." kill-new-text) (if message-text "." "")))))
+                (if kill-new-text (format "eady to yank '%s'." kill-new-text)))))
         (unless (string= m "")
           (message m)
 	  (setq oidx--message-text m)))
@@ -1202,7 +1214,7 @@ Optional argument KEYS-VALUES specifies content of new line."
         (setq content (org-make-tag-string (org-get-tags nil t)))))
       
       (unless (string= content "")
-        (oidx--plist-put args col content)))
+        (oidx--plist-put args col (s-trim content))))
 
     (if (not silent)
         (let ((args-edited (oidx--collect-values-from-user org-index-edit-on-add args)))
@@ -1257,14 +1269,15 @@ Optional argument DEFAULTS gives default values."
   "For current node or current line in index, add or update in index table.
 CREATE-REF creates a reference and passes it to yank."
 
-  (let* (id id-from-index ref args yank ret)
+  (let* (id id-from-index ref args yank ret kw)
 
     (unless (string-equal major-mode "org-mode")
       (error "This is not an org-buffer"))
     
     (oidx--save-positions)
     (unless (or oidx--within-index-node
-                oidx--within-occur)
+                oidx--within-occur
+                (org-inlinetask-in-task-p))
       (org-with-limited-levels (org-back-to-heading)))
     
     ;; try to do the same things from within index and from outside
@@ -1316,13 +1329,14 @@ CREATE-REF creates a reference and passes it to yank."
         (if ref (oidx--plist-put args 'ref ref))
         (setq yank (apply 'oidx--create-new-line args))
 
+        (setq kw (propertize (plist-get args 'keywords) 'face 'org-agenda-dimmed-todo-face))
         (setq ret
               (if ref
                   (cons
-                   (format "Added new index line %s" ref)
+                   (format "Added new index line %s, %s" ref kw)
                    (concat yank " "))
                 (cons
-                 "Added new index line"
+                 (format "Added new index line: %s" kw)
                  nil)))))
     
     (oidx--restore-positions)
@@ -1333,7 +1347,7 @@ CREATE-REF creates a reference and passes it to yank."
 (defun oidx--do-kill ()
   "Perform command kill from within occur, index or node."
 
-  (let (id ref chars-deleted-index text-deleted-from pos-in-index)
+  (let (id ref chars-deleted-index text-deleted-from pos-in-index keywords)
 
     (oidx--save-positions)
     (unless (or oidx--within-index-node
@@ -1382,6 +1396,7 @@ CREATE-REF creates a reference and passes it to yank."
     (set-buffer oidx--buffer)
     (unless pos-in-index "Internal error, pos-in-index should be defined here")
     (goto-char pos-in-index)
+    (setq keywords (oidx--get-or-set-field 'keywords))
     (setq chars-deleted-index (length (delete-and-extract-region (line-beginning-position) (line-beginning-position 2))))
     (push "index" text-deleted-from)
     
@@ -1398,7 +1413,8 @@ CREATE-REF creates a reference and passes it to yank."
           (push "occur" text-deleted-from)))
 
     (oidx--restore-positions)
-    (concat "Deleted from: " (mapconcat 'identity (sort text-deleted-from 'string<) ","))))
+    (concat "Deleted from: " (mapconcat 'identity (sort text-deleted-from 'string<) ",")
+            ": " (propertize keywords 'face 'org-agenda-dimmed-todo-face))))
 
 
 (defun oidx--do-index ()
@@ -2701,7 +2717,10 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
         (insert oidx--o-more-lines-text))
     (goto-char oidx--o-start-of-lines)
     
-    (setq buffer-read-only t)))
+    (setq buffer-read-only t)
+
+    (if org-index-hl-in-occur
+        (hl-line-mode))))
 
 
 (defun oidx--o-install-keyboard-shortcuts ()
