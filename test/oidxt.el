@@ -134,7 +134,7 @@
     (global-unset-key (kbd "C-c i"))
     (with-current-buffer "*org-index commands*"
       (goto-char (point-max))
-      (should (= (line-number-at-pos) 15)))))
+      (should (= (line-number-at-pos) 16)))))
 
 
 (unless (functionp 'org-duration-from-minutes)
@@ -271,6 +271,25 @@
     (should (looking-at "--13--"))))
 
 
+(ert-deftest oidxt-test-back-train ()
+  (oidxt-with-test-setup
+    (mapcar (lambda (x)
+	      (switch-to-buffer oidxt-work-buffer-name)
+	      (goto-char 0)
+	      (search-forward x)
+	      (org-reveal)
+	      (oidxt-do "a")
+	      (oidxt-do (concat "o"
+				(apply 'concat
+				       (flatten-list
+					(mapcar (lambda (y) (list " " y))
+						(split-string x "" t))))
+				" <return>")))
+	    (list "eins" "vier" "acht" "drei"))
+    (oidxt-do "b b b f")
+    (should (looking-at ".* --8--"))))
+
+
 (ert-deftest oidxt-test-find-node-from-index ()
   (oidxt-with-test-setup
     (oidxt-do "i i")
@@ -336,11 +355,11 @@
    (should (string= (buffer-name) "oidxt-work.org"))))
 
 
-(ert-deftest oidxt-test-details-from-occur ()
+(ert-deftest oidxt-test-view-from-occur ()
   (oidxt-with-test-setup
-   (oidxt-do "o e i n s <down> d")
+   (oidxt-do "o e i n s <down> v")
    (other-window 1)
-   (should (string= (buffer-name) oidx--details-buffer-name))
+   (should (string= (buffer-name) oidx--view-buffer-name))
    (should (looking-at "\s+ref: --11--"))))
 
 
@@ -382,32 +401,32 @@
   (oidxt-with-test-setup
     (oidxt-do "m d u p l i c a t e s <return>")
     (should (string= oidx--message-text
-                     "No duplicate references or ids found."))
+                     "No duplicate references or ids found"))
     (execute-kbd-macro (kbd "C-a C-k C-k C-y C-y"))
     (oidxt-do "m d u p l i c a t e s <return>")
     (should (string= oidx--message-text
-                     "Some references or ids are duplicate."))))
+                     "Some references or ids are duplicate"))))
 
 
 (ert-deftest oidxt-test-maintain-statistics ()
   (oidxt-with-test-setup
     (oidxt-do "m s t a t i s t i c s <return>")
     (should (string= oidx--message-text
-                     "14 Lines in index table. First reference is --1--, last --14--; 14 of them are used (100 percent)."))))
+                     "14 Lines in index table. First reference is --1--, last --14--; 14 of them are used (100 percent)"))))
 
 
 (ert-deftest oidxt-test-maintain-clean ()
   (oidxt-with-test-setup
     (oidxt-do "m c l e a n <return>")
     (should (string= oidx--message-text
-                     "Removed property 'org-index-ref' from 1 lines."))))
+                     "Removed property 'org-index-ref' from 1 lines"))))
 
 
 (ert-deftest oidxt-test-maintain-verify ()
   (oidxt-with-test-setup
     (oidxt-do "m v e r i f y <return>")
     (should (string= oidx--message-text
-                     "All ids of index are valid."))))
+                     "All ids of index are valid"))))
 
 
 (ert-deftest oidxt-test-add-update ()
@@ -707,7 +726,6 @@
 *************** Inline
   :PROPERTIES:
   :ID:       " oidxt-id-5 "
-  :org-index-ref: foo
   :END:
 *************** END
 

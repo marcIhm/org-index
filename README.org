@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 7.1.7.
+  The current version is 7.2.1.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -127,6 +127,14 @@
 ** Latest Change Log
 
    See ChangeLog.org for older entries.
+
+*** 7.2
+
+    - Allow to add inline-Tasks to the index
+    - Optional hl-line-mode in occur-buffer
+    - Renamed command `details' to `view'
+    - Better messages
+    - Fixes
 
 *** 7.1
 

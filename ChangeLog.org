@@ -1,3 +1,11 @@
+* 7.2 until 2021-05-24 Mo
+
+  - Allow to add inline-Tasks to the index
+  - Optional hl-line-mode in occur-buffer
+  - Renamed command `details' to `view'
+  - Better messages
+  - Fixes
+
 * 7.1 until 2021-04-19 Mo
 
   - Added flag-column in occur

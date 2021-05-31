@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.2.1
+;; Version: 7.3.0
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -42,22 +42,24 @@
 ;;  Please note, that org-index uses org-id throughout and therefore adds
 ;;  an id-property to all nodes in the index.
 ;;
-;;  In the addition to the index table, org-index introduces the concept of
+;;  In addition to the index table, org-index introduces the concept of
 ;;  references: These are decorated numbers (e.g. 'R237' or '--455--');
 ;;  they are well suited to be used outside of org, e.g. in folder names,
-;;  ticket systems or on printed documents.
+;;  ticket systems or on printed documents. Use of references is optional.
 ;;
 ;;  On first invocation org-index will assist you in creating the index
-;;  table.
+;;  table. The index table is a normal org table, that needs to be stored
+;;  in a dedicated node anywhere within your org files.
 ;;
-;;  To start using your index, invoke the subcommand 'add' to create
-;;  index entries and 'occur' to find them.
+;;  To start using your index, invoke the subcommand 'add' to create index
+;;  entries and 'occur' to find them. The first call to 'add' will trigger
+;;  the one-time assistant to create the index table.
 ;;
 ;;  The set of columns within the index-table is fixed (see variable
 ;;  `oidx--all-columns') but can be arranged in any order you wish; just
 ;;  edit the index table.  The number of columns shown during occur is
 ;;  determined by `org-index-occur-columns'.  Using both features allows to
-;;  make columns invisible, that you dont care about.
+;;  ignore columns during search.
 ;;
 ;;
 ;; Setup:
@@ -74,11 +76,16 @@
 ;;
 ;;  - Watch the screencast at http://2484.de/org-index.html.
 ;;  - See the documentation of `org-index', which can also be read by
-;;    invoking `org-index' and typing '?'.
+;;    invoking `org-index' and typing 'help'.
 ;;
 
 ;;; Change Log:
 
+;;   Version 7.3
+;;
+;;   - New command `back'
+;;   - Renamed command `details' to `view'
+;;   
 ;;   Version 7.2
 ;;
 ;;   - Allow to add inline-Tasks to the index
@@ -218,18 +225,32 @@
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
 (defvar oidx--id-not-found nil "Id of last node not found.")
+(defvar oidx--back-train-ids nil "Ids of last nodes visited.")
+(defvar oidx--back-train-before-marker nil "Marker for position before entry into train.")
+(defvar oidx--back-train-cancel-transient-function nil "Function to end train.")
+(defvar oidx--back-train-cancel-timer nil "Timer to cancel waiting for key.")
+(defvar oidx--back-train-count nil "How many IDs back in train ?")
+(defvar oidx--back-train-keymap
+  (let ((keymap (make-sparse-keymap)))
+    (set-keymap-parent keymap org-mode-map)
+    (define-key keymap (kbd "b") 'oidx--back-train-continue)
+    (define-key keymap (kbd "f") 'oidx--back-train-reverse)
+    (define-key keymap (kbd "q") 'oidx--back-train-quit)
+    (define-key keymap (kbd "C-g") 'oidx--back-train-quit)
+    keymap)
+  "Keymap used in index back train.")
 
 ;; static information for this program package
-(defconst oidx--commands '(occur add kill node index ref yank edit details help example sort maintain) "List of commands available.")
+(defconst oidx--commands '(occur add kill node index ref yank again edit view help example sort maintain) "List of commands available.")
 (defconst oidx--all-columns '(ref id created last-accessed count keywords category level yank tags) "All valid headings.")
 (defconst oidx--edit-buffer-name "*org-index-edit*" "Name of edit buffer.")
-(defconst oidx--details-buffer-name "*org-index-details*" "Name of details buffer.")
+(defconst oidx--view-buffer-name "*org-index-view*" "Name of view buffer.")
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "7.1.7" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.2.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -404,7 +425,7 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 make columns invisible, that you dont care about.
 
-This is version 7.1.7 of org-index.el.
+This is version 7.2.1 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -430,10 +451,12 @@ of subcommands to choose from:
   yank: [y] Store a new string, that can be yanked from occur.
     The index line will not be associated with a node.
 
+  back: [b] Goto last visited nodes, one after another.
+
   edit: [e] Present current line in edit buffer.
     Can be invoked from index, from occur or from a headline.
 
-  details: [d] Show details for current line at bottom of frame.
+  view: [v] View details for current index line.
     Can be invoked from index, from occur or from a headline.
 
   node: [n] Go to node, by ref or from index line.
@@ -518,6 +541,10 @@ Prefix argument ARG is passed to subcommand add."
         (setq message-text (oidx--do-kill)))
 
 
+       ((eq command 'back)
+        (setq message-text (oidx--do-back-train-start)))
+
+
        ((eq command 'node)
 
         (setq message-text
@@ -541,6 +568,11 @@ Prefix argument ARG is passed to subcommand add."
        ((eq command 'occur)
 
         (set-buffer oidx--buffer)
+        (oidx--do-occur))
+
+
+       ((eq command 'last)
+
         (oidx--do-occur))
 
 
@@ -575,9 +607,9 @@ Prefix argument ARG is passed to subcommand add."
         (setq message-text (oidx--do-edit)))
        
 
-       ((eq command 'details)
+       ((eq command 'view)
 
-        (setq message-text (oidx--o-action-details)))
+        (setq message-text (oidx--o-action-view)))
        
 
        ((eq command 'sort)
@@ -633,7 +665,7 @@ Prefix argument ARG is passed to subcommand add."
 
       (setq char (downcase (key-description (read-key-sequence nil))))
       (if (string= char "c-g") (keyboard-quit))
-      (setq detailed-prompt (or (string= char "?") (string= char "spc")))
+      (setq detailed-prompt (or (string= char "?") (string= char "h") (string= char "spc")))
       
       (setq command (cdr (assoc char (oidx--get-shortcut-chars))))
       (unless (or command
@@ -940,7 +972,7 @@ If GET-CATEGORY is set, retrieve it too."
 
 
 
-;; Edit, add or kill lines, show details
+;; Edit, add or kill lines, view details
 (defun oidx--do-edit ()
   "Perform command or occur-action edit."
   (let (buffer-keymap field-keymap keywords-pos cols-vals maxlen)
@@ -1086,8 +1118,8 @@ If GET-CATEGORY is set, retrieve it too."
   (message "Edit aborted."))
 
 
-(defun oidx--do-details ()
-  "Perform command or occur-action details."
+(defun oidx--do-view ()
+  "Perform command or occur-action view."
 
   ;; switch to index if appropriate
   (cond
@@ -1105,8 +1137,8 @@ If GET-CATEGORY is set, retrieve it too."
         (error "This node is not in index")))))
   
   (-let (((cols-vals . maxlen) (oidx--content-of-current-line)))
-    (display-buffer (get-buffer-create oidx--details-buffer-name) '((display-buffer-at-bottom)))
-    (with-current-buffer oidx--details-buffer-name
+    (display-buffer (get-buffer-create oidx--view-buffer-name) '((display-buffer-at-bottom)))
+    (with-current-buffer oidx--view-buffer-name
       (let ((inhibit-read-only t))
         (erase-buffer)
         (dolist (col-val cols-vals)
@@ -1118,7 +1150,7 @@ If GET-CATEGORY is set, retrieve it too."
         (fit-window-to-buffer (get-buffer-window))
         (setq buffer-read-only t))))
 
-  "Showing details for a single line of index")
+  "View of details for a single line of index")
 
 
 (defun oidx--create-new-line (&rest keys-values)
@@ -1460,6 +1492,87 @@ CREATE-REF creates a reference and passes it to yank."
 
 
 
+;; Back train
+(defun oidx--do-back-train-start ()
+  "Start train to go back in list of last visited headings."
+  (interactive)
+  (if oidx--back-train-ids
+      (progn
+        (setq oidx--back-train-count 0)
+        (setq oidx--back-train-before-marker (point-marker))
+        (setq oidx--back-train-cancel-transient-function
+              (set-transient-map
+               oidx--back-train-keymap t
+               ;; this is run (in any case) on leaving the map
+               (lambda ()
+                 (if oidx--back-train-cancel-timer
+                     (cancel-timer oidx--back-train-cancel-timer))
+                 (message "Back train done.")
+                 (setq oidx--back-train-ids (nthcdr oidx--back-train-count oidx--back-train-ids))
+                 (when oidx--back-train-before-marker
+                   (move-marker oidx--back-train-before-marker nil)
+                   (setq oidx--back-train-before-marker nil)))))
+        (oidx--back-train-continue 0))
+    "No node has been visted yet or all back train has been consumed before; cannot go back"))
+
+
+(defun oidx--back-train-continue (&optional step)
+  "Continue (STEP steps) with org index back train."
+  (interactive)
+  (let (target-id text msg)
+
+    ;; compute target
+    (setq oidx--back-train-count (+ oidx--back-train-count (or step 1)))
+
+    (cond     
+
+     ((>= oidx--back-train-count (length oidx--back-train-ids))
+      (setq text "Reached end of back-train; no prior nodes to revisit")
+      (setq oidx--back-train-count (length oidx--back-train-ids)))
+
+     ((< oidx--back-train-count 0)
+      (setq text "Reached front of back-train; no later nodes to revisit")
+      (setq oidx--back-train-count 0))
+
+     (t
+      (setq target-id (nth oidx--back-train-count oidx--back-train-ids))
+      
+      ;; bail out on inactivity
+      (if oidx--back-train-cancel-timer
+          (cancel-timer oidx--back-train-cancel-timer))
+      (setq oidx--back-train-cancel-timer
+            (run-at-time 30 nil
+                         (lambda () (if oidx--back-train-cancel-transient-function
+                                   (funcall oidx--back-train-cancel-transient-function)))))
+      
+      ;; actual move to id
+      (oidx--find-id target-id)))
+    
+    ;; Compose return message:
+    (setq msg (concat (or text "In back-train")
+                      (format " (%d of %d entries back); type a letter for b)ack, f)orward or q)uit, any other key to stay here - " oidx--back-train-count (length oidx--back-train-ids))))
+    (message msg)
+    msg))
+
+
+(defun oidx--back-train-reverse ()
+  "Go through backtrain in forward direction."
+  (interactive)
+  (oidx--back-train-continue -1))
+
+
+(defun oidx--back-train-quit ()
+  "Leave train and return to initial node."
+  (interactive)
+  (message "Quit")
+  (setq oidx--back-train-count 0)
+  (if oidx--back-train-before-marker ; proper cleanup of marker will happen in cancel-transient function
+      (org-goto-marker-or-bmk oidx--back-train-before-marker))
+  (if oidx--back-train-cancel-transient-function
+      (funcall oidx--back-train-cancel-transient-function)))
+
+
+
 ;; Sorting
 (defun oidx--get-start-of-today ()
   "Get timestamp for sorting: Today at 0:00."
@@ -1529,7 +1642,6 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
      ;; so that recent entries are sorted by last access, but older entries are sorted by count
      (if (string> last-accessed time-threshold) last-accessed time-threshold)
      (format "%08d" (string-to-number (or (oidx--get-or-set-field 'count) ""))))))
-
 
 
 
@@ -1868,7 +1980,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--advice-for-org-id-update-id-locations (_orig-func &rest _args)
-  "Advice that moderates use of `org-id-update-id-location' for `org-working-set--menu-rebuild'."
+  "Advice that moderates use of `org-id-update-id-location' for `oidx--id-find'."
   (message "ID %s cannot be found; therefore id-locations are beeing updated. Please stand by ..." oidx--id-not-found)
   (sleep-for 1))
 
@@ -2703,7 +2815,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--o-search-text
-                       "\". <return> dispatches according to flag y*:yank, n:jump to node; <S-return> the same but *:jump; <tab> jumps in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `d' shows details, `l' offers links from node to visit. First char in line (yn*) is flag for dispatching to yank or node."
+                       "\". <return> dispatches according to flag y*:yank, n:jump to node; <S-return> the same but *:jump; <tab> jumps in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `v' view details, `l' offers links from node to visit. First char in line (yn*) is flag for dispatching to yank or node."
                        "\n")
                lines-collected)
               'face 'org-agenda-dimmed-todo-face))
@@ -2740,7 +2852,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
                (("<escape>" "q") . oidx--o-action-quit)
                (("c" "M-c") . oidx--o-action-clock-in)
                (("e" "M-e") . oidx--o-action-edit)
-               (("d" "M-d") . oidx--o-action-details)
+               (("v" "M-v") . oidx--o-action-view)
                (("l" "M-l") . oidx--o-action-offer-links)
                (("?" "M-?") . oidx--o-action-toggle-help)))
       (dolist (key (car keys-command)) (define-key keymap (kbd key) (cdr keys-command))))
@@ -2851,6 +2963,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
                     (error "Cannot visit node of this line: It contains no id"))))
         (oidx--o-action-prepare t)
 	(oidx--update-line (get-text-property (point) 'org-index-lbp))
+        (unless (string= id (car oidx--back-train-ids)) (push id oidx--back-train-ids))
         (oidx--find-id id other))))
 
 
@@ -2899,11 +3012,11 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
   (message (oidx--do-edit)))
 
 
-(defun oidx--o-action-details ()
-  "Show details for index line under cursor."
+(defun oidx--o-action-view ()
+  "View details for index line under cursor."
   (interactive)
   (oidx--o-action-prepare)
-  (message (oidx--do-details)))
+  (message (oidx--do-view)))
 
 
 (defun oidx--o-action-toggle-help ()
@@ -2916,11 +3029,11 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
   (overlay-put oidx--o-help-overlay 'display (car oidx--o-help-text)))
 
 
-(defun oidx--o-action-prepare (&optional kill-details)
+(defun oidx--o-action-prepare (&optional kill-view)
   "Common preparation for all occur actions.
-KILL-DETAILS removes respective window."
-  (if kill-details
-      (ignore-errors (delete-windows-on oidx--details-buffer-name)))
+KILL-VIEW removes respective window."
+  (if kill-view
+      (ignore-errors (delete-windows-on oidx--view-buffer-name)))
   (oidx--retrieve-context-on-invoke)
   (oidx--refresh-parse-table))
 
