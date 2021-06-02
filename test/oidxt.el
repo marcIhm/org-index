@@ -271,25 +271,6 @@
     (should (looking-at "--13--"))))
 
 
-(ert-deftest oidxt-test-back-train ()
-  (oidxt-with-test-setup
-    (mapcar (lambda (x)
-	      (switch-to-buffer oidxt-work-buffer-name)
-	      (goto-char 0)
-	      (search-forward x)
-	      (org-reveal)
-	      (oidxt-do "a")
-	      (oidxt-do (concat "o"
-				(apply 'concat
-				       (flatten-list
-					(mapcar (lambda (y) (list " " y))
-						(split-string x "" t))))
-				" <return>")))
-	    (list "eins" "vier" "acht" "drei"))
-    (oidxt-do "b b b f")
-    (should (looking-at ".* --8--"))))
-
-
 (ert-deftest oidxt-test-find-node-from-index ()
   (oidxt-with-test-setup
     (oidxt-do "i i")
