@@ -43,7 +43,7 @@
   node added.{sleep 1}{recenter 5}
   {mark}{search * one two}{sleep 0.4}{kbd C-c i C - c~SPC~i~SPC~a~4~RET~5~TAB}{sleep 0.5}{search * one three}{sleep 0.3}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{search * two three}{sleep 0.3}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{search * one four}{sleep 0.3}{kbd C-c i C - c~SPC~i~SPC~a~4~RET TAB}{sleep 0.5}{return}{sleep 1}
   Now our index contains 5 lines. We had to add each node to the index manually, but this is
-  intended, because the index should contain only the nodes we choose.
+  intended, because the index should contain only those nodes we choose.
 
   Having a closer look at the index table we observe:
 
