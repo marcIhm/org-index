@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.2.1
+;; Version: 7.3.0
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -81,99 +81,105 @@
 
 ;;; Change Log:
 
-;;   Version 7.2
+
+;;  Version 7.3
 ;;
-;;   - Allow to add inline-Tasks to the index
-;;   - Optional hl-line-mode in occur-buffer
-;;   - Renamed command `details' to `view'
-;;   - Better messages
-;;   - Fixes
+;;  - New new maintainance-command `archive'
+;;  - Using <M-return> instead of <S-return>
 ;;
-;;   Version 7.1
+;;  Version 7.2
 ;;
-;;   - Added flag-column in occur
-;;   - Wrap org-id-find and org-id-goto
-;;   - Offer org-id-update-id-locations in certain cases
-;;   - Fixes
+;;  - Allow to add inline-Tasks to the index
+;;  - Optional hl-line-mode in occur-buffer
+;;  - Renamed command `details' to `view'
+;;  - Better messages
+;;  - Fixes
 ;;
-;;   Version 7.0
+;;  Version 7.1
 ;;
-;;   - A release of much rewriting and removal
-;;   - Rewrote the occur command to reduce complexity
-;;   - Only one sorting strategy is supported now, removed `org-index-sort-by'
-;;   - Removed background sorting
-;;   - Disallowed custom columns (starting wit a dot '.')
-;;   - Sorting now only relates to index table (not arbitrary regions)
-;;   - Removed commands ping, column, find-ref and highlight
-;;   - Simplified command node: It now only works from within index
-;;   - Command details now works from within index too
-;;   - Document columns of index table and their purpose
-;;   - Remove ability to search for refererence under cursor
-;;   - Prefix arguments no longer allowed
-;;   - Removed interface for lisp functions, e.g. org-index-new-line;
-;      org-index is now purely interactive
+;;  - Added flag-column in occur
+;;  - Wrap org-id-find and org-id-goto
+;;  - Offer org-id-update-id-locations in certain cases
+;;  - Fixes
 ;;
-;;   Version 6.3
+;;  Version 7.0
 ;;
-;;   - Added new command 'd' to show details in occur-buffer (much like edit)
-;;   - Fixes to occur
-;;   - Code simplifications
-;;   - Removed org-index-get-line
+;;  - A release of much rewriting and removal
+;;  - Rewrote the occur command to reduce complexity
+;;  - Only one sorting strategy is supported now, removed `org-index-sort-by'
+;;  - Removed background sorting
+;;  - Disallowed custom columns (starting wit a dot '.')
+;;  - Sorting now only relates to index table (not arbitrary regions)
+;;  - Removed commands ping, column, find-ref and highlight
+;;  - Simplified command node: It now only works from within index
+;;  - Command details now works from within index too
+;;  - Document columns of index table and their purpose
+;;  - Remove ability to search for refererence under cursor
+;;  - Prefix arguments no longer allowed
+;;  - Removed interface for lisp functions, e.g. org-index-new-line;
+;     org-index is now purely interactive
 ;;
-;;   Version 6.2
+;;  Version 6.3
 ;;
-;;   - Require dash and orgmode for package.el
-;;   - Key 'h' does the same as '?'
-;;   - Rename command 'head' to 'node' (to free key 'h')
-;;   - Removed command 'news'
-;;   - Fixes
+;;  - Added new command 'd' to show details in occur-buffer (much like edit)
+;;  - Fixes to occur
+;;  - Code simplifications
+;;  - Removed org-index-get-line
 ;;
-;;   Version 6.1
+;;  Version 6.2
 ;;
-;;   - Added new command 'l' in occur to visit links
-;;   - Modified keys in occur-buffer
-;;   - Refactoring
-;;   - Fixes
+;;  - Require dash and orgmode for package.el
+;;  - Key 'h' does the same as '?'
+;;  - Rename command 'head' to 'node' (to free key 'h')
+;;  - Removed command 'news'
+;;  - Fixes
 ;;
-;;   Version 6.0
+;;  Version 6.1
 ;;
-;;   - Moved the working-set feature into its own package org-working-set
+;;  - Added new command 'l' in occur to visit links
+;;  - Modified keys in occur-buffer
+;;  - Refactoring
+;;  - Fixes
 ;;
-;;   Version 5.12
+;;  Version 6.0
 ;;
-;;   - Do-not-clock is shown in working-set menu
-;;   - Switching from working set circle into menu
-;;   - RET in working-set circle ends and clocks in immediately
-;;   - Fixes
+;;  - Moved the working-set feature into its own package org-working-set
 ;;
-;;   Version 5.11
+;;  Version 5.12
 ;;
-;;   - Implemented do-not-clock commands and behaviour in working-set
-;;   - Fixes
+;;  - Do-not-clock is shown in working-set menu
+;;  - Switching from working set circle into menu
+;;  - RET in working-set circle ends and clocks in immediately
+;;  - Fixes
 ;;
-;;   Version 5.10
+;;  Version 5.11
 ;;
-;;   - Pressing shift prevents clocking into working set
-;;   - Occur shows '(more lines omitted)' if appropriate
-;;   - replaced (org-at-table-p) with (org-match-line org-table-line-regexp)
-;;     throughout for preformance reasons
-;;   - Offer direct clock-in from result-buffer of occur
-;;   - Various fixes
+;;  - Implemented do-not-clock commands and behaviour in working-set
+;;  - Fixes
 ;;
-;;   Version 5.9
-;; 
-;;   - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
-;;   - Added special buffer to manage the working-set
-;;   - Function org-index-working-set may now be invoked directly
-;;   - Simplified working-set circle
-;;   - Introduced org-index-occur-columns to limit matches during occur to specified
-;;     number of leading columns; this gives better matches
-;;   - Removed days option from occur command
-;;   - Fixed and Optimized overlay-handling in occur for better performance and
-;;     overall stability
-;;   - Limited the number of lines to display in occur for better performance,
-;;     see 'org-index-occur-max-lines'
-;; 
+;;  Version 5.10
+;;
+;;  - Pressing shift prevents clocking into working set
+;;  - Occur shows '(more lines omitted)' if appropriate
+;;  - replaced (org-at-table-p) with (org-match-line org-table-line-regexp)
+;;    throughout for preformance reasons
+;;  - Offer direct clock-in from result-buffer of occur
+;;  - Various fixes
+;;
+;;  Version 5.9
+;;
+;;  - Renamed 'focus' to 'working-set', changed commands and help texts accordingly.
+;;  - Added special buffer to manage the working-set
+;;  - Function org-index-working-set may now be invoked directly
+;;  - Simplified working-set circle
+;;  - Introduced org-index-occur-columns to limit matches during occur to specified
+;;    number of leading columns; this gives better matches
+;;  - Removed days option from occur command
+;;  - Fixed and Optimized overlay-handling in occur for better performance and
+;;    overall stability
+;;  - Limited the number of lines to display in occur for better performance,
+;;    see 'org-index-occur-max-lines'
+;;
 
 ;;; Code:
 
@@ -458,7 +464,7 @@ of subcommands to choose from:
          otherwise count.
 
   maintain: [m] Index maintainance.
-     Offers some choices to check, update or fix your index.
+     Offers some choices to check or archive your index.
 
 Use `org-customize' to tweak the behaviour of `org-index'.
 
@@ -795,7 +801,7 @@ Optional argument SILENT prevents invoking interactive assistant."
         (setq marker (oidx--id-find org-index-id 'marker))
         (unless marker
           (if silent (throw 'missing-index t))
-          (oidx--create-missing-index "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id)))
+          (oidx--create-missing-index (format "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))))
       ;; Try again after updating IDs or with new node
       (setq marker (oidx--id-find org-index-id 'marker))
       (unless marker
@@ -825,11 +831,10 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
       (org-reveal)
 
       (unless oidx--aligned-and-sorted
-        ;; align, fontify and sort table once for this emacs session
-        (message "Align, fontify and sort index table (once per emacs session)...")
         (oidx--sort-index)
         (goto-char oidx--below-hline)
 
+        (message "Align, fontify and sort index table (once per emacs session)...")
         (org-table-align)
         (font-lock-fontify-region (point) (org-table-end))
 
@@ -853,7 +858,7 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
       ;; parse line of headings
       (oidx--parse-headings)
 
-      ;; read property or go through table to find maximum number
+      ;; One time migration: read property or go through table to find maximum number
       (goto-char oidx--below-hline)
       (setq max-ref-field (or (org-entry-get oidx--point "max-ref")
                               (oidx--migrate-maxref-to-property)))
@@ -884,7 +889,7 @@ If GET-CATEGORY is set, retrieve it too."
   "Extract decoration from a REF-FIELD."
   (unless (string-match "^\\([^0-9]*\\)\\([0-9]+\\)\\([^0-9]*\\)$" ref-field)
     (oidx--report-index-error
-     "Reference in index table ('%s') does not contain a number" ref-field))
+     (format "Reference in index table ('%s') does not contain a number" ref-field)))
   
   ;; These are the decorations used within the first ref of index
   (setq oidx--ref-head (match-string 1 ref-field))
@@ -899,15 +904,14 @@ If GET-CATEGORY is set, retrieve it too."
   "Extract the number from a complete reference REF-FIELD like 'R102'."
   (unless (string-match oidx--ref-regex ref-field)
     (oidx--report-index-error
-     "Reference '%s' is not formatted properly (does not match '%s')" ref-field oidx--ref-regex))
+     (format "Reference '%s' is not formatted properly (does not match '%s')" ref-field oidx--ref-regex)))
   (string-to-number (match-string 1 ref-field)))
 
 
 (defun oidx--parse-headings ()
   "Parse headings of index table."
 
-  (let (field         ;; field content
-        field-symbol) ;; and as a symbol
+  (let (field field-symbol missing-heads)
 
     (setq oidx--columns-map nil)
 
@@ -926,17 +930,16 @@ If GET-CATEGORY is set, retrieve it too."
       ;; check if heading has already appeared
       (if (assoc field-symbol oidx--columns-map)
           (oidx--report-index-error
-           "'%s' appears two times as column heading" (downcase field))
-        ;; add it to list at front, reverse later
+           (format "'%s' appears two times as column heading" (downcase field)))
         (push (cons field-symbol (+ col 1)) oidx--columns-map))))
 
   (setq oidx--columns-map (reverse oidx--columns-map))
 
   ;; check if all headings have appeared
-  (mapc (lambda (head)
-          (unless (cdr (assoc head oidx--columns-map))
-            (oidx--report-index-error "No column has heading '%s'" head)))
-        oidx--all-columns))
+  (setq missing-heads (-select (lambda (head) (not (assoc head oidx--columns-map))) oidx--all-columns))
+  (if missing-heads
+      (oidx--report-index-error
+       (format "No column has any of these headings %s" missing-heads))))
 
 
 (defun oidx--refresh-parse-table ()
@@ -1703,7 +1706,7 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
 
     ;; check, if there really is a table
     (unless (org-match-line org-table-line-regexp)
-      (oidx--create-missing-index "Cannot find %s." errstring))
+      (oidx--create-missing-index (format "Cannot find %s." errstring)))
 
     ;; go just after hline
     (while (and (not (org-at-table-hline-p))
@@ -1713,7 +1716,7 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
 
     ;; and check
     (unless (org-match-line org-table-line-regexp)
-      (oidx--report-index-error "Cannot find a hline within %s" errstring))
+      (oidx--report-index-error (format "Cannot find a hline within %s" errstring)))
 
     (org-table-goto-column 1)
     (setq oidx--below-hline (point))))
@@ -1863,7 +1866,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--id-goto (id)
-  "Wrapper for org-id-goto, that does not go stale during rebuild of org-id-locations"
+  "Wrapper for org-id-goto, that issues a message before rebuild of org-id-locations"
   (setq oidx--id-not-found id)
   (unwind-protect
       (progn
@@ -1876,231 +1879,154 @@ Optional argument NO-INC skips automatic increment on maxref."
   (setq oidx--id-not-found nil))
 
 
-(defun oidx--advice-for-org-id-update-id-locations (_orig-func &rest _args)
+(defun oidx--advice-for-org-id-update-id-locations (orig-fun &rest args)
   "Advice that moderates use of `org-id-update-id-location' for `oidx--id-find'."
   (message "ID %s cannot be found; therefore id-locations are beeing updated. Please stand by ..." oidx--id-not-found)
-  (sleep-for 1))
+  (sleep-for 1)
+  (apply orig-fun args)
+  (message "Done."))
 
 
 
 ;; Index maintainance
 (defun oidx--do-maintain ()
   "Choose among and perform some tasks to maintain index."
-  (let (message-text choices choices-short check-what text)
+  (let (choices choices-short what)
     
-    (setq choices (list "statistics : compute statistics about index table\n"
-                        "verify     : verify ids by visiting their nodes\n"
-                        "duplicates : check index for duplicate refs or ids\n"
-                        "max        : compute and check maximum ref\n"
-                        "clean      : remove obsolete property org-index-id\n"
-                        "update     : update content of index lines having an id\n"))
+    (setq choices (list
+                   "checks : perform some non-interactive checks, collect statistics and present results\n"
+                   "retire : assistant to retire lines from your index (e.g. for performance reasons)\n"
+                   "update : update content of index lines having an ID from their node\n"))
 
     (setq choices-short (mapcar (lambda (x) (car (split-string x))) choices))
-    (setq text (concat "These checks and fixes are available:\n" (apply 'concat choices) "Please choose: "))
-    (setq check-what (intern (oidx--completing-read text choices-short (car choices-short))))
+    (setq what
+          (intern (oidx--completing-read
+                   (concat "These checks and fixes are available:\n" (apply 'concat choices) "Please choose: ")
+                   choices-short (car choices-short))))
 
-    (message nil)
-    (oidx--enter-index-to-stay)
+    (cl-case what
+     ('checks
+      (oidx--index-checks)
+      "Checks done, results in buffer.")
+
+     ('retire
+      (oidx--index-retire-lines)
+      "Lines have been retired successfully.")
+
+     ('update
+      (if (y-or-n-p "Updating your index will overwrite certain columns with content from the associated heading and category.  If unsure, you may try this for a single, already existing line of your index by invoking `add'.  Are you sure to proceed for all index lines ? ")
+          (oidx--update-all-lines)
+        "Canceled.")))))
+
+
+(defun oidx--index-checks ()
+  "Perform some non-interactive checks, collect statistics and present results."
+  (let ((buna "*org-index-checks*"))
+
+    (pop-to-buffer buna)
+    (delete-other-windows)
+    (erase-buffer)
+    (org-mode)
+    (insert "\n")
+    (redisplay)
+
+    ;; check for duplicates
+    (mapc
+     (lambda (x)
+       (let ((duplicates (oidx--find-duplicates x))
+             (name (if (eq x 'ref) "references" "IDs")))
+         (insert (format "* Finding duplicate %s in index table\n\n" name))
+         (insert "  processing ...")
+         (sleep-for 0.5)
+         (redisplay)
+         (kill-whole-line)
+         (if duplicates
+             (progn
+               (insert (format "- These %s appear more than once in index table:\n" name))
+               (mapc (lambda (x) (insert "  - " x "\n")) duplicates)
+               (insert "\n\n"))
+           (insert (format "  No %s appear more than once in index table.\n\n" name)))))
+     '(ref id))
     
-    (cond
-     ((eq check-what 'verify)
-      (setq message-text (oidx--verify-ids)))
+    (insert "* Check, that all IDs really point to a node\n\n")
+    (insert "  processing ...")
+    (sleep-for 0.5)
+    (redisplay)
+    (let ((missing-ids (oidx--find-missing-ids))
+          lines)
+      (kill-whole-line)
+      (if missing-ids
+          (progn
+            (insert "  These IDs appear in index table but do not appear in any node:\n\n")
+            (mapc (lambda (x) (insert (format "  - %s\n" x)) missing-ids) missing-ids))
+        (insert "  All IDs from the index table point to a node."))
+      (insert "\n"))
 
-     ((eq check-what 'statistics)
-      (setq message-text (oidx--do-statistics)))
-
-     ((eq check-what 'duplicates)
-      (setq message-text (oidx--find-duplicates)))
-
-     ((eq check-what 'clean)
-      (let ((lines 0))
-        (org-map-entries
-         (lambda ()
-           (when (org-entry-get (point) "org-index-ref")
-             (cl-incf lines)
-             (org-entry-delete (point) "org-index-ref")))
-         nil 'agenda)
-        (setq message-text (format "Removed property 'org-index-ref' from %d lines" lines))))
-     
-     ((eq check-what 'update)
-      (if (y-or-n-p "Updating your index will overwrite certain columns with content from the associated heading and category.  If unsure, you may try this for a single, already existing line of your index by invoking `add'.  Are you SURE to proceed for ALL INDEX LINES ? ")
-          (setq message-text (oidx--update-all-lines))
-        (setq message-text "Canceled")))
-
-     ((eq check-what 'max)
-      (setq message-text (oidx--check-maximum))))
-    message-text))
-
-
-(defun oidx--find-duplicates ()
-  "Find duplicate references or ids in index table."
-  (let (ref-duplicates id-duplicates)
-
-    (setq ref-duplicates (oidx--find-duplicates-helper 'ref))
-    (setq id-duplicates (oidx--find-duplicates-helper 'id))
-    (goto-char oidx--below-hline)
-    (if (or ref-duplicates id-duplicates)
-        (progn
-          (pop-to-buffer-same-window
-           (get-buffer-create "*org-index-duplicates*"))
-          (erase-buffer)
-          (insert "\n")
-          (org-mode)
-          (if ref-duplicates
-              (progn
-                (insert "- These references appear more than once in index table:\n")
-                (mapc (lambda (x) (insert "  - " x "\n")) ref-duplicates)
-                (insert "\n\n"))
-            (insert "- No references appear more than once in index table.\n\n"))
-          (if id-duplicates
-              (progn
-                (insert "- These ids appear more than once in index table:\n")
-                (mapc (lambda (x) (insert "  - " x "\n")) id-duplicates))
-            (insert "- No ids appear more than once in index table."))
-          (insert "\n")
-
-          "Some references or ids are duplicate")
-      "No duplicate references or ids found")))
+      
+    (insert "* Statistics about the index table\n\n")
+    (insert "  processing ... ")
+    (sleep-for 0.5)
+    (redisplay)
+    (let ((max-tab 0) (min-tab most-positive-fixnum)
+          (total-lines 0) (total-refs 0)
+          ref-field ref-num max-prop)
+      (with-current-buffer oidx--buffer
+        (goto-char oidx--below-hline)
+        (setq max-prop (oidx--extract-refnum (org-entry-get oidx--point "max-ref")))
+        (while (org-match-line org-table-line-regexp)
+          (when (setq ref-field (oidx--get-or-set-field 'ref))
+            (setq ref-num (if ref-field (oidx--extract-refnum ref-field) 0))
+            (setq max-tab (max max-tab ref-num))
+            (setq min-tab (min min-tab ref-num))
+            (cl-incf total-refs))
+          (forward-line)
+          (cl-incf total-lines)))
+      (kill-whole-line)
+      (insert (format "  %d Lines in index table.\n  First reference is %s, last %s, diff is %d\n  %d of these references appear in table (%d percent)\n\n"
+                      total-lines
+                      (format oidx--ref-format min-tab)
+                      (format oidx--ref-format max-tab)
+                      (- max-tab min-tab)
+                      total-refs (truncate (* 100 (/ (float total-refs) (1+ (- max-tab min-tab)))))))
+      (insert
+       (cond
+        ((< max-prop max-tab)
+         (propertize (format "  Maximum ref from property max-ref (%d) is smaller than maximum ref from index table (%d); you should correct this, as it may lead to duplicate references" max-prop max-tab) 'face 'org-warning))
+        ((> max-prop max-tab)
+         (format  "  Maximum ref from property max-ref (%d) is larger than maximum ref from table (%d);\n  you may correct this for consistency" max-prop max-tab))
+        (t (format "  Maximum ref from property max-ref and maximum ref from table\n  are equal (%d); as expected" max-prop))))
+      (insert "\n\n"))))
 
 
-(defun oidx--find-duplicates-helper (column)
-  "Helper for `oidx--find-duplicates': Go through table and count given COLUMN."
-  (let (counts duplicates field found (clines 0) preporter)
+(defun oidx--find-duplicates (column)
+  "Helper for `oidx--index-checks': Go through table and collect duplicate instances of COLUMN."
+  (let (counts content found dups)
 
-    ;; go through table
-    (goto-char oidx--below-hline)
-    (setq preporter (make-progress-reporter (format "Collecting values for column %s from index-table..." column) 1 (oidx--count-lines-table)))
-    (while (org-match-line org-table-line-regexp)
+    (with-current-buffer oidx--buffer
+      (goto-char oidx--below-hline)
+      (while (org-match-line org-table-line-regexp)
+        (setq content (oidx--get-or-set-field column))
+        (setq found (assoc content counts))
+        (if (and content found)
+            (cl-incf (cdr found))
+          (push (cons content 1) counts))
+        (forward-line)))
+    (mapcar (lambda (x) (car x))
+            (-select (lambda (y) (> (cdr y) 1)) counts))))
 
-      (cl-incf clines)
-      (progress-reporter-update preporter clines)
 
-      ;; get column
-      (setq field (oidx--get-or-set-field column))
+(defun oidx--find-missing-ids ()
+  "Helper for `oidx--index-checks': Go through table and find missing IDs."
+  (let ((lines 0) duplicates)
 
-      ;; and increment
-      (setq found (assoc field counts))
-      (if found
-          (cl-incf (cdr found))
-        (push (cons field 1) counts))
-
-      (forward-line))
-
-    (mapc (lambda (x) (if (and (> (cdr x) 1)
-                               (car x))
-                          (push (car x) duplicates))) counts)
-
-    (progress-reporter-done preporter)
-    
+    (with-current-buffer oidx--buffer
+      (goto-char oidx--below-hline)
+      (while (org-match-line org-table-line-regexp)
+        (when (setq id (oidx--get-or-set-field 'id))
+          (or (oidx--id-find id t)
+              (push id duplicates)))
+        (forward-line)))
     duplicates))
-
-
-(defun oidx--check-maximum ()
-  "Check maximum reference."
-  (let (ref-field ref-num (max 0) (max-prop) (clines 0) preporter)
-
-    (goto-char oidx--below-hline)
-    (setq preporter (make-progress-reporter "Finding maximum value in index-table..." 1 (oidx--count-lines-table)))
-    (setq max-prop (oidx--extract-refnum (org-entry-get oidx--point "max-ref")))
-
-    (while (org-match-line org-table-line-regexp)
-
-      (cl-incf clines)
-      (progress-reporter-update preporter clines)
-
-      (setq ref-field (oidx--get-or-set-field 'ref))
-      (setq ref-num (if ref-field (oidx--extract-refnum ref-field) 0))
-
-      (setq max (max max ref-num))
-
-      (forward-line))
-
-    (progress-reporter-done preporter)
-    
-    (goto-char oidx--below-hline)
-    
-    (cond ((< max-prop max)
-           (format "Maximum ref from property max-ref (%d) is smaller than maximum ref from table (%d); you should correct this" max-prop max))
-          ((> max-prop max)
-           (format  "Maximum ref from property max-ref (%d) is larger than maximum ref from table (%d); you may correct this" max-prop max))
-          (t (format "Maximum ref from property max-ref and maximum ref from table are equal (%d); as expected" max-prop)))))
-
-
-(defun oidx--verify-ids ()
-  "Check, that ids really point to a node."
-  
-  (let ((marker t)
-        (clines 0)
-        preporter
-        id)
-    
-    (goto-char oidx--below-hline)
-    (setq preporter (make-progress-reporter "Verifying each id in index-table..." 1 (oidx--count-lines-table)))
-    
-    (while (and marker (org-match-line org-table-line-regexp))
-
-      (cl-incf clines)
-      (progress-reporter-update preporter clines)
-      (when (setq id (oidx--get-or-set-field 'id))
-        
-        ;; check, if id is valid
-        (setq marker (oidx--id-find id t)))
-
-      (when marker (forward-line)))
-
-    (progress-reporter-done preporter)
-    
-    (if marker
-        (progn
-          (goto-char oidx--below-hline)
-          "All ids of index are valid")
-      (org-table-goto-column 1)
-      (format "The id %s of this row cannot be found; please fix (maybe run org-id-update-id-locations) and check again for rest of index" id))))
-
-
-(defun oidx--count-lines-table ()
-  "Count the number of lines in index table, assuming we are already below hline."
-  (-
-   (line-number-at-pos (org-table-end))
-   (line-number-at-pos)))
-
-
-(defun oidx--do-statistics ()
-  "Compute statistics about index table."
-  (let ((total-lines 0) (total-refs 0)
-        ref ref-field (min most-positive-fixnum) (max 0) message)
-
-    ;; go through table
-    (goto-char oidx--below-hline)
-    (while (org-match-line org-table-line-regexp)
-
-      ;; get ref
-      (setq ref-field (oidx--get-or-set-field 'ref))
-
-      (when ref-field
-        (string-match oidx--ref-regex ref-field)
-        (setq ref (string-to-number (match-string 1 ref-field)))
-
-        ;; record min and max
-        (setq min (min min ref))
-        (setq max (max max ref))
-
-        (setq total-refs (1+ total-refs)))
-
-      ;; count
-      (setq total-lines (1+ total-lines))
-
-      (forward-line))
-
-    (setq message (format "%d Lines in index table. First reference is %s, last %s; %d of them are used (%d percent)"
-                          total-lines
-                          (format oidx--ref-format min)
-                          (format oidx--ref-format max)
-                          total-refs
-                          (truncate (* 100 (/ (float total-refs) (1+ (- max min)))))))
-
-    (goto-char oidx--below-hline)
-    message))
 
 
 (defun oidx--migrate-maxref-to-property ()
@@ -2154,6 +2080,45 @@ Optional argument NO-INC skips automatic increment on maxref."
     (format "Updated %d lines" lines)))
 
 
+(defun oidx--index-retire-lines ()
+  "Assistant to retire index lines."
+  (let (retire-from retire-to retire-date-max retire-count-max line (num-retired 0))
+
+    ;; collect input
+    (if (string= (oidx--completing-read "\nThis assistant will help you to retire index-lines. Lines will be retired based on date of\nlast access and the total number of times they have been accessed.\n\nRetirering index lines makes you index smaller, which might help\nif you experience performance problems with org-index; however, this is\nnot expected unless your index contains several thousand lines.\n\nThe operation 'retire' simply means to move those lines beyond the end of the\nindex table, only separated by a few comments from the rest of the index.\n\nAnd finally: nothing will be changed unless you confirm the final query;\nand even then, you may revert this operation simply by removing the\ncommentary lines to bring the retired lines back into the index.\n \nDo you want to start ?" (list "yes" "no") "yes") "no")
+        (error "Assistant aborted"))
+    (setq retire-date-max (concat  "[" (org-read-date nil nil nil "Please specify a date; any lines beeing last accessed on or before this date\nwill be candidates for retirement: ") "]"))
+    (setq retire-count-max (read-number "Please specify a number; any lines having been accessed this may times or less\nwill stay candidates for beeing retired: "))
+    (if (string= (oidx--completing-read (format "\nInput is complete, ready to retire lines that match BOTH of these criteria:\n  - accessed last on or before  %s  and\n  - accessed less or equal      %d           times\n\ndo you want to retire these lines ?" retire-date-max retire-count-max) (list "yes" "no") "yes") "no")
+        (error "Assistant aborted"))
+
+    ;; preparation
+    (oidx--enter-index-to-stay)
+    (delete-other-windows)
+    (goto-char (org-table-end))
+    (insert (format "\n\n  Index lines retired at %s:\n\n" (with-temp-buffer (org-insert-time-stamp nil t t))))
+    (setq retire-to (point-marker))
+    (set-marker-insertion-type retire-to t)
+    (goto-char oidx--below-hline)
+
+    ;; processing
+    (while (org-match-line org-table-line-regexp)
+      (when (and (org-string<= (oidx--get-or-set-field 'last-accessed) retire-date-max)
+                 (<= (string-to-number (oidx--get-or-set-field 'count)) retire-count-max))
+        (beginning-of-line)
+        (setq retire-from (point))
+        (setq line (buffer-substring (point-at-bol) (point-at-eol)))
+        (goto-char retire-to)
+        (insert line "\n")
+        (goto-char retire-from)
+        (kill-whole-line)
+        (cl-incf num-retired))
+      (forward-line))
+    (goto-char retire-to)
+    (when (= num-retired 0)
+      (insert "  No lines retired.\n"))))
+
+
 (defun oidx--delete-ref-from-heading (ref)
   "Delete given REF from current heading."
   (save-excursion
@@ -2178,17 +2143,17 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 ;; Creating a new Index
-(defun oidx--create-missing-index (&rest reasons)
+(defun oidx--create-missing-index (reason)
   "Create a new empty index table with detailed explanation.  Argument REASONS explains why."
 
   (oidx--ask-before-create-index "Cannot find index table: "
                                  "new permanent" "."
-                                 reasons)
+                                 reason)
   (oidx--create-index))
 
 
-(defun oidx--report-index-error (&rest reasons)
-  "Report an error (explained by REASONS) with the existing index and offer to create a valid one to compare with."
+(defun oidx--report-index-error (reason)
+  "Report an error (explained by REASON) with the existing index and offer to create a valid one to compare with."
 
   (when oidx--buffer
     (pop-to-buffer-same-window oidx--buffer)
@@ -2196,16 +2161,14 @@ Optional argument NO-INC skips automatic increment on maxref."
     (org-reveal t))
   (oidx--ask-before-create-index "The existing index contains this error: "
                                  "temporary" ", to compare with."
-                                 reasons)
+                                 reason)
   (oidx--create-index t t))
 
 
-(defun oidx--ask-before-create-index (explanation type for-what reasons)
+(defun oidx--ask-before-create-index (explanation type for-what reason)
                                                   ; checkdoc-params: (explanation type for-what reasons)
   "Ask the user before creating an index or throw error.  Arguments specify bits of issued message."
-  (let (reason prompt)
-
-    (setq reason (apply 'format reasons))
+  (let (prompt)
 
     (setq prompt (concat explanation reason "\n"
                          "However, this assistant can help you to create a "
@@ -2602,7 +2565,7 @@ Returns nil or plist with result"
   "Compute flag for current line"
   (let ((yank (oidx--get-or-set-field 'yank))
         (id (oidx--get-or-set-field 'id)))
-    (cond ((and id yank) "*") (id "n") (yank "y") (t " "))))
+    (cond ((and id yank) "2") (id "n") (yank "y") (t " "))))
 
 
 (defun oidx--o-test-words-and-fontify (words line)
@@ -2712,7 +2675,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--o-search-text
-                       "\". <return> dispatches according to flag y*:yank, n:jump to node; <S-return> the same but *:jump; <tab> jumps in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `v' view details, `l' offers links from node to visit. First char in line (yn*) is flag for dispatching to yank or node."
+                       "\". Lines come from your index, flag in first column [yn2] = [yank,node,both] shows actionable content of line; <return> dispatches according to flag [y2]:yank, n:jump to node; <S-return> prefers jump: [n2]:jump; <tab> jumps in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `v' view details, `l' offers links from node to visit."
                        "\n")
                lines-collected)
               'face 'org-agenda-dimmed-todo-face))
@@ -2741,7 +2704,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
 
     (dolist (keys-command
              '((("<return>" "RET") . oidx--o-action-dispatch-according-to-flag)
-               (("<S-return>") . oidx--o-action-dispatch-according-to-flag-invert)
+               (("<M-return>" "M-RET") . oidx--o-action-dispatch-according-to-flag-invert)
                (("<tab>") . oidx--o-action-goto-node-other)
                (("i" "M-i") . oidx--o-action-goto-line-in-index)
                (("h" "M-h") . oidx--o-action-head-of-index)
@@ -2837,11 +2800,11 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
   (let ((flag (get-text-property (point) 'org-index-flag)))
     (cond
      ((or (string= flag "y")
-          (and (string= flag "*")
+          (and (string= flag "2")
                (not invert)))
       (oidx--o-action-yank))
      ((or (string= flag "n")
-          (and (string= flag "*")
+          (and (string= flag "2")
                invert))
       (oidx--o-action-goto-node)))))
 

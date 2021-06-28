@@ -378,6 +378,16 @@
     (should (looking-at "--13--"))))
 
 
+(ert-deftest oidxt-test-retire-lines ()
+  (oidxt-with-test-setup
+   (error "test not yet implemented")))
+
+
+(ert-deftest oidxt-test-index-checks ()
+  (oidxt-with-test-setup
+   (error "test not yet implemented")))
+
+
 (ert-deftest oidxt-test-maintain-duplicates ()
   (oidxt-with-test-setup
     (oidxt-do "m d u p l i c a t e s <return>")
