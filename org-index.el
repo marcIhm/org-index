@@ -727,33 +727,32 @@ Prefix argument ARG is passed to subcommand add."
 (defun oidx--completing-read (prompt choices &optional default)
   "Completing read, that displays multiline PROMPT in a windows and then asks for CHOICES with DEFAULT."
   (interactive)
-  (let ((bname "*org-index explanation for input prompt*")
+  (let ((buna "*org-index explanation for input prompt*")
         explain short-prompt lines result)
-    (ignore-errors (quit-windows-on bname))
+    (ignore-errors (quit-windows-on buna))
     (setq lines (split-string prompt "\n"))
     (setq short-prompt (car (last lines)))
     (setq explain (apply 'concat (mapcar (lambda (x) (concat x "\n")) (butlast lines))))
-    (unless (string= explain "")
-      (setq explain (substring explain 0 (- (length explain) 1))))
     (unwind-protect
         (progn
-          (when (not (string= explain ""))
+          (unless (string= explain "")
             (with-temp-buffer-window
-             bname '((display-buffer-at-bottom)) nil
-             (princ explain))
+             buna '((display-buffer-at-bottom)) nil)
             
-            (with-current-buffer bname
+            (with-current-buffer buna
               (let ((inhibit-read-only t))
+                (insert "\n" explain)
                 (setq mode-line-format nil)
                 (setq cursor-type nil)
                 (fit-window-to-buffer (get-buffer-window))
+                (window-resize (get-buffer-window) 1)
                 (setq window-size-fixed 'height)
                 (add-text-properties (point-min) (point-at-eol) '(face org-level-3))
                 (goto-char (point-min)))))
           (setq result (org-completing-read short-prompt choices nil t nil nil default)))
       (ignore-errors
-        (quit-windows-on bname)
-        (kill-buffer bname)))
+        (quit-windows-on buna)
+        (kill-buffer buna)))
     result))
 
 
@@ -1901,7 +1900,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (setq choices-short (mapcar (lambda (x) (car (split-string x))) choices))
     (setq what
           (intern (oidx--completing-read
-                   (concat "These checks and fixes are available:\n" (apply 'concat choices) "Please choose: ")
+                   (concat "These checks and fixes are available:\n\n" (apply 'concat choices) "\nPlease choose: ")
                    choices-short (car choices-short))))
 
     (cl-case what
@@ -1914,7 +1913,7 @@ Optional argument NO-INC skips automatic increment on maxref."
       "Lines have been retired successfully.")
 
      ('update
-      (if (y-or-n-p "Updating your index will overwrite certain columns with content from the associated heading and category.  If unsure, you may try this for a single, already existing line of your index by invoking `add'.  Are you sure to proceed for all index lines ? ")
+      (if (oidx--completing-read "Updating your index will overwrite certain columns with content\nfrom the associated heading and category. If unsure, you may try this\nfor a single, already existing line of your index by invoking `add'.\nAre you sure to proceed for all index lines ? " (list "yes" "no") "no")
           (oidx--update-all-lines)
         "Canceled.")))))
 
@@ -2129,18 +2128,18 @@ Optional argument NO-INC skips automatic increment on maxref."
   (let (retire-from retire-to retire-date-max retire-count-max line (num-retired 0))
 
     ;; collect input
-    (if (string= (oidx--completing-read "\nThis assistant will help you to retire index-lines. Lines will be retired based on date of\nlast access and the total number of times they have been accessed.\n\nRetirering index lines makes you index smaller, which might help\nif you experience performance problems with org-index; however, this is\nnot expected unless your index contains more than thousand lines.\nAnd of course, the retired lines do not take part in index operations any longer.\n\nThe operation 'retire' simply means to move those lines beyond the end of the\nindex table, only separated by a few comments from the rest of the index.\n\nAnd finally: nothing will be changed unless you confirm the final query;\nand even then, you may revert this operation simply by removing the\ncommentary lines to bring the retired lines back into the index.\n \nDo you want to start ?" (list "yes" "no") "yes") "no")
+    (if (string= (oidx--completing-read "This assistant will help you to retire index-lines. Lines will be retired based on\ndate of last access and the total number of times they have been accessed.\n\nRetirering index lines makes you index smaller, which might help\nif you experience performance problems with org-index; however, this is\nnot expected unless your index contains more than thousand lines.\nAnd of course, the retired lines do not take part in index operations any longer.\n\nThe operation 'retire' simply means to move those lines beyond the end of the\nindex table, only separated by a few comments from the rest of the index.\n\nAnd finally: nothing will be changed unless you confirm the final query;\nand even then, you may revert this operation simply by removing the\ncommentary lines to bring the retired lines back into the index.\n \nDo you want to start ?" (list "yes" "no") "yes") "no")
         (error "Assistant aborted"))
-    (setq retire-date-max (concat  "[" (org-read-date nil nil nil "Please specify a date; any lines beeing last accessed on or before this date\nwill be candidates for retirement: ") "]"))
-    (setq retire-count-max (read-number "Please specify a number; any lines having been accessed this may times or less\nwill stay candidates for beeing retired: "))
-    (if (string= (oidx--completing-read (format "\nInput is complete, ready to retire lines that match BOTH of these criteria:\n  - accessed last on or before  %s  and\n  - accessed less or equal      %d           times\n\ndo you want to retire these lines ?" retire-date-max retire-count-max) (list "yes" "no") "yes") "no")
+    (setq retire-date-max (concat  "[" (org-read-date nil nil nil "Please specify a date (retire-date-max); any lines beeing last accessed on or before this date\nwill be candidates for retirement: ") "]"))
+    (setq retire-count-max (read-number "Please specify a number (retire-count-max); any lines having been accessed this may times or less\nwill stay candidates for beeing retired: "))
+    (if (string= (oidx--completing-read (format "Input is complete, ready to retire lines that match BOTH of these criteria:\n  - accessed last on or before  %s  and\n  - accessed less or equal      %d             times\n\ndo you want to retire these lines ?" retire-date-max retire-count-max) (list "yes" "no") "yes") "no")
         (error "Assistant aborted"))
 
     ;; preparation
     (oidx--enter-index-to-stay)
     (delete-other-windows)
     (goto-char (org-table-end))
-    (insert (format "\n\n  Index lines retired at %s:\n\n" (with-temp-buffer (org-insert-time-stamp nil t t))))
+    (insert (format "\n\n  Index lines retired at %s:\n  (retire-date-max: %s,  retire-count-max: %d)\n\n" (with-temp-buffer (org-insert-time-stamp nil t t)) retire-date-max retire-count-max))
     (setq retire-to (point-marker))
     (set-marker-insertion-type retire-to t)
     (goto-char oidx--below-hline)
@@ -2159,8 +2158,7 @@ Optional argument NO-INC skips automatic increment on maxref."
         (cl-incf num-retired))
       (forward-line))
     (goto-char retire-to)
-    (when (= num-retired 0)
-      (insert "  No lines retired.\n"))))
+    (insert (format "  % lines retired.\n" num-retired))))
 
 
 (defun oidx--delete-ref-from-heading (ref)
