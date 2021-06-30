@@ -1932,39 +1932,39 @@ Optional argument NO-INC skips automatic increment on maxref."
 
     ;; check for duplicates
     (mapc
-     (lambda (x)
-       (let ((duplicates (oidx--find-duplicates x))
-             (name (if (eq x 'ref) "references" "IDs")))
+     (lambda (topic)
+       (let ((duplicates (oidx--find-duplicates topic))
+             (name (if (eq topic 'ref) "references" "IDs"))
+             mx)
          (insert (format "* Finding duplicate %s in index table\n\n" name))
          (insert "  processing ...")
-         (sleep-for 0.5)
          (redisplay)
+         (sleep-for 0.5)
          (kill-whole-line)
          (if duplicates
-             (progn
-               (insert (format "- These %s appear more than once in index table:\n" name))
-               (mapc (lambda (x) (insert "  - " x "\n")) duplicates)
-               (insert "\n\n"))
-           (insert (format "  No %s appear more than once in index table.\n\n" name)))))
+             (oidx--index-checks-insert-list-and-actions duplicates topic)
+           (insert (format "  No %s appear more than once in index table.\n\n" name)))
+         (insert "\n\n")))
      '(ref id))
     
     (insert "* Check, that all IDs really point to a node\n\n")
     (insert "  processing ...")
-    (sleep-for 0.5)
     (redisplay)
+    (sleep-for 0.5)
     (let ((missing-ids (oidx--find-missing-ids))
-          lines)
+          lines mx)
       (kill-whole-line)
       (if missing-ids
           (progn
             (insert "  These IDs appear in index table but do not appear in any node:\n\n")
-            (mapc (lambda (x) (insert (format "  - %s\n" x)) missing-ids) missing-ids))
+            (oidx--index-checks-insert-list-and-actions missing-ids 'id))
         (insert "  All IDs from the index table point to a node."))
       (insert "\n"))
 
       
     (insert "* Statistics about the index table\n\n")
     (insert "  processing ... ")
+    (redisplay)
     (sleep-for 0.5)
     (redisplay)
     (let ((max-tab 0) (min-tab most-positive-fixnum)
@@ -1996,6 +1996,50 @@ Optional argument NO-INC skips automatic increment on maxref."
          (format  "  Maximum ref from property max-ref (%d) is larger than maximum ref from table (%d);\n  you may correct this for consistency" max-prop max-tab))
         (t (format "  Maximum ref from property max-ref and maximum ref from table\n  are equal (%d); as expected" max-prop))))
       (insert "\n\n"))))
+
+
+(defun oidx--index-checks-insert-list-and-actions (list topic)
+  "Insert list and action buttons for each element."
+
+  (let ((mx (-max (mapcar (lambda (x) (length x)) list))))
+    (mapc (lambda (x)
+            (insert "  - " (s-pad-right mx " " x))
+            (insert "      actions: ")
+            (insert-button
+             "multi-occur" 'action
+             (lambda (_) (oidx--index-checks-multi-occur topic)))
+            (insert ", ")
+            (insert-button
+             "goto index" 'action
+             (lambda (_) (oidx--index-checks-goto-index topic)))
+            (insert "\n"))
+          list)))
+
+
+(defun oidx--second-word-of-line ()
+  "Get second word of current line"
+  (nth 1 (split-string (buffer-substring (point-at-bol) (point-at-eol)))))
+
+
+(defun oidx--index-checks-multi-occur (topic)
+  "Action multi-occur in index checks."
+  (let ((text (oidx--second-word-of-line))
+        (buna "*Occur*"))
+    (ignore-errors
+      (delete-window (get-buffer-window))
+      (kill-buffer buna))
+    (org-occur-in-agenda-files text)
+    (if (get-buffer buna)
+        (message "multi-occur for %s in agenda files." (symbol-name topic))
+      (message "%s has not been found in files from `org-id-files'" (symbol-name topic)))))
+
+
+(defun oidx--index-checks-goto-index (topic)
+  "Action multi-occur in index checks."
+  (let ((text (oidx--second-word-of-line)))
+    (oidx--enter-index-to-stay)
+    (oidx--go 'topic text)
+    (message "In index table at matching %s" (symbol-name topic))))
 
 
 (defun oidx--find-duplicates (column)
@@ -2085,7 +2129,7 @@ Optional argument NO-INC skips automatic increment on maxref."
   (let (retire-from retire-to retire-date-max retire-count-max line (num-retired 0))
 
     ;; collect input
-    (if (string= (oidx--completing-read "\nThis assistant will help you to retire index-lines. Lines will be retired based on date of\nlast access and the total number of times they have been accessed.\n\nRetirering index lines makes you index smaller, which might help\nif you experience performance problems with org-index; however, this is\nnot expected unless your index contains several thousand lines.\n\nThe operation 'retire' simply means to move those lines beyond the end of the\nindex table, only separated by a few comments from the rest of the index.\n\nAnd finally: nothing will be changed unless you confirm the final query;\nand even then, you may revert this operation simply by removing the\ncommentary lines to bring the retired lines back into the index.\n \nDo you want to start ?" (list "yes" "no") "yes") "no")
+    (if (string= (oidx--completing-read "\nThis assistant will help you to retire index-lines. Lines will be retired based on date of\nlast access and the total number of times they have been accessed.\n\nRetirering index lines makes you index smaller, which might help\nif you experience performance problems with org-index; however, this is\nnot expected unless your index contains more than thousand lines.\nAnd of course, the retired lines do not take part in index operations any longer.\n\nThe operation 'retire' simply means to move those lines beyond the end of the\nindex table, only separated by a few comments from the rest of the index.\n\nAnd finally: nothing will be changed unless you confirm the final query;\nand even then, you may revert this operation simply by removing the\ncommentary lines to bring the retired lines back into the index.\n \nDo you want to start ?" (list "yes" "no") "yes") "no")
         (error "Assistant aborted"))
     (setq retire-date-max (concat  "[" (org-read-date nil nil nil "Please specify a date; any lines beeing last accessed on or before this date\nwill be candidates for retirement: ") "]"))
     (setq retire-count-max (read-number "Please specify a number; any lines having been accessed this may times or less\nwill stay candidates for beeing retired: "))
