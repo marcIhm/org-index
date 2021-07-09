@@ -380,44 +380,34 @@
 
 (ert-deftest oidxt-test-retire-lines ()
   (oidxt-with-test-setup
-   (error "test not yet implemented")))
+    (oidxt-do "m r e t i r e <return> y e s <return> 2 0 1 3 - 1 2 - 1 5 <return> 1 <return> y e s <return>")
+    (switch-to-buffer oidxt-index-buffer-name)
+    (goto-char (point-max))
+    (should (search-backward "Index lines retired at"))
+    (should (search-forward oidxt-id-index))))
 
 
 (ert-deftest oidxt-test-index-checks ()
   (oidxt-with-test-setup
-   (error "test not yet implemented")))
-
-
-(ert-deftest oidxt-test-maintain-duplicates ()
-  (oidxt-with-test-setup
-    (oidxt-do "m d u p l i c a t e s <return>")
-    (should (string= oidx--message-text
-                     "No duplicate references or ids found"))
-    (execute-kbd-macro (kbd "C-a C-k C-k C-y C-y"))
-    (oidxt-do "m d u p l i c a t e s <return>")
-    (should (string= oidx--message-text
-                     "Some references or ids are duplicate"))))
-
-
-(ert-deftest oidxt-test-maintain-statistics ()
-  (oidxt-with-test-setup
-    (oidxt-do "m s t a t i s t i c s <return>")
-    (should (string= oidx--message-text
-                     "14 Lines in index table. First reference is --1--, last --14--; 14 of them are used (100 percent)"))))
-
-
-(ert-deftest oidxt-test-maintain-clean ()
-  (oidxt-with-test-setup
-    (oidxt-do "m c l e a n <return>")
-    (should (string= oidx--message-text
-                     "Removed property 'org-index-ref' from 1 lines"))))
-
-
-(ert-deftest oidxt-test-maintain-verify ()
-  (oidxt-with-test-setup
-    (oidxt-do "m v e r i f y <return>")
-    (should (string= oidx--message-text
-                     "All ids of index are valid"))))
+    ;; provoke some errors
+    (with-current-buffer oidxt-work-buffer-name
+      (goto-char (point-min))
+      (search-forward oidxt-id-4)
+      (delete-char -1))
+    (with-current-buffer oidxt-index-buffer-name
+      (goto-char (point-min))
+      (search-forward oidxt-id-3)
+      (beginning-of-line)
+      (insert (buffer-substring (point-at-bol 1) (point-at-bol 2))))
+    (org-id-locations-load)
+    (oidxt-do "m c h e c k s <return>")
+    (switch-to-buffer "*org-index-checks*")
+    (goto-char (point-min))
+    (should (search-forward oidxt-id-3))
+    (goto-char (point-min))
+    (should (search-forward oidxt-id-4))
+    (goto-char (point-min))
+    (should (search-forward "15 Lines in index table"))))
 
 
 (ert-deftest oidxt-test-add-update ()
@@ -487,12 +477,11 @@
 
 (ert-deftest oidxt-test-update-from-within-index ()
   (oidxt-with-test-setup
-    (previous-line 2)
-    (forward-char 2)
+    (search-backward "--2-- zwei")
     (insert "foo ")
     (oidxt-do "i .")
     (oidxt-do "a")
-    (should (string= "foo vier --4--" (oidx--get-or-set-field 'keywords)))))
+    (should (string= "foo --2-- zwei --2--" (oidx--get-or-set-field 'keywords)))))
 
 
 (ert-deftest oidxt-test-enter-lands-on-ref ()
@@ -505,12 +494,11 @@
 
 (ert-deftest oidxt-test-update-all-lines ()
   (oidxt-with-test-setup
-    (previous-line 2)
-    (forward-char 2)
+    (search-backward "--2-- zwei")
     (insert "foo ")
-    (oidxt-do "m u p d a t e <return> y")
+    (oidxt-do "m u p d a t e <return> yes <return>")
     ;; String "foo " should have been transported from headline into index; see buffer
-    (should (search-forward "foo vier"))))
+    (should (search-forward "foo --2-- zwei"))))
 
 
 (ert-deftest oidxt-test-edit-on-add ()
@@ -741,7 +729,8 @@
     (insert
      "((\"" oidxt-index-file "\" \"" oidxt-id-index "\") (\"" oidxt-work-file "\" \"" oidxt-id-5 "\" \"" oidxt-id-4 "\" \"" oidxt-id-3 "\" \"" oidxt-id-2 "\" \"" oidxt-id-1 "\"))
 ")
-    (basic-save-buffer)))
+    ;; this will not ask on overwrite
+    (basic-save-buffer-1)))
 
 
 (defun oidxt-clear-buffer ()

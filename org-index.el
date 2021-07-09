@@ -489,7 +489,7 @@ Prefix argument ARG is passed to subcommand add."
       (oidx--verify-id)
 
       ;; Get configuration of index table
-      (oidx--parse-table t)
+      (oidx--parse-table)
 
       ;; save context before entering index
       (oidx--retrieve-context-on-invoke t)
@@ -745,7 +745,8 @@ Prefix argument ARG is passed to subcommand add."
                 (setq mode-line-format nil)
                 (setq cursor-type nil)
                 (fit-window-to-buffer (get-buffer-window))
-                (window-resize (get-buffer-window) 1)
+                (ignore-errors ;; this tends to barf in tests
+                  (window-resize (get-buffer-window) 1))
                 (setq window-size-fixed 'height)
                 (add-text-properties (point-min) (point-at-eol) '(face org-level-3))
                 (goto-char (point-min)))))
@@ -811,16 +812,13 @@ Optional argument SILENT prevents invoking interactive assistant."
       (move-marker marker nil))))
 
 
-(defun oidx--parse-table (&optional num-lines-to-format)
-  "Parse content of index table.
-Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
+(defun oidx--parse-table ()
+  "Parse content of index table."
  
   (let (initial-point
         end-of-headings
         start-of-headings
         max-ref-field)
-
-    (unless num-lines-to-format (setq num-lines-to-format 0))
 
     (with-current-buffer oidx--buffer
 
@@ -830,14 +828,28 @@ Optional argument NUM-LINES-TO-FORMAT limits formatting effort and duration."
       (org-reveal)
 
       (unless oidx--aligned-and-sorted
-        (oidx--sort-index)
-        (goto-char oidx--below-hline)
+        (let (before-sort before-align before-fontify at-end)
+          (setq before-sort (current-time))
+          (oidx--sort-index)
+          (goto-char oidx--below-hline)
 
-        (message "Align, fontify and sort index table (once per emacs session)...")
-        (org-table-align)
-        (font-lock-fontify-region (point) (org-table-end))
+          (message "Align, fontify and sort index table (once per emacs session)...")
+          (setq before-align (current-time))
+          (org-table-align)
+          (setq before-fontify (current-time))
+          (font-lock-fontify-region (point) (org-table-end))
+          (setq at-end (current-time))
 
-        (setq oidx--aligned-and-sorted t)
+          (when (> (float-time (time-subtract at-end before-sort)) 5)
+            (message "Long total duration: %.1f (total) = %.1f (sort) + %.1f (align) + %.1f (fontify)"
+                     (float-time (time-subtract at-end before-sort))
+                     (float-time (time-subtract before-align before-sort))
+                     (float-time (time-subtract before-fontify before-align))
+                     (float-time (time-subtract at-end before-fontify)))
+            (redisplay)
+            (sit-for 2))
+
+          (setq oidx--aligned-and-sorted t))
         (goto-char oidx--below-hline)
 
         (message "Done."))
@@ -1167,7 +1179,6 @@ Optional argument KEYS-VALUES specifies content of new line."
           (insert (org-trim (or v "")))
           (setq kvs (cddr kvs))))
 
-      ;; align and fontify line
       (oidx--promote-current-line)
       (oidx--align-and-fontify-current-line)
 
@@ -1292,7 +1303,6 @@ CREATE-REF creates a reference and passes it to yank."
                 (org-inlinetask-in-task-p))
       (org-with-limited-levels (org-back-to-heading)))
     
-    ;; try to do the same things from within index and from outside
     (if oidx--within-index-node
 
         (progn
@@ -1310,6 +1320,7 @@ CREATE-REF creates a reference and passes it to yank."
                     (cons (format "Updated index line %s" ref) yank)
                   (cons "Updated index line" nil))))
 
+      ;; we are on a node and not in index
       (setq id (org-id-get-create))
       (oidx--refresh-parse-table)
       (setq id-from-index (oidx--on 'id id id))
@@ -1330,6 +1341,7 @@ CREATE-REF creates a reference and passes it to yank."
             (oidx--on
                 'id id
               (oidx--write-fields args)
+              (oidx--align-and-fontify-current-line)
               (setq yank (oidx--get-or-set-field org-index-yank-after-add)))
 
             (setq ret
@@ -1913,7 +1925,7 @@ Optional argument NO-INC skips automatic increment on maxref."
       "Lines have been retired successfully.")
 
      ('update
-      (if (oidx--completing-read "Updating your index will overwrite certain columns with content\nfrom the associated heading and category. If unsure, you may try this\nfor a single, already existing line of your index by invoking `add'.\nAre you sure to proceed for all index lines ? " (list "yes" "no") "no")
+      (if (oidx--completing-read "Updating your index will overwrite certain columns with content\nfrom the associated heading and category. If unsure, you may try this\nfor a single, already existing line of your index by invoking `add'.\nAre you sure to proceed for all index lines (yes/no) ? " (list "yes" "no") "no")
           (oidx--update-all-lines)
         "Canceled.")))))
 
@@ -1942,8 +1954,8 @@ Optional argument NO-INC skips automatic increment on maxref."
          (kill-whole-line)
          (if duplicates
              (oidx--index-checks-insert-list-and-actions duplicates topic)
-           (insert (format "  No %s appear more than once in index table.\n\n" name)))
-         (insert "\n\n")))
+           (insert (format "  No %s appear more than once in index table.\n" name)))
+         (insert "\n")))
      '(ref id))
     
     (insert "* Check, that all IDs really point to a node\n\n")
@@ -1957,7 +1969,7 @@ Optional argument NO-INC skips automatic increment on maxref."
           (progn
             (insert "  These IDs appear in index table but do not appear in any node:\n\n")
             (oidx--index-checks-insert-list-and-actions missing-ids 'id))
-        (insert "  All IDs from the index table point to a node."))
+        (insert "  All IDs from the index table point to a node.\n"))
       (insert "\n"))
 
       
@@ -1981,7 +1993,7 @@ Optional argument NO-INC skips automatic increment on maxref."
           (forward-line)
           (cl-incf total-lines)))
       (kill-whole-line)
-      (insert (format "  %d Lines in index table.\n  First reference is %s, last %s, diff is %d\n  %d of these references appear in table (%d percent)\n\n"
+      (insert (format "  %d Lines in index table.\n  First reference is %s, last %s, diff is %d\n  %d of these references appear in table (%d percent).\n\n"
                       total-lines
                       (format oidx--ref-format min-tab)
                       (format oidx--ref-format max-tab)
@@ -1990,10 +2002,10 @@ Optional argument NO-INC skips automatic increment on maxref."
       (insert
        (cond
         ((< max-prop max-tab)
-         (propertize (format "  Maximum ref from property max-ref (%d) is smaller than maximum ref from index table (%d); you should correct this, as it may lead to duplicate references" max-prop max-tab) 'face 'org-warning))
+         (propertize (format "  Maximum ref from property max-ref (%d) is smaller than maximum ref from index table (%d); you should correct this, as it may lead to duplicate references." max-prop max-tab) 'face 'org-warning))
         ((> max-prop max-tab)
-         (format  "  Maximum ref from property max-ref (%d) is larger than maximum ref from table (%d);\n  you may correct this for consistency" max-prop max-tab))
-        (t (format "  Maximum ref from property max-ref and maximum ref from table\n  are equal (%d); as expected" max-prop))))
+         (format  "  Maximum ref from property max-ref (%d) is larger than maximum ref from table (%d);\n  you may correct this for consistency." max-prop max-tab))
+        (t (format "  Maximum ref from property max-ref and maximum ref from table\n  are equal (%d); as expected." max-prop))))
       (insert "\n\n"))))
 
 
@@ -2107,7 +2119,8 @@ Optional argument NO-INC skips automatic increment on maxref."
 
   (let ((lines 0)
         id kvs)
-    
+
+    (oidx--enter-index-to-stay)
     (goto-char oidx--below-hline)
     (while (org-match-line org-table-line-regexp)
       
@@ -2128,11 +2141,11 @@ Optional argument NO-INC skips automatic increment on maxref."
   (let (retire-from retire-to retire-date-max retire-count-max line (num-retired 0))
 
     ;; collect input
-    (if (string= (oidx--completing-read "This assistant will help you to retire index-lines. Lines will be retired based on\ndate of last access and the total number of times they have been accessed.\n\nRetirering index lines makes you index smaller, which might help\nif you experience performance problems with org-index; however, this is\nnot expected unless your index contains more than thousand lines.\nAnd of course, the retired lines do not take part in index operations any longer.\n\nThe operation 'retire' simply means to move those lines beyond the end of the\nindex table, only separated by a few comments from the rest of the index.\n\nAnd finally: nothing will be changed unless you confirm the final query;\nand even then, you may revert this operation simply by removing the\ncommentary lines to bring the retired lines back into the index.\n \nDo you want to start ?" (list "yes" "no") "yes") "no")
+    (if (string= (oidx--completing-read "This assistant will help you to retire index-lines. Lines will be retired based on\ndate of last access and the total number of times they have been accessed.\n\nRetirering index lines makes you index smaller, which might help\nif you experience performance problems with org-index; however, this is\nnot expected unless your index contains more than thousand lines.\nAnd of course, the retired lines do not take part in index operations any longer.\n\nThe operation 'retire' simply means to move those lines beyond the end of the\nindex table, only separated by a few comments from the rest of the index.\n\nAnd finally: nothing will be changed unless you confirm the final query;\nand even then, you may revert this operation simply by removing the\ncommentary lines to bring the retired lines back into the index.\n \nDo you want to start (yes/no) ? " (list "yes" "no") "yes") "no")
         (error "Assistant aborted"))
     (setq retire-date-max (concat  "[" (org-read-date nil nil nil "Please specify a date (retire-date-max); any lines beeing last accessed on or before this date\nwill be candidates for retirement: ") "]"))
-    (setq retire-count-max (read-number "Please specify a number (retire-count-max); any lines having been accessed this may times or less\nwill stay candidates for beeing retired: "))
-    (if (string= (oidx--completing-read (format "Input is complete, ready to retire lines that match BOTH of these criteria:\n  - accessed last on or before  %s  and\n  - accessed less or equal      %d             times\n\ndo you want to retire these lines ?" retire-date-max retire-count-max) (list "yes" "no") "yes") "no")
+    (setq retire-count-max (read-number "Please specify a number (retire-count-max); any lines having been accessed this many times or less\nwill stay candidates for beeing retired: "))
+    (if (string= (oidx--completing-read (format "Input is complete, ready to retire lines that match BOTH of these criteria:\n  - accessed last on or before  %s  and\n  - accessed less or equal      %d             times\n\ndo you want to retire these lines (yes/no) ? " retire-date-max retire-count-max) (list "yes" "no") "yes") "no")
         (error "Assistant aborted"))
 
     ;; preparation
@@ -2158,7 +2171,7 @@ Optional argument NO-INC skips automatic increment on maxref."
         (cl-incf num-retired))
       (forward-line))
     (goto-char retire-to)
-    (insert (format "  % lines retired.\n" num-retired))))
+    (insert (format "  %d lines retired.\n" num-retired))))
 
 
 (defun oidx--delete-ref-from-heading (ref)
