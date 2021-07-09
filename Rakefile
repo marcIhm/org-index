@@ -206,7 +206,8 @@ task :extract_changelog_lisp => [:extract_version] do
 
   File.open($conf[:source]).each.
     drop_while { |line| !line.start_with?(';;; Change Log:') }.
-    drop(2).take_while { |line| line.start_with?(';;') }.each do |line|
+    drop(2).
+    take_while { |line| line.start_with?(';;') }.each do |line|
     if line.match(/^(;;\s+)Version (\d+\.\d+)\s*/) 
       version = Regexp.last_match[2]
       $changelog_lisp[version] = ''
@@ -223,8 +224,8 @@ task :extract_changelog_lisp => [:extract_version] do
 
   pp $changelog_lisp if $v
   
-  version_lisp_latest = $changelog_lisp.keys.max {|a,b| compare_semver(a,b)}
-  abort "Mismatch in #{$conf[:source]}: Latest version from Changelog #{version_lisp_latest} does not fit version specified explicitly #{$version_lisp}" unless $version_lisp.sub(/\.\d+$/,'') == version_lisp_latest
+  version_lisp_latest = $changelog_lisp.keys.max {|a,b| compare_semver(a,b)}  
+  abort "Mismatch in #{$conf[:source]}: Latest version from Changelog '#{version_lisp_latest}' does not match version specified in header '#{$version_lisp}'" unless $version_lisp.sub(/\.\d+$/,'') == version_lisp_latest
 
 end
 

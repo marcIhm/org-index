@@ -81,10 +81,11 @@
 
 ;;; Change Log:
 
-
 ;;  Version 7.3
 ;;
-;;  - New new maintainance-command `archive'
+;;  - Reworked index-maintainance:
+;;    - checks no runs all the read-only stuff into a buffer
+;;    - retire allows to shorten index according to simple criterias
 ;;  - Using <M-return> instead of <S-return>
 ;;
 ;;  Version 7.2
@@ -238,7 +239,7 @@
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
 
 ;; Version of this package
-(defvar org-index-version "7.2.1" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.3.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -396,24 +397,26 @@ list of results.
 Please note, that org-index uses org-id throughout and therefore adds
 an id-property to all nodes in the index.
 
-In the addition to the index table, org-index introduces the concept of
+In addition to the index table, org-index introduces the concept of
 references: These are decorated numbers (e.g. 'R237' or '--455--');
 they are well suited to be used outside of org, e.g. in folder names,
-ticket systems or on printed documents.
+ticket systems or on printed documents. Use of references is optional.
 
 On first invocation org-index will assist you in creating the index
-table.
+table. The index table is a normal org table, that needs to be stored
+in a dedicated node anywhere within your org files.
 
-To start using your index, invoke the subcommand 'add' to create
-index entries and 'occur' to find them.
+To start using your index, invoke the subcommand 'add' to create index
+entries and 'occur' to find them. The first call to 'add' will trigger
+the one-time assistant to create the index table.
 
 The set of columns within the index-table is fixed (see variable
 `oidx--all-columns') but can be arranged in any order you wish; just
 edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
-make columns invisible, that you dont care about.
+ignore columns during search.
 
-This is version 7.2.1 of org-index.el.
+This is version 7.3.0 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list

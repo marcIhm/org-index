@@ -1,3 +1,10 @@
+* 7.3 until 2021-07-09 Fr
+
+  - Reworked index-maintainance:
+    - checks no runs all the read-only stuff into a buffer
+    - retire allows to shorten index according to simple criterias
+  - Using <M-return> instead of <S-return>
+
 * 7.2 until 2021-05-24 Mo
 
   - Allow to add inline-Tasks to the index
