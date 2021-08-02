@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.3.0
+;; Version: 7.4.0
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -81,6 +81,12 @@
 
 ;;; Change Log:
 
+;;  Version 7.4
+;;
+;;  - Index checks now find largest cells for each column
+;;  - Documented and enhanced special treatment for yank-column
+;;  - Check for unwanted shortening of the index table
+;;
 ;;  Version 7.3
 ;;
 ;;  - Reworked index-maintainance:
@@ -221,6 +227,7 @@
 (defvar oidx--within-occur nil "Non-nil, if we are within the occur-buffer.")
 (defvar oidx--recording-screencast nil "Set Non-nil, if screencast is beeing recorded to trigger some minor tweaks.")
 (defvar oidx--aligned-and-sorted nil "For this Emacs session: remember if aligned and sorted.")
+(defvar oidx--last-count-check nil "Last time we checked for line count.")
 (defvar oidx--edit-widgets nil "List of widgets used to edit.")
 (defvar oidx--edit-where-from-index nil "Position and line used for index in edit buffer.")
 (defvar oidx--edit-where-from-occur nil "Position and line used for occur in edit buffer.")
@@ -237,6 +244,8 @@
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
+(defconst oidx--yank-help "three special cases: a string starting with 'http' will be opened in browser; the letter 'l' will browse first url from associated node (if any); the letter 'q' will copy the first quote" "help text for column yank")
+(defvar oidx--check-count-interval 86400 "Number of seconds between checks for linecount in index.")
 
 ;; Version of this package
 (defvar org-index-version "7.3.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
@@ -762,16 +771,6 @@ Prefix argument ARG is passed to subcommand add."
 
 
 ;; Parse index and refs
-(defun oidx--ref-from-id (id)
-  "Get reference from line ID."
-  (oidx--on 'id id (oidx--get-or-set-field 'ref)))
-
-
-(defun oidx--id-from-ref (ref)
-  "Get id from line REF."
-  (oidx--on 'ref ref (oidx--get-or-set-field 'id)))
-
-
 (defun oidx--get-fingerprint ()
   "Get fingerprint of current line."
   (replace-regexp-in-string
@@ -829,12 +828,37 @@ Optional argument SILENT prevents invoking interactive assistant."
 
       (oidx--go-below-hline)
       (org-reveal)
+      (when (or (not oidx--last-count-check)
+                (> (float-time (time-subtract (current-time) oidx--last-count-check)) oidx--check-count-interval))
+        (message "Counting number of index lines ...")
+        (let ((ok-cnt-txt (oidx--count-lines-with-opinion)))
+          (if (cl-first ok-cnt-txt)
+              (progn
+                (oidx--go-below-hline)
+                (org-entry-put oidx--point "prev-line-count" (number-to-string (cl-second ok-cnt-txt)))
+                (setq oidx--last-count-check (current-time)))
+            (pop-to-buffer-same-window oidx--buffer)
+            (if (string= (oidx--completing-read
+                          (concat (cl-third ok-cnt-txt)
+                                  "\n\nThis might happen, if you have retired index lines in maintainance,\n"
+                                  "or if you shortened your index manually. Otherwise it might be a symptom\n"
+                                  "for a serious problem with your index and should be investigated further.\n"
+                                  "Is this reduced line count expected and do you want to accept it for the future (yes/no) ? ")
+                          (list "yes" "no") "no")
+                         "yes")
+                (progn
+                  (oidx--go-below-hline)
+                  (org-entry-put oidx--point "prev-line-count" (number-to-string (cl-second ok-cnt-txt)))
+                  (setq oidx--last-count-check (current-time))
+                  (error "Accepted new line count for the future; please start over"))
+              (error "Index has shrunk too much; please inspect and fix manually !\nMaybe, just a blank line has been inserted by accident (splitting the table into two),\nbut maybe detailed investigation, undo or even restore is neccessary.\nAfter fixing running the checks in maintainance might be helpful too.")))))
 
       (unless oidx--aligned-and-sorted
-        (let (before-sort before-align before-fontify at-end)
+        (let (prev-line-count before-sort before-align before-fontify at-end)
           (setq before-sort (current-time))
           (oidx--sort-index)
           (goto-char oidx--below-hline)
+
 
           (message "Align, fontify and sort index table (once per emacs session)...")
           (setq before-align (current-time))
@@ -966,6 +990,21 @@ If GET-CATEGORY is set, retrieve it too."
       (oidx--go-below-hline))))
 
 
+(defun oidx--count-lines-with-opinion ()
+  "Count number of lines in index-table and give an opinion."
+  (let ((line-count 0))
+    (while (org-match-line org-table-line-regexp)
+      (forward-line)
+      (cl-incf line-count))
+    (setq prev-line-count (cl-parse-integer (concat "0"
+                                                    (org-entry-get oidx--point "prev-line-count"))))
+    (if (and (> prev-line-count 10)
+             (> (/ (float (- prev-line-count line-count)) prev-line-count)
+                0.1))
+        (list nil line-count (format "Line count has gone down more than 10 percent from %d to %d; this can be a sign of index corruption." prev-line-count line-count))
+      (list t line-count (format "Line count is %d not too different from previous count %d. Okay." line-count prev-line-count)))))
+
+
 
 ;; Edit, add or kill lines, view details
 (defun oidx--do-edit ()
@@ -1024,6 +1063,9 @@ If GET-CATEGORY is set, retrieve it too."
        oidx--edit-widgets))
 
     (widget-setup)
+    (goto-char (point-max))
+    (let ((inhibit-read-only t))
+      (insert (oidx--wrap (format "\n\nFor column 'yank' there are %s." oidx--yank-help))))
     (goto-char keywords-pos)
     (use-local-map buffer-keymap)
     "Editing a single line of index"))
@@ -1270,18 +1312,20 @@ Optional argument KEYS-VALUES specifies content of new line."
 Argument COLS gives list of columns to edit.
 Optional argument DEFAULTS gives default values."
   
-  (let (content args def def-clause)
+  (let (content args def def-clause hint-clause)
     (dolist (col cols)
       (setq content "")
       (setq def (plist-get col defaults))
       (setq def-clause (if def (format " (default: '%s')" def) ""))
+      (setq hint-clause (if (eq col 'yank) (format " (note %s)" oidx--yank-help) ""))
       (setq content (read-from-minibuffer
-                     (format "Enter text for column '%s'%s: " (symbol-name col) def-clause)
+                     (format "Enter text for column '%s'%s%s: " (symbol-name col) def-clause hint-clause)
                      (plist-get col defaults)))
       
       (unless (string= content "")
         (oidx--plist-put args col content)))
     args))
+
 
 
 (defun oidx--write-fields (kvs)
@@ -1400,7 +1444,7 @@ CREATE-REF creates a reference and passes it to yank."
 
       ;; At a headline
       (setq id (org-entry-get (point) "ID"))
-      (setq ref (oidx--ref-from-id id))
+      (setq ref (oidx--on 'id id (oidx--get-or-set-field 'ref)))
       (setq pos-in-index (oidx--on 'id id (point)))
       (unless pos-in-index (error "This node is not in index")))
 
@@ -1555,7 +1599,7 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
      ;; use column last accessed only if recent; otherwise use fixed value time-threshold,
      ;; so that recent entries are sorted by last access, but older entries are sorted by count
      (if (string> last-accessed time-threshold) last-accessed time-threshold)
-     (format "%08d" (string-to-number (or (oidx--get-or-set-field 'count) ""))))))
+     (format "%08d" (cl-parse-integer (or (oidx--get-or-set-field 'count) "0"))))))
 
 
 
@@ -1925,6 +1969,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
      ('retire
       (oidx--index-retire-lines)
+      (setq oidx--last-count-check nil)
       "Lines have been retired successfully.")
 
      ('update
@@ -1935,34 +1980,40 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 (defun oidx--index-checks ()
   "Perform some non-interactive checks, collect statistics and present results."
-  (let ((buna "*org-index-checks*"))
+  (let ((buna "*org-index-checks*") (org-log-done 'nil) (problems 0))
 
     (pop-to-buffer buna)
     (delete-other-windows)
     (erase-buffer)
     (org-mode)
-    (insert "\n")
     (redisplay)
 
+    (insert "* Checks beeing executed\n")
+    
     ;; check for duplicates
     (mapc
      (lambda (topic)
        (let ((duplicates (oidx--find-duplicates topic))
              (name (if (eq topic 'ref) "references" "IDs"))
              mx)
-         (insert (format "* Finding duplicate %s in index table\n\n" name))
-         (insert "  processing ...")
+         (insert (format "** Finding duplicate %s in index table\n\n" name))
+         (insert "   processing ...")
          (redisplay)
          (sleep-for 0.5)
          (kill-whole-line)
          (if duplicates
-             (oidx--index-checks-insert-list-and-actions duplicates topic)
-           (insert (format "  No %s appear more than once in index table.\n" name)))
+             (progn
+               (oidx--index-checks-insert-list-and-actions duplicates topic)
+               (org-todo "TODO")
+               (cl-incf problems))
+           (insert (format "   No %s appear more than once in index table.\n" name))
+           (org-todo "DONE"))
          (insert "\n")))
      '(ref id))
     
-    (insert "* Check, that all IDs really point to a node\n\n")
-    (insert "  processing ...")
+
+    (insert "** Check, that all IDs really point to a node\n\n")
+    (insert "   processing ...")
     (redisplay)
     (sleep-for 0.5)
     (let ((missing-ids (oidx--find-missing-ids))
@@ -1970,17 +2021,81 @@ Optional argument NO-INC skips automatic increment on maxref."
       (kill-whole-line)
       (if missing-ids
           (progn
-            (insert "  These IDs appear in index table but do not appear in any node:\n\n")
-            (oidx--index-checks-insert-list-and-actions missing-ids 'id))
-        (insert "  All IDs from the index table point to a node.\n"))
+            (insert "   These IDs appear in index table but do not appear in any node:\n\n")
+            (oidx--index-checks-insert-list-and-actions missing-ids 'id)
+            (org-todo "TODO")
+            (cl-incf problems))
+        (insert "   All IDs from the index table point to a node.\n")
+        (org-todo "DONE"))
       (insert "\n"))
 
-      
-    (insert "* Statistics about the index table\n\n")
-    (insert "  processing ... ")
+
+    (insert "** Check for valid timestamps\n\n")
+    (insert "   processing ...")
     (redisplay)
     (sleep-for 0.5)
+    (let ((missing-col-pt (oidx--validate-time-columns)))
+      (kill-whole-line)
+      (if missing-col-pt
+          (progn
+            (insert (format "   At least one time-columns of type %s does not contain a valid timestamp: "
+                            (symbol-name (car missing-col-pt))))
+            (insert-button
+             "visit" 'action
+             (lambda (_) (oidx--enter-index-to-stay) (goto-char (cdr missing-col-pt))))
+            (insert "\n\n")
+            (org-todo "TODO")
+            (cl-incf problems))
+        (insert "   All cells in all time-columns contain valid timestamps.\n\n")
+        (org-todo "DONE")))
+
+
+    (insert "** Check for shrinking of index table\n\n")
+    (insert "   processing ...")
     (redisplay)
+    (sleep-for 0.5)
+    (let (ok-cnt-txt )
+      (with-current-buffer oidx--buffer
+        (save-excursion
+          (oidx--go-below-hline)
+          (setq ok-cnt-txt (oidx--count-lines-with-opinion))))
+      (kill-whole-line)
+      (insert (concat "   " (cl-third ok-cnt-txt)))
+      (if (cl-first ok-cnt-txt)
+          (org-todo "DONE")          
+        (org-todo "TODO")
+        (insert "\n   ")
+        (insert-button
+         "Visit end of table" 'action
+         (lambda (_) (oidx--enter-index-to-stay) (goto-char (org-table-end))))
+        (cl-incf problems)))
+    (insert "\n\n")
+
+
+    (insert "** Check for sufficient number of empty lines below index-table\n\n")
+    (insert "   (as too few empty lines might be caused by accidentially splitting the table into parts)\n\n")
+    (insert "   processing ...")
+    (redisplay)
+    (sleep-for 0.5)
+    (let ((cp (oidx--count-empty-lines-below-end-of-table)))
+      (kill-whole-line)
+      (if (< (car cp) 2)
+          (progn
+            (insert (format "   Only %d empty lines below index table this might indicate a problem: " (car cp)))
+            (insert-button
+             "visit" 'action
+             (lambda (_) (oidx--enter-index-to-stay) (goto-char (cdr cp))))
+            (org-todo "TODO")
+            (cl-incf problems))
+        (insert (format "   %d empty lines below index, table; enough." (car cp)))
+        (org-todo "DONE"))
+      (insert "\n\n"))
+
+
+    (insert "** Check statistics about the index table\n\n")
+    (insert "   processing ... ")
+    (redisplay)
+    (sleep-for 0.5)
     (let ((max-tab 0) (min-tab most-positive-fixnum)
           (total-lines 0) (total-refs 0)
           ref-field ref-num max-prop)
@@ -1996,20 +2111,63 @@ Optional argument NO-INC skips automatic increment on maxref."
           (forward-line)
           (cl-incf total-lines)))
       (kill-whole-line)
-      (insert (format "  %d Lines in index table.\n  First reference is %s, last %s, diff is %d\n  %d of these references appear in table (%d percent).\n\n"
+      (insert (format "   %d Lines in index table.\n   First reference is %s, last %s, diff is %d\n   %d of these references appear in table (%d percent).\n\n"
                       total-lines
                       (format oidx--ref-format min-tab)
                       (format oidx--ref-format max-tab)
                       (- max-tab min-tab)
                       total-refs (truncate (* 100 (/ (float total-refs) (1+ (- max-tab min-tab)))))))
-      (insert
-       (cond
-        ((< max-prop max-tab)
-         (propertize (format "  Maximum ref from property max-ref (%d) is smaller than maximum ref from index table (%d); you should correct this, as it may lead to duplicate references." max-prop max-tab) 'face 'org-warning))
-        ((> max-prop max-tab)
-         (format  "  Maximum ref from property max-ref (%d) is larger than maximum ref from table (%d);\n  you may correct this for consistency." max-prop max-tab))
-        (t (format "  Maximum ref from property max-ref and maximum ref from table\n  are equal (%d); as expected." max-prop))))
-      (insert "\n\n"))))
+      (cond
+       ((< max-prop max-tab)
+        (org-todo "TODO")
+        (cl-incf problems)
+        (insert (propertize (format "   Maximum ref from property max-ref (%d) is smaller than maximum ref from index table (%d);\n   you should correct this, as it may lead to duplicate references.\n\n" max-prop max-tab) 'face 'org-warning)))
+       ((> max-prop max-tab)
+        (org-todo "TODO")
+        (cl-incf problems)
+        (insert (format  "   Maximum ref from property max-ref (%d) is larger than maximum ref from table (%d);\n   you may correct this for consistency.\n\n" max-prop max-tab)))
+       (t
+        (org-todo "DONE")
+        (insert (format "   Maximum ref from property max-ref and maximum ref from table\n   are equal (%d); as expected.\n\n" max-prop)))))
+
+    
+    (insert "** Longest cells for each column\n\n")
+    (insert "   If some cells are excessively large, you may want to trim them to reduce overall table width;\n   and especially long content in the yank-column can be stored in separate nodes.\n   However in most cases this is not needed for org-index to function correctly.\n\n")
+    (insert "   processing ... ")
+    (redisplay)
+    (sleep-for 0.5)
+    (let ((longest (oidx--find-longest-cells))
+          (mlen (-max (mapcar (lambda (x) (length (symbol-name x))) oidx--all-columns)))
+          num-as-str)
+      
+      (kill-whole-line)
+      (mapc (lambda (col)
+              (insert (format "   %s :  " (s-pad-left mlen " " (symbol-name col))))
+              (-map-indexed (lambda (idx lp)
+                              (setq num-as-str (number-to-string (car lp)))
+                              (insert (s-repeat (- 5 (length num-as-str)) " "))
+                              (insert-button
+                               num-as-str 'action
+                               (lambda (_) (oidx--index-checks-goto-point-col idx lp col)))
+                              (insert ", "))
+                            (cdr (assoc col longest)))
+              (delete-char -2)
+              (insert "\n"))
+            oidx--all-columns)
+      (insert "\n\n"))
+
+    (goto-char (point-min))
+    (kill-whole-line 1)
+    (if (> problems 0)
+        (insert "* TODO All checks done, but some of them had problems\n")
+      (insert "* DONE All checks done, no problems found\n"))
+    (while (search-forward " DONE " nil t)
+      (org-cycle-internal-local))
+    (search-forward " longest " nil t)
+    (org-cycle-internal-local)
+    (goto-char (point-min))    
+   
+    (recenter 0)))
 
 
 (defun oidx--index-checks-insert-list-and-actions (list topic)
@@ -2017,8 +2175,8 @@ Optional argument NO-INC skips automatic increment on maxref."
 
   (let ((mx (-max (mapcar (lambda (x) (length x)) list))))
     (mapc (lambda (x)
-            (insert "  - " (s-pad-right mx " " x))
-            (insert "      actions: ")
+            (insert "   - " (s-pad-right mx " " x))
+            (insert "       actions: ")
             (insert-button
              "multi-occur" 'action
              (lambda (_) (oidx--index-checks-multi-occur topic)))
@@ -2042,7 +2200,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (ignore-errors
       (delete-window (get-buffer-window))
       (kill-buffer buna))
-    (org-occur-in-agenda-files text)
+    (org-occur-in-agenda-files (regexp-quote text))
     (if (get-buffer buna)
         (message "multi-occur for %s in agenda files." (symbol-name topic))
       (message "%s has not been found in files from `org-id-files'" (symbol-name topic)))))
@@ -2078,13 +2236,90 @@ Optional argument NO-INC skips automatic increment on maxref."
   (let ((lines 0) duplicates)
 
     (with-current-buffer oidx--buffer
+      (save-excursion
+        (goto-char oidx--below-hline)
+        (while (org-match-line org-table-line-regexp)
+          (when (setq id (oidx--get-or-set-field 'id))
+            (or (oidx--id-find id t)
+                (push id duplicates)))
+          (forward-line))))
+    duplicates))
+
+
+(defun oidx--count-empty-lines-below-end-of-table ()
+  "Helper for `oidx--index-checks': Go to end of table and count empty-lines."
+  (let ((empty-lines 0))
+
+    (with-current-buffer oidx--buffer
+      (save-excursion
+        (goto-char oidx--below-hline)
+        (while (org-match-line org-table-line-regexp)
+          (forward-line))
+
+        (while (and (not (org-at-heading-p))
+                    (not (= (point) (point-max)))
+                    (org--line-empty-p 1))
+          (cl-incf empty-lines)
+          (forward-line))
+
+        (if (= (point) (point-max))
+            (setq empty-lines most-positive-fixnum))
+        (cons empty-lines (point))))))
+
+
+(defun oidx--validate-time-columns ()
+  "Helper for `oidx--index-checks': Validate time-columns."
+
+  (with-current-buffer oidx--buffer
+    (save-excursion
+      (let ((rx (concat "^\\[" org-ts-regexp1 "\\]$"))
+            field)
+        (goto-char oidx--below-hline)
+        (catch 'does-not-match
+          (while (org-match-line org-table-line-regexp)
+            (mapc (lambda (col)
+                    (setq field (oidx--get-or-set-field col))
+                    (unless (or (string-match-p rx (or field ""))
+                                (and (not field)
+                                     (eq col 'last-accessed)))
+                      (org-table-goto-column (oidx--column-num col))
+                      (throw 'does-not-match (cons col (point)))))
+                  '(last-accessed created))
+            (forward-line))
+          nil)))))
+
+
+(defun oidx--find-longest-cells ()
+  "Helper for `oidx--index-checks': Go through table and find longest cells for each column."
+  (let ((col-to-max (mapcar (lambda (col) (cons col nil)) oidx--all-columns))
+        col-list)
+    (with-current-buffer oidx--buffer
       (goto-char oidx--below-hline)
       (while (org-match-line org-table-line-regexp)
-        (when (setq id (oidx--get-or-set-field 'id))
-          (or (oidx--id-find id t)
-              (push id duplicates)))
-        (forward-line)))
-    duplicates))
+        (mapc (lambda (col)
+                (setq col-list (assoc col col-to-max))
+                (setcdr col-list
+                        (cons (cons (length (oidx--get-or-set-field col))
+                                    (point))
+                              (cdr col-list))))
+              oidx--all-columns)
+        (forward-line))
+      (mapc (lambda (col)
+              (setq col-list (assoc col col-to-max))
+              (setcdr col-list
+                      (-take 12
+                             (sort (cdr col-list)
+                                   (lambda (x y) (> (car x) (car y)))))))
+            oidx--all-columns)
+      col-to-max)))
+
+
+(defun oidx--index-checks-goto-point-col (idx lp col)
+  "Helper for `oidx--index-checks': Enter table and go to given point."
+  (oidx--enter-index-to-stay)
+  (goto-char (cdr lp))
+  (org-table-goto-column (oidx--column-num col))
+  (message "At %d-longest cell for column %s: %d chars" (1+ idx) col (car lp)))
 
 
 (defun oidx--migrate-maxref-to-property ()
@@ -2889,17 +3124,57 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
   (interactive)
   (if (org-match-line org-table-line-regexp)
       (let ((yank (or (oidx--get-or-set-field 'yank)
-                      (error "Cannot yank from this line: yank-column is enpty"))))
+                      (error "Cannot yank from this line: yank-column is empty")))
+            (id (oidx--get-or-set-field 'id))
+            fp)
         (oidx--o-action-prepare t)
         (oidx--update-line (get-text-property (point) 'org-index-lbp))
-        (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
-        (kill-new yank)
         (org-mark-ring-goto)
-        (if (and (>= (length yank) 4) (string= (substring yank 0 4) "http"))
-            (progn
-              (browse-url yank)
-              (message "Opened '%s' in browser (and copied it too)" yank))
-          (message "Copied '%s' (no node is associated)" yank)))))
+        (cond
+         ((string= (s-left 4 yank) "http")
+          (browse-url yank)
+          (message "Opened '%s' in browser" yank))
+         ((string= yank "l")
+          (unless id
+            (error "Cannot browse to first url of associated node: no id present"))
+          (setq fp (oidx--id-find id))
+          (browse-url (car (org-offer-links-in-entry (get-file-buffer (car fp)) (cdr fp) 1)))
+          (message "Opened first url of associated node in browser"))
+         ((string= yank "q")
+          (unless id
+            (error "Cannot copy first quote from associated node: no id present"))
+          (setq fp (oidx--id-find id))
+          (unless (setq yank (oidx--o-action-get-first-quote fp))
+            (error "Asscoiated node does not contain quote to copy"))
+          (kill-new yank)
+          (message (format "Copied first quote from associated node: %s"
+                           (if (< (length yank) 24)
+                               (format "'%s'" yank)
+                             (format "'%s' ... (%d chars)" (s-left 32 yank) (length yank))))))
+         (t
+          (setq yank (replace-regexp-in-string (regexp-quote "\\vert") "|" yank nil 'literal))
+          (kill-new yank)
+          (message "Copied '%s'" yank))))))
+
+
+(defun oidx--o-action-get-first-quote (fp)
+  "Helper for `oidx--o-action-yank', get first quote from node fp"
+  (let (elem quote)
+    (with-current-buffer (get-file-buffer (car fp))
+      (save-excursion
+        (goto-char (cdr fp))
+        (forward-line)
+        (while (and (not (org-with-limited-levels (org-at-heading-p)))
+                    (not (= (point) (point-max)))
+                    (not quote))
+          (setq elem (org-element-at-point))
+          (if (and elem
+                   (eq (car elem) 'quote-block))
+              (setq quote (buffer-substring
+                           (plist-get (car (cdr elem)) :contents-begin)
+                           (plist-get (car (cdr elem)) :contents-end))))
+          (forward-line))))
+    (s-trim (s-chomp quote))))
 
 
 (defun oidx--o-action-copy-ref ()

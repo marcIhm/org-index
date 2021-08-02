@@ -224,6 +224,11 @@
     (should (looking-at "\\*\\* #2# neun"))))
 
 
+(ert-deftest oidxt-test-index-shrunk ()
+  (oidxt-with-test-setup
+   (error "Not yet implemented")))
+
+
 (ert-deftest oidxt-test-example ()
   (oidxt-with-test-setup
    (oidxt-do (format "SPC e x a m p l e <return> %s e x a m p l e <return> - 1 - <return>" (oidxt-y-or-n-ans t)))
