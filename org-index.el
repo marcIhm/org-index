@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.4.0
+;; Version: 7.4.1
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -86,6 +86,8 @@
 ;;  - Index checks now find largest cells for each column
 ;;  - Documented and enhanced special treatment for yank-column
 ;;  - Check for unwanted shortening of the index table
+;;  - Fix for sorting
+;;  - Fix for parsing index table
 ;;
 ;;  Version 7.3
 ;;
@@ -828,6 +830,8 @@ Optional argument SILENT prevents invoking interactive assistant."
 
       (oidx--go-below-hline)
       (org-reveal)
+
+      ;; check if count of lines has gone down too much
       (when (or (not oidx--last-count-check)
                 (> (float-time (time-subtract (current-time) oidx--last-count-check)) oidx--check-count-interval))
         (message "Counting number of index lines ...")
@@ -853,12 +857,15 @@ Optional argument SILENT prevents invoking interactive assistant."
                   (error "Accepted new line count for the future; please start over"))
               (error "Index has shrunk too much; please inspect and fix manually !\nMaybe, just a blank line has been inserted by accident (splitting the table into two),\nbut maybe detailed investigation, undo or even restore is neccessary.\nAfter fixing running the checks in maintainance might be helpful too.")))))
 
+      ;; parse line of headings
+      (goto-char (org-table-begin))
+      (oidx--parse-headings)
+
       (unless oidx--aligned-and-sorted
         (let (prev-line-count before-sort before-align before-fontify at-end)
           (setq before-sort (current-time))
           (oidx--sort-index)
           (goto-char oidx--below-hline)
-
 
           (message "Align, fontify and sort index table (once per emacs session)...")
           (setq before-align (current-time))
@@ -880,22 +887,18 @@ Optional argument SILENT prevents invoking interactive assistant."
         (goto-char oidx--below-hline)
 
         (message "Done."))
-
-      (beginning-of-line)
       
       ;; get headings to display during occur
+      (oidx--go-below-hline)
+      (beginning-of-line)
       (setq end-of-headings (point))
       (goto-char (org-table-begin))
       (setq start-of-headings (point))
       (setq oidx--headings-visible (substring-no-properties (oidx--copy-visible start-of-headings end-of-headings)))
       (setq oidx--headings (concat " " (s-chop-suffix " " (s-replace "\n" "\n " (buffer-substring start-of-headings end-of-headings)))))
       
-      ;; go to top of table
       (goto-char (org-table-begin))
       
-      ;; parse line of headings
-      (oidx--parse-headings)
-
       ;; One time migration: read property or go through table to find maximum number
       (goto-char oidx--below-hline)
       (setq max-ref-field (or (org-entry-get oidx--point "max-ref")
@@ -953,31 +956,41 @@ If GET-CATEGORY is set, retrieve it too."
 
     (setq oidx--columns-map nil)
 
+    (save-excursion
+      (let ((should-count (length oidx--all-columns))
+            is-count)
+        ;; try to go further than what should be possible
+        (org-table-goto-column (* 100 should-count))
+        (setq is-count (1- (org-table-current-column)))
+        (when (> is-count should-count)
+          (oidx--report-index-error
+           (format "There are too many columns in index table; found %d but there should be %d only" is-count should-count)))))
+    
     ;; For each column
     (dotimes (col (length oidx--all-columns))
 
       (setq field (substring-no-properties (downcase (org-trim (org-table-get-field (+ col 1))))))
 
-      (if (string= field "")
-          (error "Heading of column cannot be empty"))
-      (if (not (member (intern field) oidx--all-columns))
-          (error "Column name '%s' is not a valid heading" field))
+      (unless (string= field "")
+        (if (not (member (intern field) oidx--all-columns))
+            (oidx--report-index-error
+             (format "Column name '%s' is not a valid heading" field)))
 
-      (setq field-symbol (intern field))
+        (setq field-symbol (intern field))
 
-      ;; check if heading has already appeared
-      (if (assoc field-symbol oidx--columns-map)
-          (oidx--report-index-error
-           (format "'%s' appears two times as column heading" (downcase field)))
-        (push (cons field-symbol (+ col 1)) oidx--columns-map))))
+        ;; check if heading has already appeared
+        (if (assoc field-symbol oidx--columns-map)
+            (oidx--report-index-error
+             (format "'%s' appears two times as column heading" (downcase field)))
+          (push (cons field-symbol (+ col 1)) oidx--columns-map))))
 
-  (setq oidx--columns-map (reverse oidx--columns-map))
+    (setq oidx--columns-map (reverse oidx--columns-map))
 
-  ;; check if all headings have appeared
-  (setq missing-heads (-select (lambda (head) (not (assoc head oidx--columns-map))) oidx--all-columns))
-  (if missing-heads
-      (oidx--report-index-error
-       (format "No column has any of these headings %s" missing-heads))))
+    ;; check if all headings have appeared
+    (setq missing-heads (-select (lambda (head) (not (assoc head oidx--columns-map))) oidx--all-columns))
+    (if missing-heads
+        (oidx--report-index-error
+         (format "No column has any of these headings %s" missing-heads)))))
 
 
 (defun oidx--refresh-parse-table ()
@@ -1532,10 +1545,10 @@ CREATE-REF creates a reference and passes it to yank."
 
 
 ;; Sorting
-(defun oidx--get-start-of-today ()
+(defun oidx--get-start-of-today-for-sort ()
   "Get timestamp for sorting: Today at 0:00."
   (format-time-string
-   (org-time-stamp-format t t)
+   "%Y%m%d%H%M"
    (apply 'encode-time (append '(0 0 0) (nthcdr 3 (decode-time))))))
 
 
@@ -1555,7 +1568,7 @@ CREATE-REF creates a reference and passes it to yank."
 	
 	(let ((message-log-max nil)) ; we have just issued a message, dont need those of sort-subr
 	  
-          (setq start-of-today (oidx--get-start-of-today))
+          (setq start-of-today (oidx--get-start-of-today-for-sort))
 
           ;; get boundaries of table
 	  (goto-char oidx--below-hline)
@@ -1594,7 +1607,20 @@ CREATE-REF creates a reference and passes it to yank."
 (defun oidx--get-sort-key (time-threshold)
   "Get value for sorting.
 Argument TIME-THRESHOLD switches between last-accessed and count."
-  (let ((last-accessed (oidx--get-or-set-field 'last-accessed)))
+  (let ((field (oidx--get-or-set-field 'last-accessed))
+        (rx (concat "^\\[" org-ts-regexp1 "\\]$"))
+        last-accessed-for)
+    (unless field
+      (org-pop-to-buffer-same-window oidx--buffer)
+      (error "Field last-accessed is empty for this row, you should edit it"))
+    (or (string-match rx field)
+        (org-pop-to-buffer-same-window oidx--buffer)
+        (error "Field last-accessed does not contain a proper timestamp, you should edit it"))
+    (setq last-accessed
+          (apply 'concat
+                 (mapcar
+                  (lambda (x) (format "%02d" (string-to-number (match-string x field))))
+                  (list 2 3 4 7 8))))
     (concat
      ;; use column last accessed only if recent; otherwise use fixed value time-threshold,
      ;; so that recent entries are sorted by last access, but older entries are sorted by count
@@ -1702,7 +1728,7 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
 
     (forward-line 0) ; stay at beginning of line
 
-    (setq start-of-today (oidx--get-start-of-today))
+    (setq start-of-today (oidx--get-start-of-today-for-sort))
     (setq key (oidx--get-sort-key start-of-today))
     (setq begin (point))
     (setq end (line-beginning-position 2))
@@ -2131,7 +2157,7 @@ Optional argument NO-INC skips automatic increment on maxref."
         (insert (format "   Maximum ref from property max-ref and maximum ref from table\n   are equal (%d); as expected.\n\n" max-prop)))))
 
     
-    (insert "** Longest cells for each column\n\n")
+    (insert "** For Reference: Longest cells in each column\n\n")
     (insert "   If some cells are excessively large, you may want to trim them to reduce overall table width;\n   and especially long content in the yank-column can be stored in separate nodes.\n   However in most cases this is not needed for org-index to function correctly.\n\n")
     (insert "   processing ... ")
     (redisplay)
