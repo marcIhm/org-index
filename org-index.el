@@ -88,6 +88,7 @@
 ;;  - Check for unwanted shortening of the index table
 ;;  - Fix for sorting
 ;;  - Fix for parsing index table
+;;  - Fill column last-accessed if empty
 ;;
 ;;  Version 7.3
 ;;
@@ -237,6 +238,7 @@
 (defvar oidx--skip-verify-id nil "If true, do not verify index id; intended to be let-bound.")
 (defvar oidx--message-text nil "Text that was issued as an explanation; helpful for regression tests.")
 (defvar oidx--id-not-found nil "Id of last node not found.")
+(defvar oidx--last-access-ccnt 0 "Number of rows, for which last-access has been corrected.")
 
 ;; static information for this program package
 (defconst oidx--commands '(occur add kill node index ref yank again edit view help example sort maintain) "List of commands available.")
@@ -1237,6 +1239,11 @@ Optional argument KEYS-VALUES specifies content of new line."
           (insert (org-trim (or v "")))
           (setq kvs (cddr kvs))))
 
+      ;; update timestamp
+      (org-table-goto-column (oidx--column-num 'last-accessed))
+      (org-table-blank-field)
+      (org-insert-time-stamp nil t t)
+      
       (oidx--promote-current-line)
       (oidx--align-and-fontify-current-line)
 
@@ -1587,6 +1594,7 @@ CREATE-REF creates a reference and passes it to yank."
             (org-table-kill-row))
           (forward-line 1)
           (setq bottom (point))
+	  (setq oidx--last-access-ccnt 0)
           
           ;; sort lines
           (save-restriction
@@ -1601,18 +1609,25 @@ CREATE-REF creates a reference and passes it to yank."
             (goto-char (point-min))
 	    
             ;; restore modification state
-            (set-buffer-modified-p is-modified)))))))
+            (set-buffer-modified-p is-modified)
+
+	    (when (> oidx--last-access-ccnt 0)
+	      (message "Corrected column last-accessed for %d rows" oidx--last-access-ccnt))))))))
 
 
 (defun oidx--get-sort-key (time-threshold)
   "Get value for sorting.
 Argument TIME-THRESHOLD switches between last-accessed and count."
   (let ((field (oidx--get-or-set-field 'last-accessed))
-        (rx (concat "^\\[" org-ts-regexp1 "\\]$"))
-        last-accessed-for)
+        (rx (concat "^\\[" org-ts-regexp1 "\\]$")))
     (unless field
-      (org-pop-to-buffer-same-window oidx--buffer)
-      (error "Field last-accessed is empty for this row, you should edit it"))
+      (save-excursion
+	(org-table-goto-column (oidx--column-num 'last-accessed))
+	(org-table-blank-field)
+	(org-insert-time-stamp nil t t)
+	(cl-incf oidx--last-access-ccnt))
+      (message "Corrected field last-accessed for some rows")
+      (setq field (oidx--get-or-set-field 'last-accessed)))
     (or (string-match rx field)
         (org-pop-to-buffer-same-window oidx--buffer)
         (error "Field last-accessed does not contain a proper timestamp, you should edit it"))
@@ -1622,10 +1637,14 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
                   (lambda (x) (format "%02d" (string-to-number (match-string x field))))
                   (list 2 3 4 7 8))))
     (concat
-     ;; use column last accessed only if recent; otherwise use fixed value time-threshold,
-     ;; so that recent entries are sorted by last access, but older entries are sorted by count
-     (if (string> last-accessed time-threshold) last-accessed time-threshold)
-     (format "%08d" (cl-parse-integer (or (oidx--get-or-set-field 'count) "0"))))))
+     ;; Use column last-accessed only if recent; otherwise use fixed value time-threshold,
+     ;; so that recent entries are sorted by last access, but older entries are sorted by count.
+     ;; Usage of column last-accessed is controlled by eventually masking column count
+     ;; with a fixed string.
+     (if (string> last-accessed time-threshold)
+	 "999999"
+       (format "%06d" (cl-parse-integer (or (oidx--get-or-set-field 'count) "0"))))
+     last-accessed)))
 
 
 
@@ -1728,16 +1747,17 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
 
     (forward-line 0) ; stay at beginning of line
 
+    (setq oidx--last-access-ccnt 0)
     (setq start-of-today (oidx--get-start-of-today-for-sort))
     (setq key (oidx--get-sort-key start-of-today))
     (setq begin (point))
     (setq end (line-beginning-position 2))
-
+    
     (forward-line -1)
     (while (and (org-match-line org-table-line-regexp)
                 (not (org-at-table-hline-p))
                 (string< (oidx--get-sort-key start-of-today) key))
-
+      
       (cl-incf to-skip)
       (forward-line -1))
     (forward-line 1)
@@ -1745,7 +1765,10 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
     ;; insert line at new position
     (when (> to-skip 0)
       (insert (delete-and-extract-region begin end))
-      (forward-line -1))))
+      (forward-line -1))
+
+    (when (> oidx--last-access-ccnt 0)
+      (message "Corrected column last-accessed for %d rows" oidx--last-access-ccnt))))
 
 
 (defun oidx--get-or-set-field (key &optional value)

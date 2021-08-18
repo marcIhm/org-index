@@ -1,3 +1,12 @@
+* 7.4 until 2021-08-18 We
+
+  - Index checks now find largest cells for each column
+  - Documented and enhanced special treatment for yank-column
+  - Check for unwanted shortening of the index table
+  - Fix for sorting
+  - Fix for parsing index table
+  - Fill column last-accessed if empty
+
 * 7.3 until 2021-07-09 Fr
 
   - Reworked index-maintainance:

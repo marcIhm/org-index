@@ -167,7 +167,7 @@
     (oidxt-do "o - - 1 3 - - <return>")
     (oidxt-do "o - - 1 3 - - <right>")
     (oidxt-do "i l")
-    (should (string= "2" (oidx--get-or-set-field 'count)))))
+    (should (string= "8" (oidx--get-or-set-field 'count)))))
 
 
 (ert-deftest oidxt-test-mark-ring ()
@@ -226,7 +226,18 @@
 
 (ert-deftest oidxt-test-index-shrunk ()
   (oidxt-with-test-setup
-   (error "Not yet implemented")))
+    (let ((oidx--check-count-interval -1)
+	  oidx--last-count-check)
+      (oidxt-do "o e i n s <return>")
+      (with-current-buffer oidxt-index-buffer-name
+	(oidx--go-below-hline)
+	(forward-line 4)
+	(kill-line 3))
+      (should (eq (cl-search "Index has shrunk too much"
+			     (car (condition-case err
+				      (oidxt-do "n o <return>")
+				    (error (cdr err)))))
+		  0)))))
 
 
 (ert-deftest oidxt-test-example ()
@@ -380,7 +391,24 @@
   (oidxt-with-test-setup
     (oidxt-do "o - - 1 3 - - <return>")
     (oidxt-do "SPC s o r t")
-    (should (looking-at "--13--"))))
+    (mapc (lambda (x)
+	    (org-table-goto-column 1)
+	    (should (looking-at x))
+	    (forward-line))
+	  (list "--13--" " --8--" " --3--" " --4--" " --5--" " --7--" " --2--"
+		"--14--" " --6--" " --1--" "--10--" " --9--" "--12--" "--11--"))))
+
+
+(ert-deftest oidxt-test-correct-last-access ()
+  (oidxt-with-test-setup
+    (with-current-buffer oidxt-index-buffer-name
+      (oidx--go-below-hline)
+      (dotimes (_ 2)
+	(org-table-goto-column (oidx--column-num 'last-accessed))
+	(org-table-blank-field)
+	(forward-line))
+      (oidxt-do "o e i n s <right> <return>")
+      (should (eq oidx--last-access-ccnt 1)))))
 
 
 (ert-deftest oidxt-test-retire-lines ()
@@ -661,20 +689,20 @@
   |    ref | id                                   | created         | category | level | count | last-accessed         | keywords       | yank | tags |
   |        | <4>                                  |                 |          |       |       |                       |                |      |      |
   |--------+--------------------------------------+-----------------+----------+-------+-------+-----------------------+----------------+------+------|
-  | --14-- |                                      | [2013-12-19 Do] |          |       |     1 |                       |                |      |      |
-  | --13-- | " oidxt-id-2                       " | [2013-12-19 Do] |          |       |     1 |                       | eins           |      |      |
-  | --12-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | vier-zwei      |      |      |
-  | --11-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | vier-eins      |      |      |
-  | --10-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | vier           |      |      |
-  |  --9-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | drei           |      |      |
-  |  --8-- | " oidxt-id-1                       " | [2013-12-19 Do] |          |       |     1 |                       | zwei-zwei-eins |      |      |
-  |  --7-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei-zwei      |      |      |
-  |  --6-- |                                      | [2013-12-19 Do] | yank     |       |     1 |                       | zwei-eins      | six  |      |
-  |  --5-- |                                      | [2013-12-19 Do] |          |       |     1 |                       | zwei           |      |      |
-  |  --4-- | " oidxt-id-3                       " | [2013-12-19 Do] |          |       |     1 |                       | eins-drei      |      |      |
-  |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Do 10:00] | eins-zwei      |      |      |
-  |  --2-- | " oidxt-id-4                       " | [2013-12-19 Do] |          |       |     1 |                       | eins-eins      |      |      |
-  |  --1-- | " oidxt-id-index                   " | [2013-12-15 So] |          |       |     1 | [2013-12-15 So 10:00] | This node      |      |      |
+  | --14-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Thu 10:00] |                |      |      |
+  | --13-- | " oidxt-id-2                       " | [2013-12-19 Do] |          |       |     7 | [2012-12-19 Thu 10:00] | eins           |      |      |
+  | --12-- |                                      | [2013-12-19 Do] |          |       |     1 | [2011-12-19 Thu 10:00] | vier-zwei      |      |      |
+  | --11-- |                                      | [2013-12-19 Do] |          |       |     1 | [2010-12-19 Thu 10:00] | vier-eins      |      |      |
+  | --10-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-11-19 Thu 10:00] | vier           |      |      |
+  |  --9-- |                                      | [2013-12-19 Do] |          |       |     1 | [2013-10-19 Thu 10:00] | drei           |      |      |
+  |  --8-- | " oidxt-id-1                       " | [2013-12-19 Do] |          |       |    22 | [2014-12-18 Thu 10:00] | zwei-zwei-eins |      |      |
+  |  --7-- |                                      | [2013-12-19 Do] |          |       |     1 | [2015-12-17 Thu 10:00] | zwei-zwei      |      |      |
+  |  --6-- |                                      | [2013-12-19 Do] | yank     |       |     1 | [2013-12-16 Thu 10:00] | zwei-eins      | six  |      |
+  |  --5-- |                                      | [2013-12-19 Do] |          |       |     1 | [2016-12-19 Thu 09:00] | zwei           |      |      |
+  |  --4-- | " oidxt-id-3                       " | [2013-12-19 Do] |          |       |     1 | [2017-12-19 Thu 08:00] | eins-drei      |      |      |
+  |  --3-- |                                      | [2013-12-19 Do] |          |       |     1 | [2018-12-19 Thu 10:02] | eins-zwei      |      |      |
+  |  --2-- | " oidxt-id-4                       " | [2013-12-19 Do] |          |       |     1 | [2013-12-19 Thu 10:03] | eins-eins      |      |      |
+  |  --1-- | " oidxt-id-index                   " | [2013-12-15 So] |          |       |     1 | [2013-12-15 Sun 10:00] | This node      |      |      |
 
 ")
     (forward-line -2)

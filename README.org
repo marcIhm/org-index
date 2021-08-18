@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 7.3.0.
+  The current version is 7.4.1.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -129,6 +129,15 @@
 ** Latest Change Log
 
    See ChangeLog.org for older entries.
+
+*** 7.4
+
+    - Index checks now find largest cells for each column
+    - Documented and enhanced special treatment for yank-column
+    - Check for unwanted shortening of the index table
+    - Fix for sorting
+    - Fix for parsing index table
+    - Fill column last-accessed if empty
 
 *** 7.3
 
