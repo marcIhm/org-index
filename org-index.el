@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.4.1
+;; Version: 7.4.2
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -45,14 +45,14 @@
 ;;  In addition to the index table, org-index introduces the concept of
 ;;  references: These are decorated numbers (e.g. 'R237' or '--455--');
 ;;  they are well suited to be used outside of org, e.g. in folder names,
-;;  ticket systems or on printed documents. Use of references is optional.
+;;  ticket systems or on printed documents.  Use of references is optional.
 ;;
 ;;  On first invocation org-index will assist you in creating the index
-;;  table. The index table is a normal org table, that needs to be stored
+;;  table.  The index table is a normal org table, that needs to be stored
 ;;  in a dedicated node anywhere within your org files.
 ;;
 ;;  To start using your index, invoke the subcommand 'add' to create index
-;;  entries and 'occur' to find them. The first call to 'add' will trigger
+;;  entries and 'occur' to find them.  The first call to 'add' will trigger
 ;;  the one-time assistant to create the index table.
 ;;
 ;;  The set of columns within the index-table is fixed (see variable
@@ -89,6 +89,7 @@
 ;;  - Fix for sorting
 ;;  - Fix for parsing index table
 ;;  - Fill column last-accessed if empty
+;;  - Negotiated with checkdoc, package-lint and byte-compile-file
 ;;
 ;;  Version 7.3
 ;;
@@ -248,11 +249,11 @@
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
-(defconst oidx--yank-help "three special cases: a string starting with 'http' will be opened in browser; the letter 'l' will browse first url from associated node (if any); the letter 'q' will copy the first quote" "help text for column yank")
+(defconst oidx--yank-help "three special cases: a string starting with 'http' will be opened in browser; the letter 'l' will browse first url from associated node (if any); the letter 'q' will copy the first quote" "Help text for column yank.")
 (defvar oidx--check-count-interval 86400 "Number of seconds between checks for linecount in index.")
 
 ;; Version of this package
-(defvar org-index-version "7.3.0" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.4.2" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -353,7 +354,7 @@ those pieces."
                   (const keywords))))
 
 (defcustom org-index-hl-in-occur t
-  "Within occur buffer, when occur is done, switch on hl-line-mode ?"
+  "Within occur buffer, when occur is done, switch on `hl-line-mode' ?"
   :group 'org-index
   :type '(choice (const :tag "Yes" t)
                  (const :tag "No" nil)))
@@ -413,14 +414,14 @@ an id-property to all nodes in the index.
 In addition to the index table, org-index introduces the concept of
 references: These are decorated numbers (e.g. 'R237' or '--455--');
 they are well suited to be used outside of org, e.g. in folder names,
-ticket systems or on printed documents. Use of references is optional.
+ticket systems or on printed documents.  Use of references is optional.
 
 On first invocation org-index will assist you in creating the index
-table. The index table is a normal org table, that needs to be stored
+table.  The index table is a normal org table, that needs to be stored
 in a dedicated node anywhere within your org files.
 
 To start using your index, invoke the subcommand 'add' to create index
-entries and 'occur' to find them. The first call to 'add' will trigger
+entries and 'occur' to find them.  The first call to 'add' will trigger
 the one-time assistant to create the index table.
 
 The set of columns within the index-table is fixed (see variable
@@ -429,7 +430,7 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 ignore columns during search.
 
-This is version 7.3.0 of org-index.el.
+This is version 7.4.2 of org-index.el.
 
 The function `org-index' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -783,8 +784,9 @@ Prefix argument ARG is passed to subcommand add."
 
 
 (defun oidx--verify-id (&optional silent)
-  "Check, that we have a valid id.
-Optional argument SILENT prevents invoking interactive assistant."
+  ;; checkdoc-params: (silent)
+  "Check, that we have a valid id to find index.
+Invoke assistant if not (and skip this if SILENT)."
 
   (unless oidx--skip-verify-id
     ;; Check id
@@ -801,7 +803,7 @@ Optional argument SILENT prevents invoking interactive assistant."
       (setq marker (oidx--id-find org-index-id 'marker))
       (unless marker
         (if silent (throw 'missing-index t))
-        (or (y-or-n-p (format "ID %s of index table cannot be found; updating id-locations may help; this may take a while however. Continue ?" org-index-id))
+        (or (y-or-n-p (format "ID %s of index table cannot be found; updating id-locations may help; this may take a while however.  Continue ? " org-index-id))
             (throw 'missing-index t))
         (org-id-update-id-locations)
         (setq marker (oidx--id-find org-index-id 'marker))
@@ -840,8 +842,8 @@ Optional argument SILENT prevents invoking interactive assistant."
         (let ((ok-cnt-txt (oidx--count-lines-with-opinion)))
           (if (cl-first ok-cnt-txt)
               (progn
-                (oidx--go-below-hline)
                 (org-entry-put oidx--point "prev-line-count" (number-to-string (cl-second ok-cnt-txt)))
+                (oidx--go-below-hline)
                 (setq oidx--last-count-check (current-time)))
             (pop-to-buffer-same-window oidx--buffer)
             (if (string= (oidx--completing-read
@@ -853,18 +855,18 @@ Optional argument SILENT prevents invoking interactive assistant."
                           (list "yes" "no") "no")
                          "yes")
                 (progn
-                  (oidx--go-below-hline)
                   (org-entry-put oidx--point "prev-line-count" (number-to-string (cl-second ok-cnt-txt)))
+                  (oidx--go-below-hline)
                   (setq oidx--last-count-check (current-time))
                   (error "Accepted new line count for the future; please start over"))
-              (error "Index has shrunk too much; please inspect and fix manually !\nMaybe, just a blank line has been inserted by accident (splitting the table into two),\nbut maybe detailed investigation, undo or even restore is neccessary.\nAfter fixing running the checks in maintainance might be helpful too.")))))
+              (error "Index has shrunk too much; please inspect and fix manually !\nMaybe, just a blank line has been inserted by accident (splitting the table into two),\nbut maybe detailed investigation, undo or even restore is neccessary.\nAfter fixing running the checks in maintainance might be helpful too")))))
 
       ;; parse line of headings
       (goto-char (org-table-begin))
       (oidx--parse-headings)
 
       (unless oidx--aligned-and-sorted
-        (let (prev-line-count before-sort before-align before-fontify at-end)
+        (let (before-sort before-align before-fontify at-end)
           (setq before-sort (current-time))
           (oidx--sort-index)
           (goto-char oidx--below-hline)
@@ -999,7 +1001,7 @@ If GET-CATEGORY is set, retrieve it too."
   "Fast refresh of selected results of parsing index table."
 
   (setq oidx--point (marker-position (or (oidx--id-find org-index-id 'marker)
-                                         (error "Cannot find index-table, cannot continue. Invoking `org-index' may offer more options"))))
+                                         (error "Cannot find index-table, cannot continue.  Invoking `org-index' may offer more options"))))
   (with-current-buffer oidx--buffer
     (save-excursion
       (oidx--go-below-hline))))
@@ -1007,7 +1009,8 @@ If GET-CATEGORY is set, retrieve it too."
 
 (defun oidx--count-lines-with-opinion ()
   "Count number of lines in index-table and give an opinion."
-  (let ((line-count 0))
+  (let ((line-count 0)
+	prev-line-count)
     (while (org-match-line org-table-line-regexp)
       (forward-line)
       (cl-incf line-count))
@@ -1207,7 +1210,7 @@ If GET-CATEGORY is set, retrieve it too."
 
 (defun oidx--create-new-line (&rest keys-values)
   "Add a new line to index.
-Optional argument KEYS-VALUES specifies content of new line."
+Property-list KEYS-VALUES specifies content of new line."
 
   (with-current-buffer oidx--buffer
     (goto-char oidx--point)
@@ -1271,7 +1274,8 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 
 (defun oidx--collect-values-for-add-update (id &optional silent category)
-  "Collect values for adding or updating line specified by ID, do not ask if SILENT, use CATEGORY, if given."
+  "Collect values for adding or updating line specified by ID.
+Do not ask if SILENT, use CATEGORY, if given."
   
   (let ((args (list 'id id))
         content)
@@ -1329,7 +1333,7 @@ Optional argument KEYS-VALUES specifies content of new line."
 
 (defun oidx--collect-values-from-user (cols &optional defaults)
   "Collect values for adding a new line.
-Argument COLS gives list of columns to edit.
+Argument COLS gives list of columns to query from user.
 Optional argument DEFAULTS gives default values."
   
   (let (content args def def-clause hint-clause)
@@ -1619,7 +1623,8 @@ CREATE-REF creates a reference and passes it to yank."
   "Get value for sorting.
 Argument TIME-THRESHOLD switches between last-accessed and count."
   (let ((field (oidx--get-or-set-field 'last-accessed))
-        (rx (concat "^\\[" org-ts-regexp1 "\\]$")))
+        (rx (concat "^\\[" org-ts-regexp1 "\\]$"))
+	last-accessed)
     (unless field
       (save-excursion
 	(org-table-goto-column (oidx--column-num 'last-accessed))
@@ -1629,7 +1634,7 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
       (message "Corrected field last-accessed for some rows")
       (setq field (oidx--get-or-set-field 'last-accessed)))
     (or (string-match rx field)
-        (org-pop-to-buffer-same-window oidx--buffer)
+        (pop-to-buffer-same-window oidx--buffer)
         (error "Field last-accessed does not contain a proper timestamp, you should edit it"))
     (setq last-accessed
           (apply 'concat
@@ -1960,7 +1965,8 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--id-find (id &optional markerp)
-  "Wrapper for org-id-find, that does not go stale during rebuild of org-id-locations"
+  ;; checkdoc-params: (id markerp)
+  "Wrapper for `org-id-find', that does not go stale during rebuild of `org-id-locations'."
   (let (retval)
     (setq oidx--id-not-found id)
     (unwind-protect
@@ -1973,7 +1979,8 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--id-goto (id)
-  "Wrapper for org-id-goto, that issues a message before rebuild of org-id-locations"
+  ;; checkdoc-params: (id)
+  "Wrapper for `org-id-goto', that issues a message before rebuild of `org-id-locations'."
   (setq oidx--id-not-found id)
   (unwind-protect
       (progn
@@ -1987,7 +1994,9 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--advice-for-org-id-update-id-locations (orig-fun &rest args)
-  "Advice that moderates use of `org-id-update-id-location' for `oidx--id-find'."
+  "Advice that moderates use of `org-id-update-id-location' for `oidx--id-find'.
+Argument ORIG-FUN is function to decorate.
+Optional argument ARGS are passed to orig-fun."
   (message "ID %s cannot be found; therefore id-locations are beeing updated. Please stand by ..." oidx--id-not-found)
   (sleep-for 1)
   (apply orig-fun args)
@@ -2043,8 +2052,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (mapc
      (lambda (topic)
        (let ((duplicates (oidx--find-duplicates topic))
-             (name (if (eq topic 'ref) "references" "IDs"))
-             mx)
+             (name (if (eq topic 'ref) "references" "IDs")))
          (insert (format "** Finding duplicate %s in index table\n\n" name))
          (insert "   processing ...")
          (redisplay)
@@ -2065,8 +2073,7 @@ Optional argument NO-INC skips automatic increment on maxref."
     (insert "   processing ...")
     (redisplay)
     (sleep-for 0.5)
-    (let ((missing-ids (oidx--find-missing-ids))
-          lines mx)
+    (let ((missing-ids (oidx--find-missing-ids)))
       (kill-whole-line)
       (if missing-ids
           (progn
@@ -2111,7 +2118,7 @@ Optional argument NO-INC skips automatic increment on maxref."
       (kill-whole-line)
       (insert (concat "   " (cl-third ok-cnt-txt)))
       (if (cl-first ok-cnt-txt)
-          (org-todo "DONE")          
+          (org-todo "DONE")
         (org-todo "TODO")
         (insert "\n   ")
         (insert-button
@@ -2214,13 +2221,14 @@ Optional argument NO-INC skips automatic increment on maxref."
       (org-cycle-internal-local))
     (search-forward " longest " nil t)
     (org-cycle-internal-local)
-    (goto-char (point-min))    
+    (goto-char (point-min))
    
     (recenter 0)))
 
 
 (defun oidx--index-checks-insert-list-and-actions (list topic)
-  "Insert list and action buttons for each element."
+  "Insert LIST and action buttons for each element.
+Argument TOPIC"
 
   (let ((mx (-max (mapcar (lambda (x) (length x)) list))))
     (mapc (lambda (x)
@@ -2238,12 +2246,13 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--second-word-of-line ()
-  "Get second word of current line"
+  "Get second word of current line."
   (nth 1 (split-string (buffer-substring (point-at-bol) (point-at-eol)))))
 
 
 (defun oidx--index-checks-multi-occur (topic)
-  "Action multi-occur in index checks."
+  "Action `multi-occur' in index checks.
+Argument TOPIC is either ref or id."
   (let ((text (oidx--second-word-of-line))
         (buna "*Occur*"))
     (ignore-errors
@@ -2256,7 +2265,8 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--index-checks-goto-index (topic)
-  "Action multi-occur in index checks."
+  "Action `multi-occur' in index checks.
+Argument TOPIC is either ref or id."
   (let ((text (oidx--second-word-of-line)))
     (oidx--enter-index-to-stay)
     (oidx--go 'topic text)
@@ -2265,7 +2275,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 (defun oidx--find-duplicates (column)
   "Helper for `oidx--index-checks': Go through table and collect duplicate instances of COLUMN."
-  (let (counts content found dups)
+  (let (counts content found)
 
     (with-current-buffer oidx--buffer
       (goto-char oidx--below-hline)
@@ -2282,7 +2292,7 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 (defun oidx--find-missing-ids ()
   "Helper for `oidx--index-checks': Go through table and find missing IDs."
-  (let ((lines 0) duplicates)
+  (let (id dups)
 
     (with-current-buffer oidx--buffer
       (save-excursion
@@ -2290,9 +2300,9 @@ Optional argument NO-INC skips automatic increment on maxref."
         (while (org-match-line org-table-line-regexp)
           (when (setq id (oidx--get-or-set-field 'id))
             (or (oidx--id-find id t)
-                (push id duplicates)))
+                (push id dups)))
           (forward-line))))
-    duplicates))
+    dups))
 
 
 (defun oidx--count-empty-lines-below-end-of-table ()
@@ -2364,7 +2374,10 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--index-checks-goto-point-col (idx lp col)
-  "Helper for `oidx--index-checks': Enter table and go to given point."
+  "Helper for `oidx--index-checks': Enter table and go to given point.
+Argument IDX counts element of row to follow.
+Argument LP is length and point.
+Argument COL is column to visit in index."
   (oidx--enter-index-to-stay)
   (goto-char (cdr lp))
   (org-table-goto-column (oidx--column-num col))
@@ -2486,7 +2499,8 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 ;; Creating a new Index
 (defun oidx--create-missing-index (reason)
-  "Create a new empty index table with detailed explanation.  Argument REASONS explains why."
+  "Create a new empty index table with detailed explanation.
+Argument REASON explains why."
 
   (oidx--ask-before-create-index "Cannot find index table: "
                                  "new permanent" "."
@@ -2508,8 +2522,10 @@ Optional argument NO-INC skips automatic increment on maxref."
 
 
 (defun oidx--ask-before-create-index (explanation type for-what reason)
-                                                  ; checkdoc-params: (explanation type for-what reasons)
-  "Ask the user before creating an index or throw error.  Arguments specify bits of issued message."
+  ;; checkdoc-params: (explanation type for-what reasons)
+  "Ask the user before creating an index or throw error.
+Arguments specify bits of issued message.
+Optional argument REASON gives reason."
   (let (prompt)
 
     (setq prompt (concat explanation reason "\n"
@@ -2904,7 +2920,7 @@ Returns nil or plist with result"
 
 
 (defun oidx--o-flag-for-currrent-line ()
-  "Compute flag for current line"
+  "Compute flag for current line."
   (let ((yank (oidx--get-or-set-field 'yank))
         (id (oidx--get-or-set-field 'id)))
     (cond ((and id yank) "2") (id "n") (yank "y") (t " "))))
@@ -2939,7 +2955,6 @@ Argument FRAME gives match-frame to show, LINES-WANTED number."
     (cl-mapc (lambda (f l) (insert f l "\n")) (plist-get frame :flags) (plist-get frame :lines))
     (if (>= (plist-get frame :count) lines-wanted)
         (insert oidx--o-more-lines-text))
-    (setq oidx--o-end-of-lines (point))
     (goto-char oidx--o-start-of-lines)))
 
 
@@ -2963,7 +2978,7 @@ Argument FRAME gives match-frame to show, LINES-WANTED number."
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display of match-frame FRAME."
 
-  (let (line flags lines lines-collected header-lines lbp (spc " "))
+  (let (line lines lines-collected flag flags header-lines lbp (spc " "))
 
     (with-current-buffer oidx--o-buffer-name
       (erase-buffer)
@@ -3137,7 +3152,8 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
 
 
 (defun oidx--o-action-dispatch-according-to-flag (&optional invert)
-  "Read flag from current line and dispatch accordingly"
+  "Read flag from current line and dispatch accordingly.
+Optional argument INVERT swaps actions."
   (interactive)
   (let ((flag (get-text-property (point) 'org-index-flag)))
     (cond
@@ -3152,7 +3168,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
 
 
 (defun oidx--o-action-dispatch-according-to-flag-invert ()
-  "Invert `oidx--o-action-dispatch-according-to-flag'"
+  "Invert `oidx--o-action-dispatch-according-to-flag'."
   (interactive)
   (oidx--o-action-dispatch-according-to-flag t))
 
@@ -3207,7 +3223,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
 
 
 (defun oidx--o-action-get-first-quote (fp)
-  "Helper for `oidx--o-action-yank', get first quote from node fp"
+  "Helper for `oidx--o-action-yank', get first quote from node FP."
   (let (elem quote)
     (with-current-buffer (get-file-buffer (car fp))
       (save-excursion
@@ -3308,8 +3324,11 @@ KILL-VIEW removes respective window."
 (provide 'org-index)
 
 ;; Local Variables:
-;; fill-column: 75
-;; comment-column: 50
+;; fill-column: 96
+;; comment-column: 60
+;; checkdoc-verb-check-experimental-flag: nil
+;; checkdoc-symbol-words: ("org-index" "kill-ring")
+;; package-lint--sane-prefixes: "\\`oidx"
 ;; End:
 
 ;;; org-index.el ends here

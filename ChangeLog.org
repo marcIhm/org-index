@@ -1,4 +1,4 @@
-* 7.4 until 2021-08-18 We
+* 7.4 until 2021-08-20 Fr
 
   - Index checks now find largest cells for each column
   - Documented and enhanced special treatment for yank-column
@@ -6,6 +6,7 @@
   - Fix for sorting
   - Fix for parsing index table
   - Fill column last-accessed if empty
+  - Negotiated with checkdoc, package-lint and byte-compile-file
 
 * 7.3 until 2021-07-09 Fr
 
