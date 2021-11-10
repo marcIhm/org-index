@@ -2926,7 +2926,7 @@ Returns nil or plist with result"
   "Compute flag for current line."
   (let* ((yank (oidx--get-or-set-field 'yank))
         (id (oidx--get-or-set-field 'id))
-        (ff (cond ((and id yank) (cons "2" 'mode-line-hightlight)) (id (cons "n" nil)) (yank (cons "y" nil)) (t (cons " " nil)))))
+        (ff (cond ((and id yank) (cons "b" 'cursor)) (id (cons "n" nil)) (yank (cons "y" nil)) (t (cons " " nil)))))
     (propertize (car ff) 'face (or (cdr ff) 'org-agenda-dimmed-todo-face))))
 
 
@@ -3166,11 +3166,11 @@ Optional argument INVERT swaps actions."
   (let ((flag (get-text-property (point) 'org-index-flag)))
     (cond
      ((or (string= flag "y")
-          (and (string= flag "2")
+          (and (string= flag "b")
                (not invert)))
       (oidx--o-action-yank))
      ((or (string= flag "n")
-          (and (string= flag "2")
+          (and (string= flag "b")
                invert))
       (oidx--o-action-goto-node)))))
 
