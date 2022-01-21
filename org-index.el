@@ -1,10 +1,10 @@
 ;;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2021 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2022 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <1@2484.de>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.4.2
+;; Version: 7.4.3
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -90,6 +90,7 @@
 ;;  - Fix for parsing index table
 ;;  - Fill column last-accessed if empty
 ;;  - Negotiated with checkdoc, package-lint and byte-compile-file
+;;  - Interpret '[[' in yank text as org-mode links
 ;;
 ;;  Version 7.3
 ;;
@@ -249,7 +250,7 @@
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
-(defconst oidx--yank-help "three special cases: a string starting with 'http' will be opened in browser; the letter 'l' will browse first url from associated node (if any); the letter 'q' will copy the first quote" "Help text for column yank.")
+(defconst oidx--yank-help "three special cases: a string starting with 'http' will be opened in browser; starting with '[[' will be treated as org-mode links; the letter 'l' will browse first url from associated node (if any); the letter 'q' will copy the first quote" "Help text for column yank.")
 (defvar oidx--align-and-sort-interval 86400 "Number of seconds between sorting of index; see `oidx--last-align-and-sort'.")
 (defvar oidx--check-count-interval 86400 "Number of seconds between checks for linecount in index; see `oidx--last-count-check'.")
 
@@ -3207,6 +3208,10 @@ Optional argument INVERT swaps actions."
          ((string= (s-left 4 yank) "http")
           (browse-url yank)
           (message "Opened '%s' in browser" yank))
+         ((and (string= (s-left 2 yank) "[[")
+               (string= (s-right 2 yank) "]]"))
+          (org-link-open-from-string yank)
+          (message "Opened '%s' as org-mode link" yank))
          ((string= yank "l")
           (unless id
             (error "Cannot browse to first url of associated node: no id present"))
