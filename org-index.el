@@ -250,7 +250,7 @@
 (defconst oidx--short-help-buffer-name "*org-index commands*" "Name of buffer to display short help.")
 (defvar oidx--short-help-text nil "Cache for result of `oidx--get-short-help-text.")
 (defvar oidx--shortcut-chars nil "Cache for result of `oidx--get-shortcut-chars.")
-(defconst oidx--yank-help "three special cases: a string starting with 'http' will be opened in browser; starting with '[[' will be treated as org-mode links; the letter 'l' will browse first url from associated node (if any); the letter 'q' will copy the first quote" "Help text for column yank.")
+(defconst oidx--yank-help "four special cases: starting with 'http' will be opened in browser, with '[[' be treated as an org-mode link; the sole letter 'l' will browse first url from associated node (if any), 'q' will copy the first quote" "Help text for column yank.")
 (defvar oidx--align-and-sort-interval 86400 "Number of seconds between sorting of index; see `oidx--last-align-and-sort'.")
 (defvar oidx--check-count-interval 86400 "Number of seconds between checks for linecount in index; see `oidx--last-count-check'.")
 
@@ -2193,7 +2193,7 @@ Optional argument ARGS are passed to orig-fun."
 
     
     (insert "** For Reference: Longest cells in each column\n\n")
-    (insert "   If some cells are excessively large, you may want to trim them to reduce overall table width;\n   and especially long content in the yank-column can be stored in separate nodes.\n   However in most cases this is not needed for org-index to function correctly.\n\n")
+    (insert "   If some cells are excessively large, you may want to trim them to reduce overall table width.\n   Especially long content in the yank-column can be stored in separate nodes.\n   However in most cases this is not needed for org-index to function correctly.\n\n")
     (insert "   processing ... ")
     (redisplay)
     (sleep-for 0.5)
