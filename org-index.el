@@ -2246,6 +2246,12 @@ Argument TOPIC"
             (insert-button
              "goto index" 'action
              (lambda (_) (oidx--index-checks-goto-index topic)))
+            (insert ", ")
+            (insert-button
+             "Update id locations" 'action
+             (lambda (_)
+               (org-id-update-id-locations)
+               (message "Locations updated, you may want to repeat the index checks now and even restart emacs before.")))
             (insert "\n"))
           list)))
 
