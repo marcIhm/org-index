@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 7.4.2.
+  The current version is 7.4.4.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -139,6 +139,8 @@
     - Fix for parsing index table
     - Fill column last-accessed if empty
     - Negotiated with checkdoc, package-lint and byte-compile-file
+    - Interpret '[[' in yank text as org-mode links
+    - Fix for index-maintainance
 
 *** 7.3
 
