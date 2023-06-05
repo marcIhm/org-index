@@ -597,7 +597,7 @@ Prefix argument ARG is passed to subcommand add."
        ((eq command 'yank)
         
         (let (vals yank)
-          
+         
           (setq vals (oidx--collect-values-from-user org-index-edit-on-yank))
           (if (setq yank (plist-get vals 'yank))
               (oidx--plist-put vals 'yank (replace-regexp-in-string "|" "\\vert" yank nil 'literal)))
@@ -1294,6 +1294,10 @@ Do not ask if SILENT, use CATEGORY, if given."
        ((eq col 'keywords)
         (if org-index-copy-heading-to-keywords
             (setq content (nth 4 (org-heading-components))))
+
+        ;; a single '|' can make our index invalid
+        (if (cl-search "|" content)
+            (error "Headline contains char '|'; cannot add it to index"))
         
         ;; Shift ref and timestamp ?
         (if org-index-strip-ref-and-date-from-heading
@@ -2870,7 +2874,7 @@ Optional argument ARG, when given does not limit number of lines shown."
          (propertize  "; ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
          (concat
           (propertize
-           (oidx--wrap "Normal keys add to search word; <space> starts additional word; <backspace> erases last char, <M-backspace> last word, `C-g', all other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading). First char in line (yn*) is flag for dispatching to yank or node.\n")
+           (oidx--wrap "Normal keys add to search word; <space> starts additional word; <backspace> erases last char, <M-backspace> last word, `C-g', all other keys end the search; they are kept and reissued in the final display of occur-results, where they can trigger various actions; see the help there (e.g. <return> as jump to heading). First char in line (ynb) stands for yank or node or both.\n")
            'face 'org-agenda-dimmed-todo-face)
           oidx--headings)))
 
@@ -3042,7 +3046,9 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
     (setq oidx--o-help-text
           (cons
            (oidx--wrap
-            (propertize "Search is done;    ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face))
+            (concat
+             (propertize "Search is done\n" 'face 'org-warning)
+             (propertize ";    ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face)))
            (concat
             (oidx--wrap
              (propertize
