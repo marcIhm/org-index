@@ -1,8 +1,8 @@
-;; org-index.el --- A personal adaptive index for org  -*- lexical-binding: t; -*-
+;;; org-index.el --- Ranked and incremental search among selected org-headlines -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2011-2023 Free Software Foundation, Inc.
 
-;; Author: Marc Ihm <1@2484.de>
+;; Author: Marc Ihm <marc@ihm.name>
 ;; URL: https://github.com/marcIhm/org-index
 ;; Version: 7.4.4
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
