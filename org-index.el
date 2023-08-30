@@ -2031,16 +2031,16 @@ Optional argument ARGS are passed to orig-fun."
                    choices-short (car choices-short))))
 
     (cl-case what
-     ('checks
+     (checks
       (oidx--index-checks)
       "Checks done, results in buffer.")
 
-     ('retire
+     (retire
       (oidx--index-retire-lines)
       (setq oidx--last-count-check nil)
       "Lines have been retired successfully.")
 
-     ('update
+     (update
       (if (oidx--completing-read "Updating your index will overwrite certain columns with content\nfrom the associated heading and category. If unsure, you may try this\nfor a single, already existing line of your index by invoking `add'.\nAre you sure to proceed for all index lines (yes/no) ? " (list "yes" "no") "no")
           (oidx--update-all-lines)
         "Canceled.")))))
