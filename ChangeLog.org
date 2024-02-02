@@ -1,4 +1,4 @@
-* 7.4 until 2023-01-03 Tu
+* 7.4 until 2024-02-02 Fr
 
   - Index checks now find largest cells for each column
   - Documented and enhanced special treatment for yank-column
@@ -9,6 +9,7 @@
   - Negotiated with checkdoc, package-lint and byte-compile-file
   - Interpret '[[' in yank text as org-mode links
   - Fix for index-maintainance
+  - Simpler handling, if index table cannot be found
 
 * 7.3 until 2021-07-09 Fr
 

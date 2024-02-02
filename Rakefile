@@ -85,7 +85,7 @@ def make_backup file
   pairs = backs[0..-2].zip(backs[1..-1]).reverse
   pairs.each do |p|
     next unless File.exist?(p[0])
-    cp p[0],p[1],{:verbose => $v}
+    cp p[0],p[1],:verbose => $v
   end
 end
 
@@ -97,7 +97,7 @@ def maybe_copy from,to
   system("diff -q #{from} #{to} >/dev/null 2>&1")
   return false if $?.exitstatus == 0
   make_backup to
-  cp from,to,{:verbose => $v}
+  cp from,to,:verbose => $v
   return true
 end
 

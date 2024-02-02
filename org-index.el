@@ -1,10 +1,10 @@
 ;;; org-index.el --- Ranked and incremental search among selected org-headlines -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2023 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2024 Free Software Foundation, Inc.
 
 ;; Author: Marc Ihm <marc@ihm.name>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.4.4
+;; Version: 7.4.5
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -92,6 +92,7 @@
 ;;  - Negotiated with checkdoc, package-lint and byte-compile-file
 ;;  - Interpret '[[' in yank text as org-mode links
 ;;  - Fix for index-maintainance
+;;  - Simpler handling, if index table cannot be found
 ;;
 ;;  Version 7.3
 ;;
@@ -256,7 +257,7 @@
 (defvar oidx--check-count-interval 86400 "Number of seconds between checks for linecount in index; see `oidx--last-count-check'.")
 
 ;; Version of this package
-(defvar org-index-version "7.4.4" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.4.5" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -433,25 +434,25 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 ignore columns during search.
 
-This is version 7.4.4 of org-index.el.
+This is version 7.4.5 of org-index.el.
 
-The function `org-index' is the main interactive function of this
+The function `org-index\\=' is the main interactive function of this
 package and its main entry point; it will present you with a list
 of subcommands to choose from:
 
-\(Note the one-letter shortcuts, e.g. [o]; used like `\\[org-index] o'.)
+\(Note the one-letter shortcuts, e.g. [o]; used like `\\[org-index] o\\='.)
 
   occur: [o] Incrementally show matching lines from index.
     Result is updated after every keystroke.  You may enter a
-    list of words seperated by space or comma (`,'), to select
+    list of words seperated by space or comma (`,\\='), to select
     lines that contain all of the given words.
 
   add: [a] Add the current node to index.
     So that (e.g.) it can be found through the subcommand
-    'occur'.  Update index, if node is already present.
+    \\='occur\\='.  Update index, if node is already present.
 
   index: [i] Enter index table and maybe go to a specific reference.
-    Use `org-mark-ring-goto' (\\[org-mark-ring-goto]) to go back.
+    Use `org-mark-ring-goto\\=' (\\[org-mark-ring-goto]) to go back.
 
   ref: [r] Create a new index line with a reference.
     This line will not be associated with a node.
@@ -471,7 +472,7 @@ of subcommands to choose from:
     If invoked from within index table, go to associated
     node (if any).
   
-  help: Show complete help text of `org-index'.
+  help: Show complete help text of `org-index\\='.
     I.e. this text.
 
   kill: [k] Kill (delete) the current node from index.
@@ -486,9 +487,9 @@ of subcommands to choose from:
   maintain: [m] Index maintainance.
      Offers some choices to check or archive your index.
 
-Use `org-customize' to tweak the behaviour of `org-index'.
+Use `org-customize\\=' to tweak the behaviour of `org-index\\='.
 
-This includes the global key `org-index-key' to invoke
+This includes the global key `org-index-key\\=' to invoke
 the most important subcommands with one additional key.
 
 Prefix argument ARG is passed to subcommand add."
@@ -498,163 +499,164 @@ Prefix argument ARG is passed to subcommand add."
         kill-new-text  ; text that will be appended to kill ring
         message-text)  ; text that will be issued as an explanation
 
-    
-    (catch 'new-index
+    (catch 'missing-index
 
-      ;;
-      ;; Initialize and parse
-      ;;
+      (catch 'new-index
 
-      ;; creates index table, if necessary
-      (oidx--verify-id)
+        ;;
+        ;; Initialize and parse
+        ;;
 
-      ;; Get configuration of index table
-      (oidx--parse-table)
+        ;; creates index table, if necessary
+        (oidx--verify-id)
 
-      ;; save context before entering index
-      (oidx--retrieve-context-on-invoke t)
+        ;; Get configuration of index table
+        (oidx--parse-table)
 
-      ;;
-      ;; Find out, what we are supposed to do and prepare
-      ;;
+        ;; save context before entering index
+        (oidx--retrieve-context-on-invoke t)
 
-      ;; read command from user
-      (setq command (oidx--read-command))
+        ;;
+        ;; Find out, what we are supposed to do and prepare
+        ;;
 
-      ;; Arrange for beeing able to return
-      (when (and (memq command '(occur node index example sort maintain))
-                 (not (string= (buffer-name) oidx--o-buffer-name)))
-        (org-mark-ring-push))
+        ;; read command from user
+        (setq command (oidx--read-command))
 
-
-
-      ;;
-      ;; Actually do, what has been requested
-      ;;
-
-      (cond
-       
-       ((eq command 'help)
-
-        ;; bring up help-buffer for this function
-        (describe-function 'org-index))
-
-       
-       ((eq command 'add)
-
-        (-setq (message-text . kill-new-text) (oidx--do-add-or-update arg)))
+        ;; Arrange for beeing able to return
+        (when (and (memq command '(occur node index example sort maintain))
+                   (not (string= (buffer-name) oidx--o-buffer-name)))
+          (org-mark-ring-push))
 
 
-       ((eq command 'kill)
-        (setq message-text (oidx--do-kill)))
 
+        ;;
+        ;; Actually do, what has been requested
+        ;;
 
-       ((eq command 'node)
-
-        (setq message-text
-              (if (and oidx--within-index-node
-                       (org-match-line org-table-line-regexp))
-                  (let ((search-id (oidx--get-or-set-field 'id)))
-                    (if search-id
-			(progn
-			  (oidx--update-current-line)
-			  (oidx--find-id search-id))
-                      "Current line has no id"))
-                "Not at index table")))
-
-
-       ((eq command 'index)
-
-        (setq message-text (oidx--do-index))
-        (recenter))
-
-
-       ((eq command 'occur)
-
-        (set-buffer oidx--buffer)
-        (oidx--do-occur))
-
-
-       ((eq command 'last)
-
-        (oidx--do-occur))
-
-
-       ((eq command 'ref)
-
-        (let (args newref)
-
-          (setq args (oidx--collect-values-from-user org-index-edit-on-ref))
-          (setq newref (oidx--get-save-maxref))
-          (oidx--plist-put args 'ref newref 'category "ref")
-          (apply 'oidx--create-new-line args)
-          
-          (setq kill-new-text newref)
-          
-          (setq message-text (format "Added new row with ref '%s'" newref))))
-       
-       
-       ((eq command 'yank)
-        
-        (let (vals yank)
+        (cond
          
-          (setq vals (oidx--collect-values-from-user org-index-edit-on-yank))
-          (if (setq yank (plist-get vals 'yank))
-              (oidx--plist-put vals 'yank (replace-regexp-in-string "|" "\\vert" yank nil 'literal)))
-          (oidx--plist-put vals 'category "yank")
-          (apply 'oidx--create-new-line vals)
-          (setq message-text "Added new row with text to yank")))
-       
-       
-       ((eq command 'edit)
-        
-        (setq message-text (oidx--do-edit)))
-       
+         ((eq command 'help)
 
-       ((eq command 'view)
+          ;; bring up help-buffer for this function
+          (describe-function 'org-index))
 
-        (setq message-text (oidx--o-action-view)))
-       
+         
+         ((eq command 'add)
 
-       ((eq command 'sort)
-
-	(oidx--enter-index-to-stay)
-        (oidx--sort-index)
-	(org-table-goto-column 1)
-        (setq message-text "Index has been sorted"))
-
-        
-       ((eq command 'maintain)
-
-        (setq message-text (oidx--do-maintain)))
-
-       
-       ((eq command 'example)
-
-        (if (y-or-n-p "This assistant will help you to create a temporary index with detailed comments.\nDo you want to proceed ? ")
-          (oidx--create-index t)))
+          (-setq (message-text . kill-new-text) (oidx--do-add-or-update arg)))
 
 
-       ((not command) (setq message-text "No command given"))
-
-       
-       (t (error "Unknown subcommand '%s'" command)))
+         ((eq command 'kill)
+          (setq message-text (oidx--do-kill)))
 
 
-      ;; tell, what we have done and what can be yanked
-      (if kill-new-text (setq kill-new-text
-                              (substring-no-properties kill-new-text)))
-      (if (string= kill-new-text "") (setq kill-new-text nil))
-      (let ((m (concat
-                message-text
-                (if (and message-text kill-new-text)
-                    " and r"
-                  (if kill-new-text "R" ""))
-                (if kill-new-text (format "eady to yank '%s'." kill-new-text)))))
-        (unless (string= m "")
-          (message m)
-	  (setq oidx--message-text m)))
-      (if kill-new-text (kill-new kill-new-text)))))
+         ((eq command 'node)
+
+          (setq message-text
+                (if (and oidx--within-index-node
+                         (org-match-line org-table-line-regexp))
+                    (let ((search-id (oidx--get-or-set-field 'id)))
+                      (if search-id
+			  (progn
+			    (oidx--update-current-line)
+			    (oidx--find-id search-id))
+                        "Current line has no id"))
+                  "Not at index table")))
+
+
+         ((eq command 'index)
+
+          (setq message-text (oidx--do-index))
+          (recenter))
+
+
+         ((eq command 'occur)
+
+          (set-buffer oidx--buffer)
+          (oidx--do-occur))
+
+
+         ((eq command 'last)
+
+          (oidx--do-occur))
+
+
+         ((eq command 'ref)
+
+          (let (args newref)
+
+            (setq args (oidx--collect-values-from-user org-index-edit-on-ref))
+            (setq newref (oidx--get-save-maxref))
+            (oidx--plist-put args 'ref newref 'category "ref")
+            (apply 'oidx--create-new-line args)
+            
+            (setq kill-new-text newref)
+            
+            (setq message-text (format "Added new row with ref '%s'" newref))))
+         
+         
+         ((eq command 'yank)
+          
+          (let (vals yank)
+            
+            (setq vals (oidx--collect-values-from-user org-index-edit-on-yank))
+            (if (setq yank (plist-get vals 'yank))
+                (oidx--plist-put vals 'yank (replace-regexp-in-string "|" "\\vert" yank nil 'literal)))
+            (oidx--plist-put vals 'category "yank")
+            (apply 'oidx--create-new-line vals)
+            (setq message-text "Added new row with text to yank")))
+         
+         
+         ((eq command 'edit)
+          
+          (setq message-text (oidx--do-edit)))
+         
+
+         ((eq command 'view)
+
+          (setq message-text (oidx--o-action-view)))
+         
+
+         ((eq command 'sort)
+
+	  (oidx--enter-index-to-stay)
+          (oidx--sort-index)
+	  (org-table-goto-column 1)
+          (setq message-text "Index has been sorted"))
+
+         
+         ((eq command 'maintain)
+
+          (setq message-text (oidx--do-maintain)))
+
+         
+         ((eq command 'example)
+
+          (if (y-or-n-p "This assistant will help you to create a temporary index with detailed comments.\nDo you want to proceed ? ")
+              (oidx--create-index t)))
+
+
+         ((not command) (setq message-text "No command given"))
+
+         
+         (t (error "Unknown subcommand '%s'" command)))
+
+
+        ;; tell, what we have done and what can be yanked
+        (if kill-new-text (setq kill-new-text
+                                (substring-no-properties kill-new-text)))
+        (if (string= kill-new-text "") (setq kill-new-text nil))
+        (let ((m (concat
+                  message-text
+                  (if (and message-text kill-new-text)
+                      " and r"
+                    (if kill-new-text "R" ""))
+                  (if kill-new-text (format "eady to yank '%s'." kill-new-text)))))
+          (unless (string= m "")
+            (message m)
+	    (setq oidx--message-text m)))
+        (if kill-new-text (kill-new kill-new-text))))))
 
 
 
@@ -768,7 +770,7 @@ Prefix argument ARG is passed to subcommand add."
                 (ignore-errors ;; this tends to barf in tests
                   (window-resize (get-buffer-window) 1))
                 (setq window-size-fixed 'height)
-                (add-text-properties (point-min) (point-at-eol) '(face org-level-3))
+                (add-text-properties (point-min) (line-end-position) '(face org-level-3))
                 (goto-char (point-min)))))
           (setq result (org-completing-read short-prompt choices nil t nil nil default)))
       (ignore-errors
@@ -786,15 +788,13 @@ Prefix argument ARG is passed to subcommand add."
    (mapconcat (lambda (x) (oidx--get-or-set-field x)) '(id ref yank keywords created) "")))
 
 
-(defun oidx--verify-id (&optional silent)
-  ;; checkdoc-params: (silent)
+(defun oidx--verify-id ()
   "Check, that we have a valid id to find index.
-Invoke assistant if not (and skip this if SILENT)."
+Invoke assistant if not."
 
   (unless oidx--skip-verify-id
     ;; Check id
     (unless org-index-id
-      (if silent (throw 'missing-index t))
       (let ((answer (oidx--completing-read "Cannot find index (org-index-id is not set). You may:\n  - read-help    : to learn more about org-index\n  - create-index : invoke an assistant to create an initial index\nPlease choose: " (list "read-help" "create-index") "read-help")))
         (if (string= answer "create-index")
             (oidx--create-index)
@@ -805,18 +805,17 @@ Invoke assistant if not (and skip this if SILENT)."
     (let (marker)
       (setq marker (oidx--id-find org-index-id 'marker))
       (unless marker
-        (if silent (throw 'missing-index t))
-        (or (y-or-n-p (format "ID %s of index table cannot be found; updating id-locations may help; this may take a while however.  Continue ? " org-index-id))
-            (throw 'missing-index t))
+        (or (y-or-n-p (format "ID %s of index table cannot be found.\n\nIf you know the location of your index-node, you might check its property-drawer e.g. for empty lines that can prevent it from beeing found; in that case you may bail out now.\n\nOtherwise and if you continue, this assistant will try to fix things by updating id-locations and then, if this does not help, offer you to create a new index.\n\nContinue ? " org-index-id))
+            (progn
+              (message "You have chosen to try to repair your existing index table. Please do so now and then invoke org-index again.")
+              (throw 'missing-index t)))
         (org-id-update-id-locations)
         (setq marker (oidx--id-find org-index-id 'marker))
         (unless marker
-          (if silent (throw 'missing-index t))
           (oidx--create-missing-index (format "Cannot find the node with id \"%s\" (as specified by variable org-index-id)." org-index-id))))
       ;; Try again after updating IDs or with new node
       (setq marker (oidx--id-find org-index-id 'marker))
       (unless marker
-        (if silent (throw 'missing-index t))
         (error "Could not create node"))
       (setq oidx--buffer (marker-buffer marker)
             oidx--point (marker-position marker))
@@ -1077,7 +1076,7 @@ If GET-CATEGORY is set, retrieve it too."
     (setq oidx--edit-widgets nil)
     (widget-insert "Edit this line from index; type C-c C-c when done, C-c C-k to abort.\n\n")
     (dolist (col-val cols-vals)
-      (if (eq (car col-val) 'keywords) (setq keywords-pos (+ (point-at-bol) maxlen 2)))
+      (if (eq (car col-val) 'keywords) (setq keywords-pos (+ (line-beginning-position) maxlen 2)))
       (push
        (cons (car col-val)
              (widget-create 'editable-field
@@ -1853,7 +1852,7 @@ Argument TIME-THRESHOLD switches between last-accessed and count."
 
 (defun oidx--unfold-buffer ()
   "Helper function to unfold buffer."
-  (org-show-context 'tree)
+  (org-fold-show-context 'tree)
   (org-reveal '(16))
   (recenter 1))
 
@@ -1940,7 +1939,7 @@ If OTHER in separate window."
           
           (goto-char marker)
           (org-reveal t)
-          (org-show-entry)
+          (org-fold-show-entry)
           (recenter)
           (setq message "Found headline"))
       (setq message (format "Did not find node with %s" id)))
@@ -2263,7 +2262,7 @@ Argument TOPIC"
 
 (defun oidx--topic-word-in-line ()
   "Get second word of current line."
-  (let ((str (buffer-substring (point-at-bol) (point-at-eol))))
+  (let ((str (buffer-substring (line-beginning-position) (line-end-position))))
     (or (string-match "^ +- +\\(.*\\) +actions:" str)
         (error "Internal error: could not match line as expected"))
     (s-trim (match-string 1 str))))
@@ -2483,7 +2482,7 @@ Argument COL is column to visit in index."
                  (<= (string-to-number (oidx--get-or-set-field 'count)) retire-count-max))
         (beginning-of-line)
         (setq retire-from (point))
-        (setq line (buffer-substring (point-at-bol) (point-at-eol)))
+        (setq line (buffer-substring (line-beginning-position) (line-end-position)))
         (goto-char retire-to)
         (insert line "\n")
         (goto-char retire-from)
@@ -2851,7 +2850,7 @@ Optional argument ARG, when given does not limit number of lines shown."
         (setq unread-command-events (listify-key-sequence key-sequence-raw)))
       (message key))
     
-    (oidx--o-make-permanent lines-wanted (car oidx--o-stack))
+    (oidx--o-make-permanent lines-wanted (car oidx--o-stack) (cons word words))
 
     ;; used in tests
     (if oidx--o-assert-result (oidx--o-do-assert-result (cons word words) lines-wanted))
@@ -2994,7 +2993,7 @@ Argument FRAME gives match-frame to show, LINES-WANTED number."
             (error "Assertion failed: single-pass result is not sorted")))))
 
 
-(defun oidx--o-make-permanent (lines-wanted frame)
+(defun oidx--o-make-permanent (lines-wanted frame words)
   "Make permanent copy of current view into index.
 Argument LINES-WANTED specifies number of lines to display of match-frame FRAME."
 
@@ -3047,7 +3046,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
           (cons
            (oidx--wrap
             (concat
-             (propertize "Search is done\n" 'face 'org-warning)
+             (propertize (format "Search for '%s' is done\n" (mapconcat 'identity (reverse words) ",")) 'face 'org-warning)
              (propertize ";    ? toggles help and headlines.\n" 'face 'org-agenda-dimmed-todo-face)))
            (concat
             (oidx--wrap
@@ -3058,7 +3057,7 @@ Argument LINES-WANTED specifies number of lines to display of match-frame FRAME.
                            " Showing all %d matches for "
                          " Showing one window of matches for ")
                        "\"" oidx--o-search-text
-                       "\". Lines come from your index, flag in first column [yn2] = [yank,node,both] shows actionable content of line; <return> dispatches according to flag [y2]:yank, n:jump to node; <S-return> prefers jump: [n2]:jump; <tab> jumps in other window; `i' jumps to matching line in index, `h' to head of index; `+' increments count, <escape> or `q' aborts, `c' clocks in, `e' edits, `v' view details, `l' offers links from node to visit."
+                       "\". Lines come from your index, flag in first column [ynb] = [yank,node,both] shows content of this index line; <return> and <M-return> will act accordingly (either yank content or jump to node); only for flag b, they will do different things // <tab> jumps in other window // `i' jumps to matching line in index, `h' to head of index // `+' increments count // <escape> or `q' aborts // `c' clocks in // `e' edits // `v' to view details // `l' offers links from node to visit."
                        "\n")
                lines-collected)
               'face 'org-agenda-dimmed-todo-face))
@@ -3358,7 +3357,6 @@ KILL-VIEW removes respective window."
 ;; comment-column: 60
 ;; checkdoc-verb-check-experimental-flag: nil
 ;; checkdoc-symbol-words: ("org-index" "kill-ring")
-;; package-lint--sane-prefixes: "\\`oidx"
 ;; End:
 
 ;;; org-index.el ends here

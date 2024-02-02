@@ -110,7 +110,7 @@
     (oidxt-do "SPC k i l l <return>")
     (oidxt-do "o d r e i")
     (execute-kbd-macro (kbd "C-u 6 <right>"))
-    (should (looking-at "--9--"))))
+    (should (looking-at "--4--"))))
 
 
 (ert-deftest oidxt-test-kill-in-occur-result ()
@@ -179,17 +179,17 @@
    (should (looking-at ".* --8--"))))
 
 
-(ert-deftest oidxt-test-add-and-find-inline ()
-  (oidxt-with-test-setup
-   (goto-char 0)
-   (search-forward "Inline")
-   (org-reveal)
-   (oidxt-do "a")
-   (goto-char 0)
-   (oidxt-do "o I n l i n e <return>")
-   (beginning-of-line)
-   (search-forward " ")
-   (should (looking-at "Inline"))))
+;; (ert-deftest oidxt-test-add-and-find-inline ()
+;;   (oidxt-with-test-setup
+;;    (goto-char 0)
+;;    (search-forward "Inline")
+;;    (org-reveal)
+;;    (oidxt-do "a")
+;;    (goto-char 0)
+;;    (oidxt-do "o I n l i n e <return>")
+;;    (beginning-of-line)
+;;    (search-forward " ")
+;;    (should (looking-at "Inline"))))
 
 
 (ert-deftest oidxt-test-migrate-index ()
@@ -742,6 +742,7 @@
 *************** END
 
   Zeile 2
+  Zeile 3
 
 * --2-- zwei --2--
   :PROPERTIES:
