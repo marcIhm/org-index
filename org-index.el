@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <marc@ihm.name>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.4.5
+;; Version: 7.4.6
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -257,7 +257,7 @@
 (defvar oidx--check-count-interval 86400 "Number of seconds between checks for linecount in index; see `oidx--last-count-check'.")
 
 ;; Version of this package
-(defvar org-index-version "7.4.5" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.4.6" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -434,7 +434,7 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 ignore columns during search.
 
-This is version 7.4.5 of org-index.el.
+This is version 7.4.6 of org-index.el.
 
 The function `org-index\\=' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -924,14 +924,17 @@ Invoke assistant if not."
 If GET-CATEGORY is set, retrieve it too."
 
   ;; get category of current node
-  (when get-category
-    (setq oidx--category-before
-          (save-excursion ; workaround: org-get-category does not give category when at end of buffer
-            (beginning-of-line)
-            (org-get-category (point) t))))
+  (if (and get-category
+           (string= major-mode "org-mode"))
+      (progn
+        (setq oidx--category-before
+              (save-excursion ; workaround: org-get-category does not give category when at end of buffer
+                (beginning-of-line)
+                (org-get-category (point) t)))
+        (setq oidx--within-index-node (string= (org-id-get) org-index-id)))
+    (setq oidx--within-index-node nil))
 
   ;; Find out, if we are within index table or occur buffer
-  (setq oidx--within-index-node (string= (org-id-get) org-index-id))
   (setq oidx--within-occur (string= (buffer-name) oidx--o-buffer-name)))
 
 
@@ -3258,7 +3261,8 @@ Optional argument INVERT swaps actions."
       (save-excursion
         (goto-char (cdr fp))
         (forward-line)
-        (while (and (not (org-with-limited-levels (org-at-heading-p)))
+        (while (and (string= major-mode "org-mode")
+                    (not (org-with-limited-levels (org-at-heading-p)))
                     (not (= (point) (point-max)))
                     (not quote))
           (setq elem (org-element-at-point))

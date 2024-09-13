@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 7.4.5.
+  The current version is 7.4.6.
 
   Visit http://2484.de/org-index.html for a Screencast.
 

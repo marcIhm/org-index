@@ -1,4 +1,4 @@
-* 7.4 until 2024-02-02 Fr
+* 7.4 until 2024-09-13 Fr
 
   - Index checks now find largest cells for each column
   - Documented and enhanced special treatment for yank-column
