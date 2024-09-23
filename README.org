@@ -6,7 +6,7 @@
 
   Read below for a description.
 
-  The current version is 7.4.6.
+  The current version is 7.4.7.
 
   Visit http://2484.de/org-index.html for a Screencast.
 
@@ -142,6 +142,7 @@
     - Interpret '[[' in yank text as org-mode links
     - Fix for index-maintainance
     - Simpler handling, if index table cannot be found
+    - Fixes for emacs 30 and org-mode
 
 *** 7.3
 

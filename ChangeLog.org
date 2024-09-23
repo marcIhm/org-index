@@ -1,4 +1,4 @@
-* 7.4 until 2024-09-13 Fr
+* 7.4 until 2024-09-23 Mo
 
   - Index checks now find largest cells for each column
   - Documented and enhanced special treatment for yank-column
@@ -10,6 +10,7 @@
   - Interpret '[[' in yank text as org-mode links
   - Fix for index-maintainance
   - Simpler handling, if index table cannot be found
+  - Fixes for emacs 30 and org-mode
 
 * 7.3 until 2021-07-09 Fr
 

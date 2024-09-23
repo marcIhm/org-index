@@ -4,7 +4,7 @@
 
 ;; Author: Marc Ihm <marc@ihm.name>
 ;; URL: https://github.com/marcIhm/org-index
-;; Version: 7.4.6
+;; Version: 7.4.7
 ;; Package-Requires: ((org "9.3") (dash "2.12") (s "1.12") (emacs "26.3"))
 
 ;; This file is not part of GNU Emacs.
@@ -93,6 +93,7 @@
 ;;  - Interpret '[[' in yank text as org-mode links
 ;;  - Fix for index-maintainance
 ;;  - Simpler handling, if index table cannot be found
+;;  - Fixes for emacs 30 and org-mode
 ;;
 ;;  Version 7.3
 ;;
@@ -142,7 +143,7 @@
 ;;
 ;;  Version 6.2
 ;;
-;;  - Require dash and orgmode for package.el
+;;  - Require dash and org-mode for package.el
 ;;  - Key 'h' does the same as '?'
 ;;  - Rename command 'head' to 'node' (to free key 'h')
 ;;  - Removed command 'news'
@@ -257,7 +258,7 @@
 (defvar oidx--check-count-interval 86400 "Number of seconds between checks for linecount in index; see `oidx--last-count-check'.")
 
 ;; Version of this package
-(defvar org-index-version "7.4.6" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
+(defvar org-index-version "7.4.7" "Version of `org-index', format is major.minor.bugfix, where \"major\" are incompatible changes and \"minor\" are new features.")
 
 ;; customizable options
 (defgroup org-index nil
@@ -434,7 +435,7 @@ edit the index table.  The number of columns shown during occur is
 determined by `org-index-occur-columns'.  Using both features allows to
 ignore columns during search.
 
-This is version 7.4.6 of org-index.el.
+This is version 7.4.7 of org-index.el.
 
 The function `org-index\\=' is the main interactive function of this
 package and its main entry point; it will present you with a list
@@ -3266,11 +3267,13 @@ Optional argument INVERT swaps actions."
                     (not (= (point) (point-max)))
                     (not quote))
           (setq elem (org-element-at-point))
-          (if (and elem
-                   (eq (car elem) 'quote-block))
-              (setq quote (buffer-substring
-                           (plist-get (car (cdr elem)) :contents-begin)
-                           (plist-get (car (cdr elem)) :contents-end))))
+          (when (and elem
+                     (eq (car elem) 'quote-block))
+            (forward-line)
+            (setq elem (org-element-at-point))            
+            (setq quote (buffer-substring
+                         (org-element-property :begin elem)
+                         (org-element-property :end elem))))
           (forward-line))))
     (s-trim (s-chomp quote))))
 
