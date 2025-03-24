@@ -877,7 +877,7 @@ Invoke assistant if not."
           (oidx--sort-index)
           (goto-char oidx--below-hline)
 
-          (message "Align, fontify and sort index table (once per emacs session or every %d secs; see oidx--align-and-sort-interval)..." oidx--align-and-sort-interval)
+          (message "Align, fontify and sort index table (once per emacs session or every %d secs; see oidx--align-and-sort-interval) ..." oidx--align-and-sort-interval)
           (setq before-align (current-time))
           (org-table-align)
           (setq before-fontify (current-time))
